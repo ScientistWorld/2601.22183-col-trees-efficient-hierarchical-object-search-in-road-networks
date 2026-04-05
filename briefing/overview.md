@@ -1,14 +1,9 @@
-# Overview
+# Overview: COL-Tree Paper Reproduction
 
-- **Paper ID:** <!-- e.g. 1706.03762 -->
-- **Title:** <!-- e.g. Attention Is All You Need -->
-- **Domain:** <!-- e.g. Computer Vision / Object Detection -->
-- **TL;DR:** <!-- One sentence: what this paper does and why it matters -->
+The COL-Tree paper addresses the problem of efficiently answering spatial queries for Points of Interest (POIs) on large-scale road networks, specifically three query types: Aggregate k Nearest Neighbors (AkNN), k Farthest Neighbors (kFN), and range queries. The core challenge is that these queries require computing network distances (shortest paths) on graphs with tens of millions of vertices, making naive approaches prohibitively slow.
 
-## Short Summary
+The proposed solution consists of two hierarchical index structures. The SUL-Tree hierarchically partitions the road network into a b-way tree, where each node stores precomputed distances from a set of landmark vertices to all vertices in its subgraph (Subgraph Distance Lists). The COL-Tree specializes this structure for a given POI set, storing Object Distance Lists at leaf nodes that enable efficient candidate pruning using landmark-based lower and upper bounds on network distances.
 
-<!-- 3-5 sentences covering the problem, approach, and main findings -->
+The key insight is that landmark distances provide both lower and upper bounds on true network distances via the triangle inequality, and these bounds preserve the convexity of aggregate functions, enabling effective branch-and-bound search over the tree even for multi-POI queries. The approach achieves reported speedups of up to 100x for AkNN, 10,000x for kFN, and 2.7x for range queries compared to baseline methods like IER-PHL and NVD-PHL, while requiring only seconds of preprocessing and megabytes of index storage.
 
-## Key Results
-
-<!-- 2-3 bullet points: main findings or numbers in bullet points -->
+This reproduction targets the DIMACS US road network (23.9M vertices, 57.7M edges) with multiple POI types, evaluating query time, number of shortest-path computations, and candidate counts as the primary performance metrics, with correctness verification against brute-force results on sampled subgraphs.
