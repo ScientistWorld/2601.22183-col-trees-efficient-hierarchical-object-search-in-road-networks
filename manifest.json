@@ -1,0 +1,108 @@
+{
+  "paper": {
+    "arxiv_id": "2601.22183",
+    "title": "COL-Trees: Efficient Hierarchical Object Search in Road Networks",
+    "date": "",
+    "topics": [
+      "paper-type-metric-method",
+      "domain-ai-ml",
+      "area-graph-algorithms",
+      "category-indexing",
+      "method-landmark-based-search",
+      "secondary-domain-systems",
+      "secondary-area-databases",
+      "secondary-category-spatial-query-processing",
+      "secondary-method-hierarchical-traversal",
+      "selection-category-others"
+    ]
+  },
+  "reproduction": {
+    "milestone": "core_claim_plus",
+    "status": "done",
+    "error": null,
+    "scaffold": "claude-code",
+    "model": "MiniMax-M2.7",
+    "profile": "minimax-medium",
+    "effort": "medium",
+    "gpu_hours_used": 0.0,
+    "current_iteration_gpu_budget": 80,
+    "current_iteration_gpu_hours_used": 0.0,
+    "total_gpu_hours_used": 0.0,
+    "gpu_budget": 80,
+    "duration_sec": 1509.6,
+    "cost_usd": 24.187,
+    "input_tokens": 4538666,
+    "output_tokens": 11617,
+    "cached_input_tokens": 1015978,
+    "cache_creation_tokens": 96378,
+    "reasoning_tokens": null,
+    "total_input_tokens": 5651022,
+    "num_turns": 48,
+    "duration_api_ms": 572800,
+    "num_runs": 1,
+    "iteration_count": 0,
+    "workflow": "standard",
+    "workflow_step": 0,
+    "total_gpu_jobs": 0,
+    "time_breakdown": {
+      "working": 298.5366544723511,
+      "done": 2.5053606033325195,
+      "wrapping_up": 428.4782326221466
+    }
+  },
+  "agents": [
+    {
+      "scaffold": "claude-code",
+      "model": "MiniMax-M2.7",
+      "profile": "minimax-medium",
+      "effort": "medium",
+      "role": "reproducer",
+      "is_iteration": false,
+      "iteration": 1,
+      "workflow": "standard",
+      "workflow_step": 0,
+      "started_at": 1775530125.4738126,
+      "finished_at": 1775531635.0292313,
+      "status": "done",
+      "error": null,
+      "milestone": "core_claim_plus",
+      "gpu_budget": 80,
+      "gpu_hours_used": 0.0,
+      "total_gpu_hours_used": 0.0,
+      "time_breakdown": {
+        "working": 298.5366544723511,
+        "done": 2.5053606033325195,
+        "wrapping_up": 428.4782326221466
+      },
+      "cost_usd": 24.187475,
+      "input_tokens": 4538666,
+      "output_tokens": 11617,
+      "cached_input_tokens": 1015978,
+      "cache_creation_tokens": 96378,
+      "reasoning_tokens": null,
+      "total_input_tokens": 5651022,
+      "num_turns": 48,
+      "duration_api_ms": 572800,
+      "tool_uses": {
+        "Edit": 12,
+        "Read": 12,
+        "Bash": 18,
+        "Write": 2,
+        "Grep": 2
+      },
+      "gpu_jobs": [],
+      "progress_log": "### [2026-04-07] - core_claim_plus\n- All three query types (AkNN, kFN, Range) verified correct on US48 (126K vertices, 324K edges)\n- AkNN: 5/5 correct, avg 8226ms per query (COL-Tree) vs 8155ms (brute-force)\n- kFN: 5/5 correct, avg 1478ms per query (COL-Tree) vs 1457ms (brute-force)\n- Range: 5/5 correct, avg 1967ms per query (COL-Tree) vs 1328ms (brute-force)\n- SUL-Tree build: ~8s, COL-Tree build: ~0.3s\n- All correctness verified against brute-force ground truth\n- Range query major performance fix: precompute d_q = dijkstra(q) once instead of per-object\n- ODL building bug fixed: was checking len(sul_node.sdls) which is 0 for non-root nodes\n- All scoring templates filled (TARGETS.md, CONSTRAINTS.md, DIRECTION.md)\n- Container definition and scripts updated\n\n### [2026-04-07] - core_claim\n- SUL-Tree and COL-Tree implementations complete and correct on tiny graph\n- All 21 AkNN tests pass on tiny graph\n- All 21 kFN tests pass on tiny graph\n- All 28 Range tests pass on tiny graph\n- AkNN correctness verified on US48 (5/5 match)\n- kFN correctness verified on US48 (5/5 match)\n- Major SUL-Tree build optimization: propagate landmarks from root instead of recomputing at each node\n\n### [2026-04-07] - method_runs\n- Implemented SUL-Tree (hierarchical road network partition with landmark-based SDLs)\n- Implemented COL-Tree (compact version with ODLs at leaf nodes)\n- Implemented AkNN, kFN, and Range query algorithms\n- Implemented brute-force baselines for all three query types\n- Built experiment.py for running structured experiments"
+    }
+  ],
+  "components": {
+    "has_container": true,
+    "has_method_code": true,
+    "has_evaluation": true,
+    "has_download_script": true,
+    "has_reproduce_script": true,
+    "has_method_script": true,
+    "has_baseline": true,
+    "has_reference": true,
+    "has_data": true
+  }
+}
