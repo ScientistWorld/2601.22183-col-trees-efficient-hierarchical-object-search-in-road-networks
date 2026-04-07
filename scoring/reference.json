@@ -1,0 +1,75 @@
+{
+  "experiments": {
+    "aknn_real_pois": {
+      "description": "AkNN query performance on real-world POI sets (Figure 5 from paper). Query time in ms. Lower is better.",
+      "weight": 0.35,
+      "primary_metric": "avg_query_time_ms",
+      "metrics": {
+        "avg_query_time_ms": {"higher_is_better": false, "coefficient": -1.0}
+      },
+      "results": {
+        "colt_phl": {
+          "type": "proposed",
+          "avg_query_time_ms": 0.1
+        },
+        "ier_phl": {
+          "type": "baseline",
+          "avg_query_time_ms": 10.0
+        },
+        "nvd_phl": {
+          "type": "baseline",
+          "avg_query_time_ms": 10.0
+        }
+      }
+    },
+    "aknn_sensitivity_density": {
+      "description": "AkNN query time vs object density d (Figure 6a). Shows COLT-PHL scales well with density while baselines degrade.",
+      "weight": 0.20,
+      "primary_metric": "avg_query_time_ms",
+      "metrics": {
+        "avg_query_time_ms": {"higher_is_better": false, "coefficient": -1.0}
+      },
+      "results": {
+        "colt_phl": {"type": "proposed", "avg_query_time_ms": 0.5},
+        "ier_phl": {"type": "baseline", "avg_query_time_ms": 50.0},
+        "nvd_phl": {"type": "baseline", "avg_query_time_ms": 20.0}
+      }
+    },
+    "kfn_real_pois": {
+      "description": "kFN query performance on real-world POI sets (Figure 10 from paper). kFN cannot be solved by IER; only COLT-PHL vs AUB-PHL baseline.",
+      "weight": 0.25,
+      "primary_metric": "avg_query_time_ms",
+      "metrics": {
+        "avg_query_time_ms": {"higher_is_better": false, "coefficient": -1.0}
+      },
+      "results": {
+        "colt_phl": {"type": "proposed", "avg_query_time_ms": 0.05},
+        "aub_phl": {"type": "baseline", "avg_query_time_ms": 50.0}
+      }
+    },
+    "range_real_pois": {
+      "description": "Range query performance on real-world POI sets (Figure 12 from paper). COLT-PHL achieves 2.7x improvement on largest POI sets.",
+      "weight": 0.10,
+      "primary_metric": "avg_query_time_ms",
+      "metrics": {
+        "avg_query_time_ms": {"higher_is_better": false, "coefficient": -1.0}
+      },
+      "results": {
+        "colt_phl": {"type": "proposed", "avg_query_time_ms": 0.5},
+        "nvd_phl": {"type": "baseline", "avg_query_time_ms": 1.5}
+      }
+    },
+    "preprocessing": {
+      "description": "Preprocessing time and space (Table 6 from paper). SUL-Tree: 2m19s, 1.15GB. COL-Tree: 3.4ms, 0.5MB.",
+      "weight": 0.10,
+      "primary_metric": "sul_time_s",
+      "metrics": {
+        "sul_time_s": {"higher_is_better": false, "coefficient": -0.5},
+        "col_time_s": {"higher_is_better": false, "coefficient": -0.5}
+      },
+      "results": {
+        "colt_phl": {"type": "proposed", "sul_time_s": 139.0, "col_time_s": 0.0034}
+      }
+    }
+  }
+}

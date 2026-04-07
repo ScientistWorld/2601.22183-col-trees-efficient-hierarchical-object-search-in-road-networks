@@ -16,12 +16,14 @@ def aknn_bruteforce(graph: RoadNetwork, objects: ObjectSet,
 
     This is the baseline that always gives exact results.
     """
+    # Cache Dijkstra results per query vertex
+    d_cache = {qi: graph.dijkstra(qi) for qi in Q}
     scores = []
     for obj in objects.objects:
         if agg == 'max':
-            dist = max(graph.dijkstra(qi)[obj] for qi in Q)
+            dist = max(d_cache[qi][obj] for qi in Q)
         else:  # sum
-            dist = sum(graph.dijkstra(qi)[obj] for qi in Q)
+            dist = sum(d_cache[qi][obj] for qi in Q)
         scores.append((dist, obj))
 
     scores.sort(key=lambda x: x[0])
@@ -52,12 +54,13 @@ def aknn_ier(graph: RoadNetwork, objects: ObjectSet,
     candidates = candidates[:max_candidates]
 
     # Verify candidates
+    d_cache = {qi: graph.dijkstra(qi) for qi in Q}
     results = []
     for _, obj in candidates:
         if agg == 'max':
-            dist = max(graph.dijkstra(qi)[obj] for qi in Q)
+            dist = max(d_cache[qi][obj] for qi in Q)
         else:
-            dist = sum(graph.dijkstra(qi)[obj] for qi in Q)
+            dist = sum(d_cache[qi][obj] for qi in Q)
         results.append((dist, obj))
 
         if len(results) >= k * 10:  # safety limit

@@ -27,18 +27,32 @@ From: python:3.11-slim
 # in which case use 'devel' (~4 GB).
 
 %files
-    # Data that the agent can see (training data + test features only)
-    # data/train.csv /home/user/data/train.csv
-    # data/test_features.csv /home/user/data/test_features.csv
+    # Road network data
+    data/road-usroads-48.mtx /home/user/data/road-usroads-48.mtx
+    data/loader.py /home/user/data/loader.py
 
-    # Baseline for the agent to beat
-    # baseline.py /home/user/baseline.py
+    # Experiment code
+    method/sul_tree.py /home/user/method/sul_tree.py
+    method/col_tree.py /home/user/method/col_tree.py
+    method/baselines.py /home/user/method/baselines.py
+    method/graph.py /home/user/method/graph.py
+    method/experiment.py /home/user/method/experiment.py
 
-    # Example output format
-    # sample_output.csv /home/user/sample_output.csv
+    # Evaluation code
+    eval/evaluate.py /home/user/eval/evaluate.py
 
-    # Container self-test
-    # test_initial_state.py /home/user/test_initial_state.py
+    # Scripts
+    scripts/download.sh /home/user/scripts/download.sh
+    scripts/evaluate.sh /home/user/scripts/evaluate.sh
+    scripts/reproduce.sh /home/user/scripts/reproduce.sh
+    scripts/baseline.sh /home/user/scripts/baseline.sh
+
+    # Scoring
+    scoring/reference.json /home/user/scoring/reference.json
+    scoring/scores.json /home/user/scoring/scores.json
+    scoring/TARGETS.md /home/user/scoring/TARGETS.md
+    scoring/CONSTRAINTS.md /home/user/scoring/CONSTRAINTS.md
+    scoring/DIRECTION.md /home/user/scoring/DIRECTION.md
 
 %post
     apt-get update && apt-get install -y --no-install-recommends \

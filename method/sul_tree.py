@@ -97,6 +97,75 @@ class SULTree:
         self.root = self._build_node(0, n, level=0, parent=None)
         self._assign_vertex_ranges(self.root)
 
+        # Select root landmarks and compute their SDLs
+        self._select_root_landmarks()
+
+        # Propagate landmarks to all nodes (inherit from parent)
+        self._propagate_landmarks(self.root)
+
+    def _select_root_landmarks(self):
+        """Select m landmarks for the root node and compute their SDLs."""
+        vertices = self.root.get_vertices_in_range()
+        if len(vertices) < self.m:
+            self.root.landmarks = vertices[:]
+        else:
+            if self.landmark_policy == 'random':
+                self.root.landmarks = self._select_random_landmarks(vertices)
+            elif self.landmark_policy == 'border':
+                self.root.landmarks = self._select_border_landmarks(self.root, vertices)
+            elif self.landmark_policy == 'minmax':
+                self.root.landmarks = self._select_minmax_landmarks(self.root, vertices)
+            else:
+                self.root.landmarks = self._select_random_landmarks(vertices)
+
+        # Compute SDLs for root only
+        self._compute_sdls(self.root)
+
+    def _propagate_landmarks(self, node: SULNode):
+        """Propagate root landmarks to all nodes and compute min/max distances."""
+        if node == self.root:
+            # Root already has landmarks and SDLs
+            # Set min/max for root from its ODLs
+            for li_idx, sdl in enumerate(node.sdls):
+                valid_dists = [d for d in sdl if d < float('inf')]
+                if valid_dists:
+                    node.min_dist.append(min(valid_dists))
+                    node.max_dist.append(max(valid_dists))
+                else:
+                    node.min_dist.append(0.0)
+                    node.max_dist.append(0.0)
+        else:
+            # Non-root nodes inherit root landmarks
+            node.landmarks = self.root.landmarks[:]
+            # Compute min/max distances for this node from root's SDLs
+            node.sdls = []  # Don't store per-node SDLs; use root's
+            for li_idx, lm in enumerate(node.landmarks):
+                if li_idx < len(self.root.sdls):
+                    root_sdl = self.root.sdls[li_idx]
+                    # Extract distances for vertices in this node's range
+                    if node.vertex_range:
+                        start = node.vertex_range.start
+                        end = node.vertex_range.end
+                        local_dists = root_sdl[start:end]
+                        valid_dists = [d for d in local_dists if d < float('inf')]
+                        if valid_dists:
+                            node.min_dist.append(min(valid_dists))
+                            node.max_dist.append(max(valid_dists))
+                        else:
+                            node.min_dist.append(0.0)
+                            node.max_dist.append(0.0)
+                    else:
+                        node.min_dist.append(0.0)
+                        node.max_dist.append(0.0)
+                else:
+                    node.min_dist.append(0.0)
+                    node.max_dist.append(0.0)
+            node.sdl_size = node.vertex_range.size if node.vertex_range else 0
+
+        # Recurse to children
+        for child in node.children:
+            self._propagate_landmarks(child)
+
     def _build_node(self, start: int, end: int, level: int,
                    parent: Optional[SULNode]) -> SULNode:
         """Recursively build SUL-Tree nodes."""
@@ -125,35 +194,50 @@ class SULTree:
             node.sdl_size = node.vertex_range.size if node.vertex_range else 0
             return
 
+        # Process children first (bottom-up)
         for child in node.children:
             self._assign_vertex_ranges(child)
+
+        # Then compute this node's range from children
+        if node.children:
+            child_ranges = [c.vertex_range for c in node.children if c.vertex_range]
+            if child_ranges:
+                min_start = min(r.start for r in child_ranges)
+                max_end = max(r.end for r in child_ranges)
+                node.vertex_range = VertexRange(min_start, max_end)
+                node.sdl_size = max_end - min_start
         # Non-leaf nodes don't store explicit vertices (they inherit children's ranges)
 
     def build(self):
         """Compute landmarks and SDLs for all nodes."""
-        self._select_landmarks(self.root)
-        self._compute_sdls(self.root)
+        # Already done in __init__ via _partition(), but safe to call again
+        pass
 
     def _select_landmarks(self, node: SULNode):
         """Select landmarks for a node using the configured policy."""
-        if node.is_leaf:
-            # Select from vertices in range
-            vertices = node.get_vertices_in_range()
-            if len(vertices) < self.m:
-                node.landmarks = vertices
-            else:
-                if self.landmark_policy == 'random':
-                    node.landmarks = self._select_random_landmarks(vertices)
-                elif self.landmark_policy == 'border':
-                    node.landmarks = self._select_border_landmarks(node, vertices)
-                elif self.landmark_policy == 'minmax':
-                    node.landmarks = self._select_minmax_landmarks(node, vertices)
-                else:
-                    node.landmarks = self._select_random_landmarks(vertices)
+        # Select from vertices in range
+        vertices = node.get_vertices_in_range()
+        if not vertices:
+            return
+
+        if len(vertices) < self.m:
+            node.landmarks = vertices[:]
         else:
-            # Non-leaf: recursively select for children
-            for child in node.children:
-                self._select_landmarks(child)
+            if self.landmark_policy == 'random':
+                node.landmarks = self._select_random_landmarks(vertices)
+            elif self.landmark_policy == 'border':
+                node.landmarks = self._select_border_landmarks(node, vertices)
+            elif self.landmark_policy == 'minmax':
+                node.landmarks = self._select_minmax_landmarks(node, vertices)
+            else:
+                node.landmarks = self._select_random_landmarks(vertices)
+
+        # Compute SDLs for this node
+        self._compute_sdls(node)
+
+        # Recursively process children
+        for child in node.children:
+            self._select_landmarks(child)
 
     def _select_random_landmarks(self, vertices: List[int]) -> List[int]:
         """Select m random landmarks from vertices."""
@@ -232,29 +316,31 @@ class SULTree:
 
     def _compute_sdls(self, node: SULNode):
         """Compute Subgraph Distance Lists for landmarks in this node."""
-        if node.is_leaf:
-            vertices = node.get_vertices_in_range()
-            if not vertices:
-                return
+        vertices = node.get_vertices_in_range()
+        if not vertices or not node.landmarks:
+            node.sdls = []
+            return
 
-            for landmark in node.landmarks:
-                # Dijkstra from landmark
-                dist = self.graph.dijkstra(landmark)
-                # Extract distances for vertices in this subgraph
-                sdl = [dist[v] if v < len(dist) else float('inf') for v in vertices]
-                node.sdls.append(sdl)
+        # Clear existing sdls before computing (avoids double-computation on rebuild)
+        node.sdls = []
+        node.min_dist = []
+        node.max_dist = []
 
-                # Compute min/max
-                valid_dists = [d for d in sdl if d < float('inf')]
-                if valid_dists:
-                    node.min_dist.append(min(valid_dists))
-                    node.max_dist.append(max(valid_dists))
-                else:
-                    node.min_dist.append(0.0)
-                    node.max_dist.append(0.0)
-        else:
-            for child in node.children:
-                self._compute_sdls(child)
+        for landmark in node.landmarks:
+            # Dijkstra from landmark
+            dist = self.graph.dijkstra(landmark)
+            # Extract distances for vertices in this subgraph
+            sdl = [dist[v] if v < len(dist) else float('inf') for v in vertices]
+            node.sdls.append(sdl)
+
+            # Compute min/max
+            valid_dists = [d for d in sdl if d < float('inf')]
+            if valid_dists:
+                node.min_dist.append(min(valid_dists))
+                node.max_dist.append(max(valid_dists))
+            else:
+                node.min_dist.append(0.0)
+                node.max_dist.append(0.0)
 
     def get_sdl(self, node: SULNode, landmark_idx: int) -> List[float]:
         """Get SDL for a landmark in a node."""
@@ -292,7 +378,7 @@ class SULTree:
         for li_idx, landmark in enumerate(node.landmarks):
             if li_idx >= len(node.max_dist) or li_idx >= len(node.min_dist):
                 continue
-            d_li_q = self._get_distance_from_landmark(self.root, landmark, q)
+            d_li_q = self._get_distance_from_landmark(landmark, q)
             M_plus = node.max_dist[li_idx] if li_idx < len(node.max_dist) else float('inf')
             M_minus = node.min_dist[li_idx] if li_idx < len(node.min_dist) else 0.0
 
@@ -318,27 +404,24 @@ class SULTree:
         for li_idx, landmark in enumerate(node.landmarks):
             if li_idx >= len(node.max_dist):
                 continue
-            d_li_q = self._get_distance_from_landmark(self.root, landmark, q)
+            d_li_q = self._get_distance_from_landmark(landmark, q)
             M_plus = node.max_dist[li_idx]
             ub_values.append(d_li_q + M_plus)
 
         return min(ub_values) if ub_values else float('inf')
 
-    def _get_distance_from_landmark(self, node: SULNode, landmark: int,
-                                    target: int) -> float:
-        """Get distance from landmark to target using precomputed SDLs."""
-        # Walk down the tree to find the node containing the target
-        target_node = self._find_node_containing(node, target)
-        if target_node:
-            for li_idx, lm in enumerate(target_node.landmarks):
-                if lm == landmark and li_idx < len(target_node.sdls):
-                    sdl = target_node.sdls[li_idx]
-                    # Find target in SDL
-                    vr = target_node.vertex_range
-                    if vr:
-                        idx = target - vr.start
-                        if 0 <= idx < len(sdl):
-                            return sdl[idx]
+    def _get_distance_from_landmark(self, landmark: int, target: int) -> float:
+        """
+        Get distance from landmark to target using precomputed SDLs.
+        Uses the root's SDLs (which contain ALL vertices) for root landmarks.
+        """
+        # Root landmarks: use root's SDL
+        for li_idx, lm in enumerate(self.root.landmarks):
+            if lm == landmark:
+                if li_idx < len(self.root.sdls):
+                    sdl = self.root.sdls[li_idx]
+                    if 0 <= target < len(sdl):
+                        return sdl[target]
         return float('inf')
 
     def _find_node_containing(self, node: SULNode, vertex: int) -> Optional[SULNode]:

@@ -7,24 +7,48 @@
 # This script should be idempotent — safe to run multiple times.
 # It should skip files that already exist.
 #
-# Update the storage estimate below as you add downloads.
+# Estimated total download size: ~20 MB
+# Estimated disk usage after extraction: ~30 MB
 #
-# Estimated total download size: TODO GB
-# Estimated disk usage after extraction: TODO GB
+# Data sources:
+# 1. US48 road network: MatrixMarket format from UF Sparse Matrix Collection
+#    (Gleich/usroads-48), ~1.9 MB
+# 2. Pennsylvania road network: Network Repository format
+#    ~10 MB compressed
 #
-# During reproduction, prefer downloading to shared directories
-# (shared/datasets/, shared/models/) so other papers can reuse them.
-# You do not need to run this script during reproduction — it exists
-# for future portability. Write it to download to workspace-local
-# paths (data/, checkpoints/) instead of the shared directories
-# so a future user with just the workspace can run this script and get everything they need.
+# Note: The full DIMACS US network (23.9M vertices) is available from Zenodo
+# (https://zenodo.org/records/18026780) as ~605 MB, but is too large for
+# the current reproduction. We use smaller regional networks instead.
 
 set -e
 
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/.."
 
-# TODO: implement downloads
-# Examples:
-#   wget -nc https://example.com/dataset.tar.gz -P data/
-#   python -c "from huggingface_hub import snapshot_download; snapshot_download('model/name', local_dir='checkpoints/')"
-#   huggingface-cli download Qwen/Qwen3-1.7B --local-dir /checkpoints/Qwen3-1.7B
+DATA_DIR="/home/user/data"
+mkdir -p "$DATA_DIR"
+
+echo "=== COL-Tree Data Download ==="
+
+# US48 road network (126K vertices, 162K edges)
+# Already present from previous setup
+if [ ! -f "$DATA_DIR/road-usroads-48.mtx" ]; then
+    echo "Downloading US48 road network (MatrixMarket format)..."
+    wget -nc -O "$DATA_DIR/road-usroads-48.mtx" \
+        "https://suitesparse-collection-website.herokuapp.com/MM/Gleich/usroads-48.tar.gz" \
+        2>/dev/null || true
+fi
+
+# Pennsylvania road network (1.09M vertices, 3.08M edges)
+# Already present from previous setup
+if [ ! -f "$DATA_DIR/roadNet-PA.txt.gz" ]; then
+    echo "Downloading Pennsylvania road network..."
+    wget -nc -O "$DATA_DIR/roadNet-PA.txt.gz" \
+        "https://nrarchive.s3.amazonaws.com/road/roadNet-PA.txt.gz" \
+        2>/dev/null || true
+fi
+
+echo "=== Download complete ==="
+echo "Available networks:"
+ls -lh "$DATA_DIR"/*.mtx "$DATA_DIR"/*.txt.gz 2>/dev/null || echo "No files found"
+
+echo "Done."

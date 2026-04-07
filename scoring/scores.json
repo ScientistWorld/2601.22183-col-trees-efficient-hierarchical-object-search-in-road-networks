@@ -1,0 +1,43 @@
+{
+  "aknn_real_pois": {
+    "results": {
+      "colt_phl": {
+        "type": "proposed",
+        "avg_query_time_ms": 8225.940895080566
+      }
+    }
+  },
+  "aknn_sensitivity_density": {
+    "results": {
+      "colt_phl": {
+        "type": "proposed",
+        "avg_query_time_ms": 8225.940895080566
+      }
+    }
+  },
+  "kfn_real_pois": {
+    "results": {
+      "colt_phl": {
+        "type": "proposed",
+        "avg_query_time_ms": 1477.9362392425537
+      }
+    }
+  },
+  "range_real_pois": {
+    "results": {
+      "colt_phl": {
+        "type": "proposed",
+        "avg_query_time_ms": 1966.7132377624512
+      }
+    }
+  },
+  "preprocessing": {
+    "results": {
+      "colt_phl": {
+        "type": "proposed",
+        "sul_time_s": 8.097,
+        "col_time_s": 0.294
+      }
+    }
+  }
+}
