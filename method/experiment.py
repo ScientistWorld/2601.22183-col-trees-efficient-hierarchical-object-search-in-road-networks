@@ -15,7 +15,7 @@ from typing import List, Dict, Tuple, Optional
 # Add project paths
 sys.path.insert(0, '/home/user')
 
-from method.graph import RoadNetwork, ObjectSet
+from data.graph import RoadNetwork, ObjectSet
 from data.loader import load_network
 from method.sul_tree import SULTree
 from method.col_tree import COLTree

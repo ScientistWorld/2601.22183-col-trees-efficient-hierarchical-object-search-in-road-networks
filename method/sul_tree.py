@@ -10,7 +10,7 @@ with precomputed distances (SDL) to all vertices in its subgraph.
 import random
 import heapq
 from typing import List, Dict, Tuple, Optional, Set
-from method.graph import RoadNetwork
+from data.graph import RoadNetwork
 
 
 # Vertex ID range for implicit storage

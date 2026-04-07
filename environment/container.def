@@ -30,6 +30,7 @@ From: python:3.11-slim
     # Road network data
     data/road-usroads-48.mtx /home/user/data/road-usroads-48.mtx
     data/loader.py /home/user/data/loader.py
+    data/graph.py /home/user/data/graph.py
 
     # Experiment code
     method/sul_tree.py /home/user/method/sul_tree.py

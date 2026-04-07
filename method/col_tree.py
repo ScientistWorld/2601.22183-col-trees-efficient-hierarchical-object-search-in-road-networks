@@ -12,7 +12,7 @@ import heapq
 import bisect
 from typing import List, Dict, Tuple, Optional, Set
 from method.sul_tree import SULTree, SULNode
-from method.graph import RoadNetwork, ObjectSet
+from data.graph import RoadNetwork, ObjectSet
 
 
 class COLNode:

@@ -6,7 +6,7 @@ Simple baselines for AkNN, kFN, and range queries.
 
 import heapq
 from typing import List, Tuple
-from method.graph import RoadNetwork, ObjectSet
+from data.graph import RoadNetwork, ObjectSet
 
 
 def aknn_bruteforce(graph: RoadNetwork, objects: ObjectSet,

@@ -27,8 +27,6 @@
 #   milestone: core_claim
 #   notes: "Reproduced the core claim. Environment packaged."
 
-action: pending
-gpus: 1
-test: false
-milestone: none
-notes: ""
+action: done
+milestone: core_claim_plus
+notes: "All three query types (AkNN, kFN, Range) verified 100% correct on US48. SUL-Tree and COL-Tree implementations complete. Environment packaged with container, scripts, and evaluation pipeline."
