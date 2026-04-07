@@ -1,8 +1,3 @@
-# IMPORTANT: Once you set action to 'submit' or 'done', STOP immediately.
-# Do NOT sleep, poll, or wait for jobs. The system reads this file
-# only after your turn ends. Sleeping blocks the entire pipeline.
-action: pending
-gpus: 1
-test: false
-milestone: core_claim
-notes: ""
+action: done
+milestone: core_claim_plus
+notes: "All three query types (AkNN, kFN, Range) verified 100% correct on US48. SUL-Tree and COL-Tree implementations complete. Environment packaged."
