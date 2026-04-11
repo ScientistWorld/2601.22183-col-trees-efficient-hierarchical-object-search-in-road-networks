@@ -346,6 +346,10 @@ Based on the paper's reported results, the following performance targets are exp
 - **Milestone**: `core_claim` | **Status**: done
 - **GPU**: 0.0h
 
+### Iteration 4: gpt-5.4 (verifier)
+- **Milestone**: `core_claim` | **Status**: done
+- **GPU**: 0.0h
+
 
 ---
 
