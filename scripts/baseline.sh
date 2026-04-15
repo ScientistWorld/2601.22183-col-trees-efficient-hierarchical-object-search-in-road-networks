@@ -25,7 +25,7 @@ from data.loader import load_network
 from method.graph import ObjectSet
 from method.baselines import aknn_bruteforce
 
-G = load_network('data/road-usroads-48.mtx')
+G = load_network('data/downloads/road-usroads-48.mtx')
 obj_set = ObjectSet.uniform_random(G, 0.001, seed=42)
 
 import random
@@ -47,7 +47,7 @@ from data.loader import load_network
 from method.graph import ObjectSet
 from method.baselines import kfn_bruteforce
 
-G = load_network('data/road-usroads-48.mtx')
+G = load_network('data/downloads/road-usroads-48.mtx')
 obj_set = ObjectSet.uniform_random(G, 0.001, seed=42)
 
 import random
@@ -69,7 +69,7 @@ from data.loader import load_network
 from method.graph import ObjectSet
 from method.baselines import range_bruteforce
 
-G = load_network('data/road-usroads-48.mtx')
+G = load_network('data/downloads/road-usroads-48.mtx')
 obj_set = ObjectSet.uniform_random(G, 0.001, seed=42)
 
 import random

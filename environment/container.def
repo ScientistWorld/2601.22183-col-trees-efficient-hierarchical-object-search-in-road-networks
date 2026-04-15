@@ -28,7 +28,8 @@ From: python:3.11-slim
 
 %files
     # Road network data
-    data/road-usroads-48.mtx /home/user/data/road-usroads-48.mtx
+    data/downloads/road-usroads-48.mtx /home/user/data/downloads/road-usroads-48.mtx
+    data/downloads/roadNet-PA.txt /home/user/data/downloads/roadNet-PA.txt
     data/loader.py /home/user/data/loader.py
     data/graph.py /home/user/data/graph.py
 
@@ -71,7 +72,7 @@ From: python:3.11-slim
 
     # *** DO NOT put pip install here. Use setup.sh instead. ***
 
-    mkdir -p /home/user/data
+    mkdir -p /home/user/data/downloads
     chmod 755 /home/user
 
 

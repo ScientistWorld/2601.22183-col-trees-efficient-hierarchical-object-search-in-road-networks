@@ -27,7 +27,7 @@ checkpoints/
 # Files too large for git: public fetched data (datasets, weights) and
 # agent-generated data that exceeds git's size limit. Repopulated from
 # scratch by scripts/download.sh. Everything else under data/ IS tracked.
-data/downloads/
+data/downloads/*
 !data/downloads/.gitkeep
 
 # Container artifacts (multi-GB)
@@ -187,6 +187,13 @@ core.*
 # Auto-added by swarm
 environment/overlay.img
 data/
+!data/
+data/*
+!data/.gitkeep
+!data/*.py
+!data/downloads/
+data/downloads/*
+!data/downloads/.gitkeep
 jobs/
 tmp/
 protocol.md

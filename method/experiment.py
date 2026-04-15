@@ -35,10 +35,10 @@ def run_experiment(network_name: str, query_type: str, k: int = 10,
     """Run a single experiment configuration."""
 
     # Load network
-    data_dir = '/home/user/data'
+    data_dir = '/home/user/data/downloads'
     networks = {
         'usroads-48': f'{data_dir}/road-usroads-48.mtx',
-        'roadnet-pa': f'{data_dir}/roadNet-PA.txt.gz',
+        'roadnet-pa': f'{data_dir}/roadNet-PA.txt',
     }
 
     if network_name not in networks:

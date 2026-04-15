@@ -20,35 +20,41 @@
 # (https://zenodo.org/records/18026780) as ~605 MB, but is too large for
 # the current reproduction. We use smaller regional networks instead.
 
-set -e
+set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-DATA_DIR="/home/user/data"
+DATA_DIR="/home/user/data/downloads"
 mkdir -p "$DATA_DIR"
 
 echo "=== COL-Tree Data Download ==="
 
 # US48 road network (126K vertices, 162K edges)
-# Already present from previous setup
 if [ ! -f "$DATA_DIR/road-usroads-48.mtx" ]; then
     echo "Downloading US48 road network (MatrixMarket format)..."
-    wget -nc -O "$DATA_DIR/road-usroads-48.mtx" \
-        "https://suitesparse-collection-website.herokuapp.com/MM/Gleich/usroads-48.tar.gz" \
-        2>/dev/null || true
+    if [ ! -f "$DATA_DIR/usroads-48.tar.gz" ]; then
+        wget -O "$DATA_DIR/usroads-48.tar.gz" \
+            "http://sparse-files.engr.tamu.edu/MM/Gleich/usroads-48.tar.gz"
+    fi
+    tar -xzf "$DATA_DIR/usroads-48.tar.gz" -C "$DATA_DIR" \
+        "usroads-48/usroads-48.mtx"
+    mv "$DATA_DIR/usroads-48/usroads-48.mtx" \
+        "$DATA_DIR/road-usroads-48.mtx"
+    rmdir "$DATA_DIR/usroads-48"
 fi
 
 # Pennsylvania road network (1.09M vertices, 3.08M edges)
-# Already present from previous setup
-if [ ! -f "$DATA_DIR/roadNet-PA.txt.gz" ]; then
+if [ ! -f "$DATA_DIR/roadNet-PA.txt" ]; then
     echo "Downloading Pennsylvania road network..."
-    wget -nc -O "$DATA_DIR/roadNet-PA.txt.gz" \
-        "https://nrarchive.s3.amazonaws.com/road/roadNet-PA.txt.gz" \
-        2>/dev/null || true
+    if [ ! -f "$DATA_DIR/roadNet-PA.txt.gz" ]; then
+        wget -O "$DATA_DIR/roadNet-PA.txt.gz" \
+            "https://snap.stanford.edu/data/roadNet-PA.txt.gz"
+    fi
+    gzip -dc "$DATA_DIR/roadNet-PA.txt.gz" > "$DATA_DIR/roadNet-PA.txt"
 fi
 
 echo "=== Download complete ==="
 echo "Available networks:"
-ls -lh "$DATA_DIR"/*.mtx "$DATA_DIR"/*.txt.gz 2>/dev/null || echo "No files found"
+ls -lh "$DATA_DIR"/*.mtx "$DATA_DIR"/*.txt 2>/dev/null || echo "No files found"
 
 echo "Done."
