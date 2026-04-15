@@ -2,7 +2,7 @@
 # Do NOT sleep, poll, or wait for jobs. The system reads this file
 # only after your turn ends. Sleeping blocks the entire pipeline.
 action: done
-gpus: 1
+gpus: 0
 test: false
 milestone: core_claim
-notes: "Fixed fresh-clone data downloads, public URLs, and data path alignment."
+notes: "Even/odd query-index train/test split over saved result artifacts; 18 metrics per slice; avg-latency test/train ratios: AkNN 0.986, kFN 1.029, range 0.879."

@@ -1,0 +1,50 @@
+{
+  "aknn_real_pois": {
+    "results": {
+      "colt_phl": {
+        "avg_query_time_ms": 8155.125975608826,
+        "p90_query_time_ms": 9205.302238464355,
+        "accuracy": 1.0,
+        "speedup_over_brute": 0.999932194277297
+      }
+    }
+  },
+  "aknn_sensitivity_density": {
+    "results": {
+      "colt_phl": {
+        "avg_query_time_ms": 8155.125975608826,
+        "p90_query_time_ms": 9205.302238464355,
+        "accuracy": 1.0,
+        "speedup_over_brute": 0.999932194277297
+      }
+    }
+  },
+  "kfn_real_pois": {
+    "results": {
+      "colt_phl": {
+        "avg_query_time_ms": 1499.0205574035645,
+        "p90_query_time_ms": 2800.7826805114746,
+        "accuracy": 1.0,
+        "speedup_over_brute": 0.9716382929227178
+      }
+    }
+  },
+  "range_real_pois": {
+    "results": {
+      "colt_phl": {
+        "avg_query_time_ms": 1840.0400638580322,
+        "p90_query_time_ms": 3297.92857170105,
+        "accuracy": 1.0,
+        "speedup_over_brute": 0.7215907967456676
+      }
+    }
+  },
+  "preprocessing": {
+    "results": {
+      "colt_phl": {
+        "sul_time_s": 8.097033262252808,
+        "col_time_s": 0.29405927658081055
+      }
+    }
+  }
+}

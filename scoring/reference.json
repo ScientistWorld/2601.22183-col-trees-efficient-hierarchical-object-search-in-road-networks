@@ -5,7 +5,22 @@
       "weight": 0.35,
       "primary_metric": "avg_query_time_ms",
       "metrics": {
-        "avg_query_time_ms": {"higher_is_better": false, "coefficient": -1.0}
+        "avg_query_time_ms": {"higher_is_better": false, "coefficient": -1.0},
+        "p90_query_time_ms": {
+          "higher_is_better": false,
+          "coefficient": -0.3,
+          "description": "Tail query latency on the same query family; catches methods that improve the mean by leaving hard queries slow."
+        },
+        "accuracy": {
+          "higher_is_better": true,
+          "coefficient": 0.6,
+          "description": "Exact-match correctness against brute force; prevents faster but incorrect nearest-neighbor results from scoring well."
+        },
+        "speedup_over_brute": {
+          "higher_is_better": true,
+          "coefficient": 0.2,
+          "description": "Relative speed versus exact brute-force validation, tying latency gains to a method-independent baseline."
+        }
       },
       "results": {
         "colt_phl": {
@@ -27,7 +42,22 @@
       "weight": 0.20,
       "primary_metric": "avg_query_time_ms",
       "metrics": {
-        "avg_query_time_ms": {"higher_is_better": false, "coefficient": -1.0}
+        "avg_query_time_ms": {"higher_is_better": false, "coefficient": -1.0},
+        "p90_query_time_ms": {
+          "higher_is_better": false,
+          "coefficient": -0.3,
+          "description": "Tail query latency under density variation; catches density-specific tuning that hides slow hard queries."
+        },
+        "accuracy": {
+          "higher_is_better": true,
+          "coefficient": 0.6,
+          "description": "Exact-match correctness against brute force under the density setting; protects the scalability claim from pruning errors."
+        },
+        "speedup_over_brute": {
+          "higher_is_better": true,
+          "coefficient": 0.2,
+          "description": "Relative speed versus exact brute-force validation for the density setting."
+        }
       },
       "results": {
         "colt_phl": {"type": "proposed", "avg_query_time_ms": 0.5},
@@ -40,7 +70,22 @@
       "weight": 0.25,
       "primary_metric": "avg_query_time_ms",
       "metrics": {
-        "avg_query_time_ms": {"higher_is_better": false, "coefficient": -1.0}
+        "avg_query_time_ms": {"higher_is_better": false, "coefficient": -1.0},
+        "p90_query_time_ms": {
+          "higher_is_better": false,
+          "coefficient": -0.3,
+          "description": "Tail k farthest-neighbor latency; catches methods that only optimize easy query vertices."
+        },
+        "accuracy": {
+          "higher_is_better": true,
+          "coefficient": 0.6,
+          "description": "Exact-match correctness against brute force; required because k farthest-neighbor pruning can otherwise omit true farthest objects."
+        },
+        "speedup_over_brute": {
+          "higher_is_better": true,
+          "coefficient": 0.2,
+          "description": "Relative speed versus exact brute-force validation for k farthest-neighbor queries."
+        }
       },
       "results": {
         "colt_phl": {"type": "proposed", "avg_query_time_ms": 0.05},
@@ -52,7 +97,22 @@
       "weight": 0.10,
       "primary_metric": "avg_query_time_ms",
       "metrics": {
-        "avg_query_time_ms": {"higher_is_better": false, "coefficient": -1.0}
+        "avg_query_time_ms": {"higher_is_better": false, "coefficient": -1.0},
+        "p90_query_time_ms": {
+          "higher_is_better": false,
+          "coefficient": -0.3,
+          "description": "Tail range-query latency; catches shortcuts that are fast only for sparse result sets."
+        },
+        "accuracy": {
+          "higher_is_better": true,
+          "coefficient": 0.6,
+          "description": "Exact-match correctness against brute force; ensures range queries do not trade recall for speed."
+        },
+        "speedup_over_brute": {
+          "higher_is_better": true,
+          "coefficient": 0.2,
+          "description": "Relative speed versus exact brute-force validation for range queries."
+        }
       },
       "results": {
         "colt_phl": {"type": "proposed", "avg_query_time_ms": 0.5},
