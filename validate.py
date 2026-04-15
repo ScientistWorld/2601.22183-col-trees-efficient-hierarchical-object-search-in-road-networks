@@ -394,6 +394,64 @@ def check_imports_not_gitignored() -> list[str]:
     return errors
 
 
+def check_train_test_independent() -> list[str]:
+    """Check that eval/train/ and eval/test/ do not import from each other.
+
+    The two slices must be independently runnable. A shortcut agent that reads
+    eval/train/ should not be able to learn anything about eval/test/'s shape,
+    metrics, or data through a sibling import.
+    """
+    errors: list[str] = []
+    train_dir = WORKSPACE_DIR / "eval" / "train"
+    test_dir = WORKSPACE_DIR / "eval" / "test"
+
+    def _scan(src_dir: Path, forbidden_dir: Path, forbidden_label: str) -> None:
+        if not src_dir.is_dir() or not forbidden_dir.is_dir():
+            return
+        for pyfile in src_dir.rglob("*.py"):
+            try:
+                source = pyfile.read_text()
+            except Exception:
+                continue
+            try:
+                tree = ast.parse(source, filename=str(pyfile))
+            except SyntaxError:
+                continue
+            for node in ast.walk(tree):
+                resolved = None
+                if isinstance(node, ast.Import):
+                    for alias in node.names:
+                        r = _resolve_local_import(alias.name, None, 0)
+                        if r is not None:
+                            try:
+                                r.resolve().relative_to(forbidden_dir.resolve())
+                                resolved = r
+                                break
+                            except ValueError:
+                                pass
+                elif isinstance(node, ast.ImportFrom):
+                    if node.module is None and node.level == 0:
+                        continue
+                    r = _resolve_local_import(node.module or "", pyfile, node.level)
+                    if r is not None:
+                        try:
+                            r.resolve().relative_to(forbidden_dir.resolve())
+                            resolved = r
+                        except ValueError:
+                            pass
+                if resolved is not None:
+                    rel_src = pyfile.relative_to(WORKSPACE_DIR)
+                    rel_dst = resolved.relative_to(WORKSPACE_DIR)
+                    errors.append(
+                        f"{rel_src}:{node.lineno}: imports {rel_dst} "
+                        f"(eval/train and eval/{forbidden_label} must be independent)"
+                    )
+
+    _scan(train_dir, test_dir, "test")
+    _scan(test_dir, train_dir, "train")
+    return errors
+
+
 _SHARED_PATTERN = re.compile(r"(?<![A-Za-z0-9_/])/?shared/(?:datasets|models|hf_cache)\b")
 
 
@@ -536,7 +594,17 @@ def main():
     else:
         print("  gitignored imports — OK (all eval/method/baseline imports resolve to tracked files)")
 
-    # 5. No shared/ references in committed code (would break on fresh clone)
+    # 5. eval/train and eval/test are independent (no cross-imports)
+    indep_errors = check_train_test_independent()
+    if indep_errors:
+        print(f"  eval/train ↔ eval/test independence — {len(indep_errors)} error(s):")
+        for e in indep_errors:
+            print(f"    ✗ {e}")
+        ok = False
+    else:
+        print("  eval/train ↔ eval/test independence — OK")
+
+    # 6. No shared/ references in committed code (would break on fresh clone)
     shared_errors = check_no_shared_references()
     if shared_errors:
         print(f"  shared/ references — {len(shared_errors)} error(s):")
