@@ -361,6 +361,5 @@ Based on the paper's reported results, the following performance targets are exp
 
 **Current: core_claim**
 
-## Progress Log
-
 ## Stop Justification
+- Completed at milestone `core_claim`.
