@@ -42,8 +42,8 @@
   "preprocessing": {
     "results": {
       "colt_phl": {
-        "sul_time_s": 8.097033262252808,
-        "col_time_s": 0.29405927658081055
+        "sul_time_s": 8.097,
+        "col_time_s": 0.2941
       }
     }
   }

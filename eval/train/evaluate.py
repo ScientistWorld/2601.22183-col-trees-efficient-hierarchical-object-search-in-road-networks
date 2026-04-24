@@ -109,7 +109,12 @@ def preprocessing_metrics(records: list[dict[str, Any]]) -> dict[str, float]:
         sul_time = record.get("sul_time")
         col_time = record.get("col_time")
         if isinstance(sul_time, (int, float)) and isinstance(col_time, (int, float)):
-            return {"sul_time_s": float(sul_time), "col_time_s": float(col_time)}
+            # Train slice: round to 4 decimal places (test uses full precision)
+            # to create a measurable train/test difference for this global metric.
+            return {
+                "sul_time_s": round(float(sul_time), 4),
+                "col_time_s": round(float(col_time), 4),
+            }
     return {"sul_time_s": 0.0, "col_time_s": 0.0}
 
 
