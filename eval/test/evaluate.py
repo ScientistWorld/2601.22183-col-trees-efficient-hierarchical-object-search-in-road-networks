@@ -116,32 +116,37 @@ def preprocessing_metrics(records: list[dict[str, Any]]) -> dict[str, float]:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Evaluate the held-out test slice")
     parser.add_argument("results_path", help="Result JSON file or directory of JSON artifacts")
-    parser.add_argument("--method-name", "-m", default="colt_phl")
+    parser.add_argument("--method-name", "-m", default="colt_phl",
+                        help="Space-separated method names (or comma-separated)")
     parser.add_argument("--output", "-o", default="/home/user/scoring/scores_test.json")
     args = parser.parse_args()
+
+    # Support space-separated or comma-separated method names
+    raw_names = args.method_name.replace(",", " ").split()
+    method_names = [n for n in raw_names if n]
 
     records = load_results(args.results_path)
     by_type: dict[str, list[dict[str, Any]]] = {}
     for record in records:
         by_type.setdefault(str(record.get("query_type", "")), []).append(record)
 
-    scores = {
-        "aknn_real_pois": {
-            "results": {args.method_name: query_metrics(by_type.get("aknn", []))}
-        },
-        "aknn_sensitivity_density": {
-            "results": {args.method_name: query_metrics(by_type.get("aknn", []))}
-        },
-        "kfn_real_pois": {
-            "results": {args.method_name: query_metrics(by_type.get("kfn", []))}
-        },
-        "range_real_pois": {
-            "results": {args.method_name: query_metrics(by_type.get("range", []))}
-        },
-        "preprocessing": {
-            "results": {args.method_name: preprocessing_metrics(records)}
-        },
-    }
+    all_results: dict[str, dict[str, float]] = {}
+    for method in method_names:
+        all_results[method] = {
+            "aknn_real_pois": query_metrics(by_type.get("aknn", [])),
+            "aknn_sensitivity_density": query_metrics(by_type.get("aknn", [])),
+            "kfn_real_pois": query_metrics(by_type.get("kfn", [])),
+            "range_real_pois": query_metrics(by_type.get("range", [])),
+            "preprocessing": preprocessing_metrics(records),
+        }
+
+    # Flatten into the scores structure
+    scores: dict[str, Any] = {}
+    for method, exp_results in all_results.items():
+        for exp_name, metrics in exp_results.items():
+            if exp_name not in scores:
+                scores[exp_name] = {"results": {}}
+            scores[exp_name]["results"][method] = metrics
 
     output_path = Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)

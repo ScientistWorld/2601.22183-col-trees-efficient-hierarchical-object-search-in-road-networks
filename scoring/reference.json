@@ -120,12 +120,12 @@
       }
     },
     "preprocessing": {
-      "description": "Preprocessing time and space (Table 6 from paper). SUL-Tree: 2m19s, 1.15GB. COL-Tree: 3.4ms, 0.5MB.",
+      "description": "Preprocessing time and space (Table 6 from paper). SUL-Tree: 2m19s, 1.15GB. COL-Tree: 3.4ms, 0.5MB. NOTE: This experiment measures build-time overhead, a single global property of the method — it cannot be split into train/test partitions. Train and test scores are identical by design.",
       "weight": 0.10,
-      "primary_metric": "sul_time_s",
+      "primary_metric": "col_time_s",
       "metrics": {
-        "sul_time_s": {"higher_is_better": false, "coefficient": -0.5},
-        "col_time_s": {"higher_is_better": false, "coefficient": -0.5}
+        "sul_time_s": {"higher_is_better": false, "coefficient": -0.5, "description": "SUL-Tree preprocessing time — measures overhead of the auxiliary index."},
+        "col_time_s": {"higher_is_better": false, "coefficient": -0.5, "description": "COL-Tree preprocessing time — the core method's build cost."}
       },
       "results": {
         "colt_phl": {"type": "proposed", "sul_time_s": 139.0, "col_time_s": 0.0034}
