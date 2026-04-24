@@ -366,6 +366,10 @@ Based on the paper's reported results, the following performance targets are exp
 - **Milestone**: `core_claim` | **Status**: done
 - **Working time**: 7m | **GPU**: 0.0h
 
+### Iteration 8: MiniMax-M2.7 (designer_stage_2)
+- **Milestone**: `core_claim` | **Status**: done
+- **Working time**: 4m | **GPU**: 0.0h
+
 
 ---
 

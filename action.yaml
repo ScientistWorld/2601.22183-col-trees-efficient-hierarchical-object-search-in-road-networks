@@ -1,5 +1,3 @@
 action: done
 gpus: 0
-test: false
-milestone: core_claim
-notes: "Odd/even query-index split; 4 query experiments differ (1.4-12.1% gap); preprocessing global measurement differs via precision rounding (train 4dp, test full precision); method discovery auto-detects from existing scores; all validator checks pass."
+notes: "Added p50/p10 latency percentiles to all query experiments; removed scores_train.json/scores_test.json (design phase should not produce them). All validator checks pass."
