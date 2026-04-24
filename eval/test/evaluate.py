@@ -98,7 +98,9 @@ def query_metrics(records: list[dict[str, Any]]) -> dict[str, float]:
 
     return {
         "avg_query_time_ms": avg_time,
+        "p50_query_time_ms": percentile(all_times, 50.0),
         "p90_query_time_ms": percentile(all_times, 90.0),
+        "p10_query_time_ms": percentile(all_times, 10.0),
         "accuracy": correct / total if total else 0.0,
         "speedup_over_brute": brute_avg / avg_time if avg_time > 0 else 0.0,
     }

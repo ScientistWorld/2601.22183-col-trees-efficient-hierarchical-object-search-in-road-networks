@@ -6,6 +6,16 @@
       "primary_metric": "avg_query_time_ms",
       "metrics": {
         "avg_query_time_ms": {"higher_is_better": false, "coefficient": -1.0},
+        "p50_query_time_ms": {
+          "higher_is_better": false,
+          "coefficient": -0.2,
+          "description": "Median query latency — catches methods that improve extremes but worsen typical-case latency."
+        },
+        "p10_query_time_ms": {
+          "higher_is_better": false,
+          "coefficient": -0.15,
+          "description": "Fast-quartile query latency — catches methods that optimize for easy queries at the expense of median performance."
+        },
         "p90_query_time_ms": {
           "higher_is_better": false,
           "coefficient": -0.3,
@@ -43,6 +53,16 @@
       "primary_metric": "avg_query_time_ms",
       "metrics": {
         "avg_query_time_ms": {"higher_is_better": false, "coefficient": -1.0},
+        "p50_query_time_ms": {
+          "higher_is_better": false,
+          "coefficient": -0.2,
+          "description": "Median query latency under density variation; catches density-specific tuning that worsens typical-case performance."
+        },
+        "p10_query_time_ms": {
+          "higher_is_better": false,
+          "coefficient": -0.15,
+          "description": "Fast-quartile query latency under density variation."
+        },
         "p90_query_time_ms": {
           "higher_is_better": false,
           "coefficient": -0.3,
@@ -71,6 +91,16 @@
       "primary_metric": "avg_query_time_ms",
       "metrics": {
         "avg_query_time_ms": {"higher_is_better": false, "coefficient": -1.0},
+        "p50_query_time_ms": {
+          "higher_is_better": false,
+          "coefficient": -0.2,
+          "description": "Median kFN latency; catches methods that exploit easy query vertices while degrading typical-case performance."
+        },
+        "p10_query_time_ms": {
+          "higher_is_better": false,
+          "coefficient": -0.15,
+          "description": "Fast-quartile kFN latency."
+        },
         "p90_query_time_ms": {
           "higher_is_better": false,
           "coefficient": -0.3,
@@ -98,6 +128,16 @@
       "primary_metric": "avg_query_time_ms",
       "metrics": {
         "avg_query_time_ms": {"higher_is_better": false, "coefficient": -1.0},
+        "p50_query_time_ms": {
+          "higher_is_better": false,
+          "coefficient": -0.2,
+          "description": "Median range-query latency; catches methods fast on sparse results but slow on typical cases."
+        },
+        "p10_query_time_ms": {
+          "higher_is_better": false,
+          "coefficient": -0.15,
+          "description": "Fast-quartile range-query latency."
+        },
         "p90_query_time_ms": {
           "higher_is_better": false,
           "coefficient": -0.3,
