@@ -370,6 +370,10 @@ Based on the paper's reported results, the following performance targets are exp
 - **Milestone**: `core_claim` | **Status**: done
 - **Working time**: 4m | **GPU**: 0.0h
 
+### Iteration 9: gpt-5.4 (designer_stage_3)
+- **Milestone**: `none` | **Status**: done
+- **Working time**: 8m | **GPU**: 0.0h
+
 
 ---
 
@@ -378,4 +382,4 @@ Based on the paper's reported results, the following performance targets are exp
 **Current: core_claim**
 
 ## Stop Justification
-- Completed at milestone `core_claim`.
+- Completed at milestone `none`.
