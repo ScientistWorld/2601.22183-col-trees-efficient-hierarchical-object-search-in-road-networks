@@ -24,6 +24,14 @@ SCORING_DIR = WORKSPACE_DIR / "scoring"
 # ── Scoring validation ───────────────────────────────────────────────────────
 
 
+_FORBIDDEN_METRIC_PATTERNS = re.compile(
+    r"(?:author|deviation|published|vs_paper|fit_to_published|"
+    r"reproduction_error|paper_method|prompt_deviation|"
+    r"error_vs_|agreement_with|fidelity_to)",
+    re.IGNORECASE,
+)
+
+
 def validate_reference(data: dict) -> list[str]:
     """Validate reference.json structure. Returns list of errors."""
     errors = []
@@ -90,6 +98,14 @@ def validate_reference(data: dict) -> list[str]:
                 errors.append(f"{prefix}.metrics.{metric_name}: missing 'coefficient'")
             elif not isinstance(metric_def["coefficient"], (int, float)):
                 errors.append(f"{prefix}.metrics.{metric_name}.coefficient: must be a number")
+            if _FORBIDDEN_METRIC_PATTERNS.search(metric_name):
+                errors.append(
+                    f"{prefix}.metrics.{metric_name}: metric name matches a "
+                    f"forbidden paper-agreement pattern. The gym measures "
+                    f"the scientific quantity, not agreement with the paper. "
+                    f"Either remove this metric or rename it to reflect "
+                    f"the underlying quantity it actually measures."
+                )
 
         # primary_metric must be in metrics
         primary = exp.get("primary_metric")
@@ -327,15 +343,61 @@ def _resolve_local_import(module: str, from_file: Path | None, level: int) -> Pa
     return None
 
 
+# Top-level workspace directories that always hold local code / data. An
+# import whose first dotted component matches this set is workspace-local by
+# convention, even if the directory doesn't exist in the current tree (e.g.
+# a fresh clone before download.sh runs).
+_WORKSPACE_IMPORT_PREFIXES = frozenset({"data", "method", "eval", "baseline"})
+
+
+def _expected_import_base(module: str, from_file: Path | None, level: int) -> Path | None:
+    """Compute the expected workspace path for an import (existence not required).
+
+    Returns the candidate base path (without .py suffix) if the import looks
+    workspace-local, else None. Workspace-local = relative imports anchored
+    in from_file OR absolute imports whose first dotted component is a known
+    workspace directory.
+
+    Policy: every workspace-local import must resolve to a git-tracked file.
+    This includes vendored third-party libraries under ``method/`` — they
+    should be committed, not gitignored, so fresh clones work without a
+    runtime clone step (up to reasonable size limits).
+    """
+    if level > 0 and from_file is not None:
+        anchor = from_file.parent
+        for _ in range(level - 1):
+            anchor = anchor.parent
+        parts = module.split(".") if module else []
+        candidate_base = anchor.joinpath(*parts) if parts else anchor
+    else:
+        if not module:
+            return None
+        parts = module.split(".")
+        if parts[0] not in _WORKSPACE_IMPORT_PREFIXES:
+            return None
+        candidate_base = WORKSPACE_DIR.joinpath(*parts)
+    try:
+        candidate_base.resolve().relative_to(WORKSPACE_DIR.resolve())
+    except ValueError:
+        return None
+    return candidate_base
+
+
 def check_imports_not_gitignored() -> list[str]:
     """Check that every workspace-local import in eval/, method/, baseline/
-    resolves to a file that git tracks.
+    resolves to a file that git *tracks*.
 
-    If an import resolves to a gitignored file, that file will NOT exist after
-    a fresh `git clone`, so the gym will fail with ImportError for anyone else.
+    Two failure modes both break a fresh clone:
+      (a) import target exists on disk but is gitignored (won't be committed)
+      (b) import target does not exist at all in git (file missing entirely)
+
+    Both fail here — (a) was historically caught by walking the disk and
+    cross-checking ``git check-ignore``; (b) was silently skipped because the
+    old resolver returned None for missing files. Both now resolve to the
+    expected path and are validated against the tracked fileset.
     """
     errors: list[str] = []
-    # resolved_path -> list of (source_file, lineno) tuples
+    # expected_path -> list of (source_file, lineno) tuples
     import_map: dict[Path, list[tuple[Path, int]]] = {}
 
     for dirname in ("eval", "method", "baseline"):
@@ -354,42 +416,83 @@ def check_imports_not_gitignored() -> list[str]:
             for node in ast.walk(tree):
                 if isinstance(node, ast.Import):
                     for alias in node.names:
-                        resolved = _resolve_local_import(alias.name, None, 0)
-                        if resolved:
-                            import_map.setdefault(resolved, []).append((pyfile, node.lineno))
+                        base = _expected_import_base(alias.name, None, 0)
+                        if base is not None:
+                            import_map.setdefault(base, []).append((pyfile, node.lineno))
                 elif isinstance(node, ast.ImportFrom):
-                    # Skip `from __future__ import ...` etc. where level==0 and module is None
                     if node.module is None and node.level == 0:
                         continue
-                    resolved = _resolve_local_import(node.module or "", pyfile, node.level)
-                    if resolved:
-                        import_map.setdefault(resolved, []).append((pyfile, node.lineno))
+                    base = _expected_import_base(node.module or "", pyfile, node.level)
+                    if base is not None:
+                        import_map.setdefault(base, []).append((pyfile, node.lineno))
 
     if not import_map:
         return errors
 
-    # Batch one `git check-ignore --stdin` call for all resolved paths.
-    rel_paths = [str(p.relative_to(WORKSPACE_DIR)) for p in import_map]
+    # Ask git for the full tracked fileset once, then match each expected path
+    # against it. A ".py" file or a "/__init__.py" package either exists in the
+    # tree or it doesn't — anything else is a fresh-clone failure.
     try:
-        result = subprocess.run(
-            ["git", "-C", str(WORKSPACE_DIR), "check-ignore", "--stdin"],
-            input="\n".join(rel_paths),
-            capture_output=True,
-            text=True,
-            timeout=30,
+        tracked_result = subprocess.run(
+            ["git", "-C", str(WORKSPACE_DIR), "ls-files"],
+            capture_output=True, text=True, timeout=30,
         )
     except (subprocess.SubprocessError, FileNotFoundError):
-        # Git unavailable or not a repo — skip this check rather than fail.
         return errors
+    tracked = {line.strip() for line in tracked_result.stdout.splitlines() if line.strip()}
 
-    ignored_rels = {line.strip() for line in result.stdout.splitlines() if line.strip()}
-    for ignored_rel in sorted(ignored_rels):
-        ignored_path = WORKSPACE_DIR / ignored_rel
-        for source_file, lineno in import_map.get(ignored_path, []):
+    import glob as _glob
+
+    for base, callsites in sorted(import_map.items(), key=lambda kv: str(kv[0])):
+        rel_base = base.relative_to(WORKSPACE_DIR)
+        py_rel = str(rel_base) + ".py"
+        pkg_rel = str(rel_base) + "/__init__.py"
+        if py_rel in tracked or pkg_rel in tracked:
+            continue  # import target is tracked — fresh clone is fine
+        # Compiled extensions (.so, .pyd, .cpython-*.so) are built at install
+        # time and are never committed to git. Skip if one exists on disk or
+        # if the parent directory contains a build system file that would
+        # produce one (setup.py, CMakeLists.txt, meson.build, pyproject.toml
+        # with a compiled backend, or pybind11 sources).
+        module_name = base.name
+        parent_dir = base.parent
+        ext_globs = [
+            str(parent_dir / f"{module_name}.*.so"),
+            str(parent_dir / f"{module_name}.*.pyd"),
+            str(parent_dir / f"{module_name}.so"),
+            str(parent_dir / f"{module_name}.pyd"),
+        ]
+        if any(_glob.glob(g) for g in ext_globs):
+            continue  # compiled extension on disk — built at install time
+        build_markers = ("setup.py", "CMakeLists.txt", "meson.build", "pyproject.toml",
+                         "Cargo.toml")
+        # Walk up from the module's parent to the workspace root looking for
+        # a build system file that would produce this compiled extension.
+        search = parent_dir
+        _found_build = False
+        while True:
+            if any((search / m).exists() for m in build_markers):
+                _found_build = True
+                break
+            if search == WORKSPACE_DIR or search == search.parent:
+                break
+            search = search.parent
+        if _found_build:
+            continue
+        for source_file, lineno in callsites:
             rel_source = source_file.relative_to(WORKSPACE_DIR)
+            on_disk = (
+                (WORKSPACE_DIR / py_rel).is_file()
+                or (WORKSPACE_DIR / pkg_rel).is_file()
+            )
+            reason = (
+                f"exists locally but is gitignored"
+                if on_disk
+                else f"not present in git at all"
+            )
             errors.append(
-                f"{rel_source}:{lineno}: imports {ignored_rel}, which is gitignored "
-                f"(will not exist on fresh clone)"
+                f"{rel_source}:{lineno}: imports {rel_base} ({py_rel} or "
+                f"{pkg_rel}), which is {reason} — fresh clone will hit ImportError"
             )
     return errors
 
@@ -452,6 +555,506 @@ def check_train_test_independent() -> list[str]:
     return errors
 
 
+# Detect Python/bash invocations that point at the wrong eval/ slice. Matches
+# any `python …`, `python3 …`, `bash …`, `sh …`, or direct-exec line where the
+# interpreter arg contains `eval/<slice>/`. A bare reference inside a `#`
+# comment or a string that reads from `scores_train.json` (legitimate for
+# method enumeration) is not matched.
+_WRONG_SLICE_INVOCATION_RE_TEMPLATE = (
+    r"^\s*(?:python\d*|bash|sh|exec|\.)\s+[^\n#]*eval/{slice}/"
+)
+
+# Detect `--output …/<wrong>.json`, `> …/<wrong>.json`, and similar write
+# operations. Matches the common flag shapes used by argparse-based
+# evaluators plus shell redirects.
+_WRONG_OUTPUT_RE_TEMPLATE = (
+    r"(?:--output[ =]|--out[ =]|-o[ =]|--scores[ =]|--score-file[ =]|"
+    r"--output-file[ =]|>\s*)\S*{fname}"
+)
+
+
+def check_train_test_scripts_rewired() -> list[str]:
+    """Check that scripts/evaluate_{train,test}.sh point at the right slice.
+
+    A common designer failure mode is copying ``evaluate_train.sh`` to
+    ``evaluate_test.sh``, renaming the file, but leaving the body invoking
+    ``eval/train/evaluate.py`` and writing to ``scoring/scores.json``. The
+    resulting "test" script re-runs the train evaluator against the train
+    data and emits train-slice artifacts under a test-slice filename —
+    the entire train/test comparison becomes meaningless.
+
+    Static checks (no execution required):
+      1. ``evaluate_test.sh`` must not invoke ``eval/train/…`` scripts.
+      2. ``evaluate_test.sh`` must not write (via --output / >) to
+         ``scores.json`` or ``scores_train.json``.
+      3. Symmetrically, ``evaluate_train.sh`` must not invoke
+         ``eval/test/…`` or write to ``scores_test.json``.
+
+    Only runs when both shell scripts exist; pre-designer iterations are
+    silently skipped.
+    """
+    errors: list[str] = []
+    scripts_dir = WORKSPACE_DIR / "scripts"
+    train_script = scripts_dir / "evaluate_train.sh"
+    test_script = scripts_dir / "evaluate_test.sh"
+
+    if not train_script.is_file() or not test_script.is_file():
+        return errors
+
+    try:
+        train_text = train_script.read_text()
+        test_text = test_script.read_text()
+    except OSError:
+        return errors
+
+    def _strip_comments(text: str) -> str:
+        # Drop comment-only and trailing-comment portions so a comment like
+        # ``# evaluate_train.sh mirrors this shape`` in evaluate_test.sh
+        # doesn't false-positive.
+        out = []
+        for line in text.splitlines():
+            stripped = line.lstrip()
+            if stripped.startswith("#"):
+                continue
+            # Trailing # comment after a code token — only strip when preceded
+            # by whitespace so '#' inside quoted strings (rare in sh) is
+            # preserved.
+            idx = 0
+            while idx < len(line):
+                if line[idx] == "#" and (idx == 0 or line[idx - 1].isspace()):
+                    line = line[:idx]
+                    break
+                idx += 1
+            out.append(line)
+        return "\n".join(out)
+
+    test_body = _strip_comments(test_text)
+    train_body = _strip_comments(train_text)
+
+    # 1. evaluate_test.sh must not invoke eval/train/
+    pat = re.compile(
+        _WRONG_SLICE_INVOCATION_RE_TEMPLATE.format(slice="train"),
+        re.MULTILINE,
+    )
+    if pat.search(test_body):
+        errors.append(
+            "scripts/evaluate_test.sh invokes eval/train/ "
+            "(should invoke eval/test/) — looks like copy-paste from "
+            "evaluate_train.sh without rewiring the evaluator path"
+        )
+
+    # 2. evaluate_test.sh must not write to scores.json or scores_train.json
+    for fname, label in (
+        (r"scores\.json(?!\w)", "scoring/scores.json"),
+        (r"scores_train\.json(?!\w)", "scoring/scores_train.json"),
+    ):
+        pat = re.compile(_WRONG_OUTPUT_RE_TEMPLATE.format(fname=fname))
+        if pat.search(test_body):
+            errors.append(
+                f"scripts/evaluate_test.sh writes to {label} "
+                f"(should write to scoring/scores_test.json) — looks like "
+                f"copy-paste from evaluate_train.sh without rewiring the "
+                f"output path"
+            )
+
+    # 3. Symmetric checks for evaluate_train.sh
+    pat = re.compile(
+        _WRONG_SLICE_INVOCATION_RE_TEMPLATE.format(slice="test"),
+        re.MULTILINE,
+    )
+    if pat.search(train_body):
+        errors.append(
+            "scripts/evaluate_train.sh invokes eval/test/ "
+            "(should invoke eval/train/)"
+        )
+
+    pat = re.compile(
+        _WRONG_OUTPUT_RE_TEMPLATE.format(fname=r"scores_test\.json(?!\w)"),
+    )
+    if pat.search(train_body):
+        errors.append(
+            "scripts/evaluate_train.sh writes to scoring/scores_test.json "
+            "(should write to scoring/scores_train.json)"
+        )
+
+    return errors
+
+
+# Match a bash positional-arg default with a non-empty literal default,
+# e.g. ``METHOD_NAME="${3:-gaussmark_200_tokens}"`` or ``method=${2:-foo}``.
+# Only flags positional defaults ($1, $2, ...) since those are what callers
+# override — an environment-variable default is fine (a user can always
+# export a value from the outside).
+_HARDCODED_POSITIONAL_DEFAULT_RE = re.compile(
+    r'(\w+)\s*=\s*"?\$\{(\d+):-([A-Za-z0-9_][A-Za-z0-9_.\-]*)\}"?'
+)
+
+# Variable names we flag as "this is a method identifier, a hardcoded
+# default here ships a broken single-method scorer." Matched case-
+# insensitively against the LHS captured above. Other positional defaults
+# (e.g. ``RESULTS_DIR="${1:-/home/user/checkpoints}"``) are fine.
+_METHOD_LIKE_VAR_RE = re.compile(
+    r"^(method|method_name|method_id|variant|model|model_name|algo|algorithm)$",
+    re.IGNORECASE,
+)
+
+
+def check_no_hardcoded_method_default() -> list[str]:
+    """Reject scripts/evaluate_{train,test}.sh with a hardcoded method default.
+
+    A pattern like ``METHOD_NAME="${3:-gaussmark_200_tokens}"`` in either
+    script means one invocation without the 3rd positional arg scores ONLY
+    that one method. An improve-mode agent who adds a new variant gets
+    silently ignored on the test side because the default never runs on
+    their variant — every improve run then produces identical "test"
+    numbers regardless of what the agent built.
+
+    The fix is to enumerate methods from the outputs directory (or from
+    ``scoring/scores.json`` / ``scores_train.json``) and iterate. The
+    error message names the exact variable and default so the designer
+    can find and fix it.
+    """
+    errors: list[str] = []
+    scripts_dir = WORKSPACE_DIR / "scripts"
+    for script_name in ("evaluate_train.sh", "evaluate_test.sh"):
+        script_path = scripts_dir / script_name
+        if not script_path.is_file():
+            continue
+        try:
+            text = script_path.read_text()
+        except OSError:
+            continue
+        for m in _HARDCODED_POSITIONAL_DEFAULT_RE.finditer(text):
+            var_name = m.group(1)
+            pos_index = m.group(2)
+            default_value = m.group(3)
+            if not _METHOD_LIKE_VAR_RE.match(var_name):
+                continue
+            errors.append(
+                f"scripts/{script_name}: ${{{pos_index}:-{default_value}}} "
+                f"assigned to '{var_name}' — hardcoded method default. "
+                f"When the script runs without a {pos_index}rd positional "
+                f"arg (which is always, in automated workflows), it will "
+                f"score only '{default_value}' and silently skip every "
+                f"other method. Replace the default with enumeration over "
+                f"methods found under the outputs directory (or over keys "
+                f"in scoring/scores.json), and iterate."
+            )
+    return errors
+
+
+def check_method_keys_match_across_train_test() -> list[str]:
+    """Reject mismatched method-identifier sets between train and test scores.
+
+    For each experiment that appears in both ``scores_train.json`` and
+    ``scores_test.json``, the set of method keys under
+    ``experiments.<exp>.results`` must match exactly. If train scored
+    methods {A, B, C} but test scored only {A}, the test column is
+    incomplete for this paper — either the designer hardcoded a single
+    method (see the sibling check) or the script was invoked with a
+    narrowing argument.
+
+    Error messages call out the specific missing keys so the designer
+    knows which methods the test pass skipped.
+    """
+    errors: list[str] = []
+    train_path = SCORING_DIR / "scores_train.json"
+    test_path = SCORING_DIR / "scores_test.json"
+    if not train_path.is_file() or not test_path.is_file():
+        return errors
+    try:
+        train = json.loads(train_path.read_text())
+        test = json.loads(test_path.read_text())
+    except (OSError, json.JSONDecodeError):
+        return errors
+
+    train_exps = _extract_scores_experiments(train)
+    test_exps = _extract_scores_experiments(test)
+
+    shared = set(train_exps.keys()) & set(test_exps.keys())
+    if not shared:
+        return errors  # nothing to compare
+
+    for exp in sorted(shared):
+        train_methods = {k for k in train_exps[exp].keys() if not k.startswith("_")}
+        test_methods = {k for k in test_exps[exp].keys() if not k.startswith("_")}
+        if train_methods == test_methods:
+            continue
+        only_in_train = sorted(train_methods - test_methods)
+        only_in_test = sorted(test_methods - train_methods)
+        parts = []
+        if only_in_train:
+            parts.append(
+                f"missing from scores_test.json: {only_in_train}"
+            )
+        if only_in_test:
+            parts.append(
+                f"missing from scores_train.json: {only_in_test}"
+            )
+        errors.append(
+            f"experiments.{exp}: method-key sets differ between "
+            f"scores_train.json and scores_test.json — "
+            f"{'; '.join(parts)}. Every method scored on train must also "
+            f"be scored on test (and vice versa). Re-run the evaluate_*.sh "
+            f"scripts with enumeration over the full method set, not a "
+            f"single hardcoded name."
+        )
+    return errors
+
+
+# The designer step produces these six artifacts as a bundle, split across
+# two phases: the four design artifacts (eval folders + scripts) are written
+# during the design iterations; the two score files are produced later by
+# running the scripts. Pre-design iterations should have none; during-design
+# iterations should have the four design artifacts but NOT the score files
+# (stubs this early mislead the validator and the runner). Post-design
+# iterations must have all six.
+_SPLIT_DESIGN_ARTIFACTS: tuple[tuple[str, str], ...] = (
+    ("eval/train", "dir"),
+    ("eval/test", "dir"),
+    ("scripts/evaluate_train.sh", "file"),
+    ("scripts/evaluate_test.sh", "file"),
+)
+_SPLIT_SCORE_ARTIFACTS: tuple[tuple[str, str], ...] = (
+    ("scoring/scores_train.json", "file"),
+    ("scoring/scores_test.json", "file"),
+)
+_SPLIT_ARTIFACTS: tuple[tuple[str, str], ...] = _SPLIT_DESIGN_ARTIFACTS + _SPLIT_SCORE_ARTIFACTS
+
+
+def check_split_mode_during_design() -> list[str]:
+    """During design iterations: the four design artifacts must exist; the
+    two score files must NOT.
+
+    Stage 1 (architect) writes eval/train/, eval/test/, and the two
+    evaluate_*.sh scripts. Stage 2 (auditor) may improve those. Neither
+    stage should produce scores_train.json or scores_test.json — those
+    files are the output of running the scripts, which happens in Stage 3.
+
+    If a design artifact is missing, the design iteration didn't finish —
+    fail so the swarm surfaces the gap. If a score file exists, someone
+    dropped a stub that will mislead the post-design validator and confuse
+    the runner — fail and name the file.
+    """
+    errors: list[str] = []
+
+    missing_design = [
+        (rel, kind) for rel, kind in _SPLIT_DESIGN_ARTIFACTS
+        if not ((WORKSPACE_DIR / rel).is_dir() if kind == "dir"
+                else (WORKSPACE_DIR / rel).is_file())
+    ]
+    if missing_design:
+        labels = "\n        ".join(
+            f"- {rel}/" if kind == "dir" else f"- {rel}"
+            for rel, kind in missing_design
+        )
+        errors.append(
+            f"design-phase artifacts missing — a design iteration must "
+            f"leave all four of eval/train/, eval/test/, "
+            f"scripts/evaluate_train.sh, scripts/evaluate_test.sh in place "
+            f"so the runner iteration has scripts to execute. Missing:\n"
+            f"        {labels}"
+        )
+
+    present_scores = [
+        rel for rel, _kind in _SPLIT_SCORE_ARTIFACTS
+        if (WORKSPACE_DIR / rel).is_file()
+    ]
+    if present_scores:
+        labels = ", ".join(present_scores)
+        errors.append(
+            f"score file(s) exist too early: {labels}. Score files are "
+            f"produced by running scripts/evaluate_{{train,test}}.sh in the "
+            f"runner iteration, not written by hand during design. A stub "
+            f"or skeleton here misleads the post-design validator and the "
+            f"runner. Delete the file(s) and let the scripts produce them."
+        )
+
+    return errors
+
+
+def check_split_mode_complete() -> list[str]:
+    """Require all six split-mode artifacts to exist once the designer ran.
+
+    Trigger (signal that the designer has run): any of ``eval/train/``,
+    ``eval/test/``, ``scripts/evaluate_train.sh``, ``scripts/evaluate_test.sh``,
+    ``scoring/scores_train.json``, ``scoring/scores_test.json`` exists. All
+    six are produced by the designer step and none by earlier reproducer
+    iterations, so their presence is a reliable "designer ran" marker.
+
+    Requirement: once the trigger fires, all six must exist. A missing
+    artifact means the designer started but didn't finish (timeout, crash,
+    incorrect ``action.yaml``) or never produced a complete split. The
+    error message names exactly which artifacts are missing so the agent
+    sees what to add.
+
+    Pre-designer iterations: none of the six exist → trigger doesn't fire
+    → check is silent. The implicit before/after-designer branch is
+    signaled by filesystem state.
+    """
+    def _exists(rel: str, kind: str) -> bool:
+        p = WORKSPACE_DIR / rel
+        return p.is_dir() if kind == "dir" else p.is_file()
+
+    present = [(rel, kind) for rel, kind in _SPLIT_ARTIFACTS if _exists(rel, kind)]
+    missing = [(rel, kind) for rel, kind in _SPLIT_ARTIFACTS if not _exists(rel, kind)]
+
+    if not present or not missing:
+        # Either nothing triggered (pre-designer), or everything is present.
+        return []
+
+    def _label(rel: str, kind: str) -> str:
+        return f"{rel}/" if kind == "dir" else rel
+
+    present_list = ", ".join(_label(r, k) for r, k in present)
+    missing_list = "\n        ".join(f"- {_label(r, k)}" for r, k in missing)
+    return [
+        f"split-mode artifacts incomplete. The designer step produces all "
+        f"six together — a half-built split means the designer didn't "
+        f"finish and the paper cannot serve as a train/test gym entry.\n"
+        f"      Present: {present_list}\n"
+        f"      Missing:\n        {missing_list}\n"
+        f"      Fix: either re-run the designer iteration to produce the "
+        f"missing artifacts, or remove the partial artifacts if this paper "
+        f"is intentionally not going through the split workflow."
+    ]
+
+
+def check_at_least_one_train_test_differs() -> list[str]:
+    """Reject papers whose train and test scores are byte-identical everywhere.
+
+    When every shared experiment has identical method-score dicts between
+    ``scores_train.json`` and ``scores_test.json``, the test slice did not
+    actually run against different data — it's either a direct copy from
+    train or the script fell through to the train code path. The "test"
+    column then provides zero anti-shortcut signal: any agent whose scores
+    match the reference on train will match identically on test too.
+
+    Rule: at least ONE shared experiment must have a method-score dict
+    that differs between the two files. If ALL shared experiments are
+    byte-identical, fail.
+
+    This is intentionally more lenient than the prompt checklist (which
+    asks for separation on EVERY experiment). A paper where 1 of 2
+    experiments has real separation still ships a meaningful partial
+    signal; a paper where 2 of 2 are identical ships nothing. Partial
+    passes here, total-failure fails here.
+    """
+    train_path = SCORING_DIR / "scores_train.json"
+    test_path = SCORING_DIR / "scores_test.json"
+    if not train_path.is_file() or not test_path.is_file():
+        return []
+    try:
+        train = json.loads(train_path.read_text())
+        test = json.loads(test_path.read_text())
+    except (OSError, json.JSONDecodeError):
+        return []
+
+    train_exps = _extract_scores_experiments(train)
+    test_exps = _extract_scores_experiments(test)
+
+    shared = set(train_exps.keys()) & set(test_exps.keys())
+    if not shared:
+        return []  # no shared experiments — a different check covers this
+
+    identical_count = 0
+    for exp in shared:
+        # Compare method-result dicts via sorted-key JSON so dict ordering
+        # doesn't cause spurious mismatches, but value precision matters.
+        train_methods = {
+            k: v for k, v in train_exps[exp].items() if not k.startswith("_")
+        }
+        test_methods = {
+            k: v for k, v in test_exps[exp].items() if not k.startswith("_")
+        }
+        if json.dumps(train_methods, sort_keys=True) != json.dumps(
+            test_methods, sort_keys=True
+        ):
+            return []  # at least one experiment differs — pass
+        identical_count += 1
+
+    return [
+        f"scores_train.json and scores_test.json have byte-identical "
+        f"method scores across all {identical_count} shared experiment(s) "
+        f"— the test slice never ran against different data from train, "
+        f"so the test column provides zero anti-shortcut signal. Re-run "
+        f"scripts/evaluate_test.sh against the held-out test data, or "
+        f"fix the script so it invokes the eval/test/ code path "
+        f"(evaluate_test.sh must point at eval/test/ and write to "
+        f"scoring/scores_test.json; see the prompt's pre-done checklist)."
+    ]
+
+
+def check_primary_metric_differs_train_test() -> list[str]:
+    """Reject papers whose primary metric is identical on train and test.
+
+    The coarser ``check_at_least_one_train_test_differs`` compares entire
+    method dicts. A single differing secondary metric passes that check
+    even when the primary metric — the one the gym ranks agents by — is
+    identical across slices. This happens when the primary metric is
+    global (per-run, not per-sample) and the data split only varies
+    sample-level outputs.
+
+    Uses ``primary_metric`` from ``reference.json`` (a validated,
+    required field) to identify the metric that matters per experiment.
+    """
+    ref_path = SCORING_DIR / "reference.json"
+    train_path = SCORING_DIR / "scores_train.json"
+    test_path = SCORING_DIR / "scores_test.json"
+    if not all(p.is_file() for p in (ref_path, train_path, test_path)):
+        return []
+    try:
+        ref = json.loads(ref_path.read_text())
+        train = json.loads(train_path.read_text())
+        test = json.loads(test_path.read_text())
+    except (OSError, json.JSONDecodeError):
+        return []
+
+    ref_exps = ref.get("experiments", {})
+    train_exps = _extract_scores_experiments(train)
+    test_exps = _extract_scores_experiments(test)
+
+    errors: list[str] = []
+    for exp_name in sorted(set(train_exps) & set(test_exps) & set(ref_exps)):
+        primary = ref_exps[exp_name].get("primary_metric")
+        if not primary:
+            continue
+
+        train_methods = train_exps[exp_name]
+        test_methods = test_exps[exp_name]
+        shared_methods = [
+            m for m in sorted(set(train_methods) & set(test_methods))
+            if not m.startswith("_")
+        ]
+        if not shared_methods:
+            continue
+
+        all_identical = True
+        for method in shared_methods:
+            train_val = train_methods[method].get(primary) if isinstance(train_methods[method], dict) else None
+            test_val = test_methods[method].get(primary) if isinstance(test_methods[method], dict) else None
+            if train_val != test_val:
+                all_identical = False
+                break
+
+        if all_identical:
+            sample_method = shared_methods[0]
+            sample_val = (
+                train_methods[sample_method].get(primary)
+                if isinstance(train_methods[sample_method], dict) else None
+            )
+            errors.append(
+                f"experiments.{exp_name}: primary metric '{primary}' is "
+                f"identical between scores_train.json and scores_test.json "
+                f"for every method (e.g., {sample_method}={sample_val}). "
+                f"The train/test split does not differentiate the metric "
+                f"the gym ranks agents by — consider a metric split or a "
+                f"different evaluation axis instead of a data split."
+            )
+
+    return errors
+
+
 _SHARED_PATTERN = re.compile(r"(?<![A-Za-z0-9_/])/?shared/(?:datasets|models|hf_cache)\b")
 
 
@@ -495,6 +1098,19 @@ def main():
                         help="Only validate reference.json")
     parser.add_argument("--compare", action="store_true",
                         help="Compare scores against reference")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--during-design", action="store_true",
+                      help="Activate during-design checks (the four design "
+                           "artifacts — eval/train/, eval/test/, the two "
+                           "evaluate_*.sh scripts — must exist; the two "
+                           "score files must NOT exist yet). On for "
+                           "designer stage 1 and stage 2.")
+    mode.add_argument("--post-design", action="store_true",
+                      help="Activate post-design checks (all six split "
+                           "artifacts must exist, scores_train/test must be "
+                           "populated and differ). On after the final "
+                           "designer stage, for the packager, and for the "
+                           "verifier.")
     args = parser.parse_args()
 
     ok = True
@@ -551,27 +1167,35 @@ def main():
             if args.compare and not scores_errors and filename == "scores.json":
                 compare_scores(scores_data, ref_data)
 
-        # 2b. Designer-produced shell entry points: if the designer wrote a
-        # scores_train.json / scores_test.json, a matching evaluate_train.sh /
-        # evaluate_test.sh must also exist alongside scripts/evaluate.sh. Only
-        # checked when the corresponding score file is present, so pre-designer
-        # iterations don't get flagged.
-        scripts_dir = WORKSPACE_DIR / "scripts"
-        for score_name, script_name in (
-            ("scores_train.json", "evaluate_train.sh"),
-            ("scores_test.json", "evaluate_test.sh"),
-        ):
-            if not (SCORING_DIR / score_name).exists():
-                continue
-            script_path = scripts_dir / script_name
-            if not script_path.exists():
-                print(
-                    f"  ✗ scripts/{script_name} missing "
-                    f"(required when scoring/{score_name} is present)"
-                )
+        # 2b. Split-mode artifacts. Three modes:
+        #   - default (pre-design reproducer iterations): ignore all six
+        #     artifacts; they aren't expected yet.
+        #   - --during-design (stage 1, stage 2): the four design artifacts
+        #     must exist; the two score files must NOT exist yet.
+        #   - --post-design (stage 3, packager, verifier): all six must
+        #     exist, and downstream score-differentiation checks apply.
+        if args.during_design:
+            split_errors = check_split_mode_during_design()
+            if split_errors:
+                print(f"  split-mode artifacts — {len(split_errors)} error(s):")
+                for e in split_errors:
+                    print(f"    ✗ {e}")
                 ok = False
             else:
-                print(f"  scripts/{script_name} — OK")
+                print("  split-mode artifacts — OK (design artifacts present, no early score files)")
+        elif args.post_design:
+            split_errors = check_split_mode_complete()
+            if split_errors:
+                print(f"  split-mode artifacts — {len(split_errors)} error(s):")
+                for e in split_errors:
+                    print(f"    ✗ {e}")
+                ok = False
+            elif any(
+                (WORKSPACE_DIR / rel).is_dir() if kind == "dir"
+                else (WORKSPACE_DIR / rel).is_file()
+                for rel, kind in _SPLIT_ARTIFACTS
+            ):
+                print("  split-mode artifacts — OK (all 6 present)")
 
     # 3. Import separation
     print("\n── Structure ──")
@@ -613,6 +1237,67 @@ def main():
         ok = False
     else:
         print("  shared/ references — OK (no shared/ paths in committed code)")
+
+    # 7. scripts/evaluate_{train,test}.sh point at the right slice
+    rewire_errors = check_train_test_scripts_rewired()
+    if rewire_errors:
+        print(f"  evaluate_{{train,test}}.sh rewiring — {len(rewire_errors)} error(s):")
+        for e in rewire_errors:
+            print(f"    ✗ {e}")
+        ok = False
+    else:
+        # Print only if both scripts exist (silent skip otherwise).
+        if ((WORKSPACE_DIR / "scripts" / "evaluate_train.sh").is_file()
+            and (WORKSPACE_DIR / "scripts" / "evaluate_test.sh").is_file()):
+            print("  evaluate_{train,test}.sh rewiring — OK")
+
+    # 8. No hardcoded method-name positional default in evaluate_*.sh
+    hardcoded_errors = check_no_hardcoded_method_default()
+    if hardcoded_errors:
+        print(f"  evaluate_{{train,test}}.sh method defaults — {len(hardcoded_errors)} error(s):")
+        for e in hardcoded_errors:
+            print(f"    ✗ {e}")
+        ok = False
+    else:
+        if ((WORKSPACE_DIR / "scripts" / "evaluate_train.sh").is_file()
+            or (WORKSPACE_DIR / "scripts" / "evaluate_test.sh").is_file()):
+            print("  evaluate_{train,test}.sh method defaults — OK (no hardcoded method name)")
+
+    # 9. Method-key sets match between scores_train.json and scores_test.json
+    method_match_errors = check_method_keys_match_across_train_test()
+    if method_match_errors:
+        print(f"  scores_train.json ↔ scores_test.json method keys — {len(method_match_errors)} error(s):")
+        for e in method_match_errors:
+            print(f"    ✗ {e}")
+        ok = False
+    else:
+        if ((SCORING_DIR / "scores_train.json").is_file()
+            and (SCORING_DIR / "scores_test.json").is_file()):
+            print("  scores_train.json ↔ scores_test.json method keys — OK")
+
+    # 10. At least one shared experiment must differ between train and test
+    differs_errors = check_at_least_one_train_test_differs()
+    if differs_errors:
+        print(f"  scores_train.json ↔ scores_test.json value differentiation — {len(differs_errors)} error(s):")
+        for e in differs_errors:
+            print(f"    ✗ {e}")
+        ok = False
+    else:
+        if ((SCORING_DIR / "scores_train.json").is_file()
+            and (SCORING_DIR / "scores_test.json").is_file()):
+            print("  scores_train.json ↔ scores_test.json value differentiation — OK")
+
+    # 11. Primary metric must differ between train and test
+    primary_errors = check_primary_metric_differs_train_test()
+    if primary_errors:
+        print(f"  primary metric train/test differentiation — {len(primary_errors)} error(s):")
+        for e in primary_errors:
+            print(f"    ✗ {e}")
+        ok = False
+    else:
+        if ((SCORING_DIR / "scores_train.json").is_file()
+            and (SCORING_DIR / "scores_test.json").is_file()):
+            print("  primary metric train/test differentiation — OK")
 
     # Summary
     print()

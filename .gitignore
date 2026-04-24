@@ -186,7 +186,6 @@ Thumbs.db
 core.*
 # Auto-added by swarm
 environment/overlay.img
-data/
 !data/
 data/*
 !data/.gitkeep
@@ -199,3 +198,34 @@ tmp/
 protocol.md
 *.egg-info
 core.[0-9]*
+
+# Auto-added by swarm
+data/downloads/
+environment/*.tar.xz
+oci_layout/
+oci-image/
+oci-images/
+docker_*/
+docker_*.tar
+docker_*.tar.gz
+docker_*.tar.xz
+*.tar.xz
+.pip_cache/
+.pip-cache/
+pip_cache/
+pip-cache/
+.hf_cache/
+.hf-cache/
+hf_cache/
+.huggingface/
+huggingface_hub/
+*_extracted/
+nvidia_libs/
+nvidia-libs/
+nvidia_wheels/
+nvidia-wheels/
+all_libs/
+wheels/
+python_wheels/
+*.bundle
+*.bundle.lock
