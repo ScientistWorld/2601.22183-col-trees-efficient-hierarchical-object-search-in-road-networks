@@ -5,7 +5,7 @@ Simple baselines for AkNN, kFN, and range queries.
 """
 
 import heapq
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 from data.graph import RoadNetwork, ObjectSet
 
 
@@ -86,32 +86,65 @@ def kfn_bruteforce(graph: RoadNetwork, objects: ObjectSet,
 
 
 def kfn_aubphl(graph: RoadNetwork, objects: ObjectSet,
-                q: int, k: int, max_candidates: int = 10000) -> List[int]:
+                q: int, k: int,
+                landmarks: Optional[List[int]] = None,
+                landmark_sdls: Optional[List[List[float]]] = None,
+                return_stats: bool = False) -> List[int]:
     """
-    AUB-PHL: Upper-bound filtering with Dijkstra.
+    AUB-PHL style baseline using landmark upper bounds and exact verification.
 
-    Similar to the paper's AUB-PHL baseline: compute upper bounds to all objects,
-    filter by best upper bounds, then verify.
+    The workspace does not ship the paper's PHL distance oracle, so this baseline
+    uses exact Dijkstra distances for verification while preserving the paper's
+    upper-bound-first candidate ordering over all objects.
     """
-    # Simple: use Euclidean distance as upper bound approximation
-    candidates = []
-    for obj in objects.objects:
-        euc_ub = graph.euclidean_distance(q, obj)
-        candidates.append((euc_ub, obj))
+    d_q = graph.dijkstra(q)
 
-    candidates.sort(key=lambda x: -x[0])  # descending by upper bound
-    candidates = candidates[:max_candidates]
+    if landmarks and landmark_sdls:
+        d_lq = []
+        for li_idx, landmark in enumerate(landmarks):
+            if li_idx < len(landmark_sdls) and q < len(landmark_sdls[li_idx]):
+                d_lq.append(landmark_sdls[li_idx][q])
+            else:
+                d_lq.append(d_q[landmark])
 
-    # Verify
-    results = []
-    for _, obj in candidates:
-        dist = graph.dijkstra(q)[obj]
-        results.append((dist, obj))
-        if len(results) >= k * 10:
+        candidates = []
+        for obj in objects.objects:
+            upper_bounds = []
+            for li_idx, _ in enumerate(landmarks):
+                if li_idx < len(landmark_sdls) and obj < len(landmark_sdls[li_idx]):
+                    upper_bounds.append(d_lq[li_idx] + landmark_sdls[li_idx][obj])
+            ub = min(upper_bounds) if upper_bounds else d_q[obj]
+            candidates.append((ub, obj))
+    else:
+        candidates = [(d_q[obj], obj) for obj in objects.objects]
+
+    candidates.sort(key=lambda x: -x[0])
+
+    topk = []
+    exact_lookups = 0
+    scanned_candidates = 0
+    D_k = 0.0
+
+    for rank, (ub, obj) in enumerate(candidates):
+        if len(topk) >= k and ub <= D_k:
             break
+        dist = d_q[obj]
+        exact_lookups += 1
+        scanned_candidates = rank + 1
+        if len(topk) < k:
+            heapq.heappush(topk, (dist, obj))
+        elif dist > topk[0][0]:
+            heapq.heapreplace(topk, (dist, obj))
+        D_k = topk[0][0] if len(topk) >= k else 0.0
 
-    results.sort(key=lambda x: -x[0])
-    return [obj for _, obj in results[:k]]
+    final = [obj for _, obj in sorted(topk, key=lambda x: -x[0])]
+    if return_stats:
+        return final[:k], {
+            'upper_bound_candidates': len(candidates),
+            'scanned_candidates': scanned_candidates,
+            'exact_distance_lookups': exact_lookups,
+        }
+    return final[:k]
 
 
 def range_bruteforce(graph: RoadNetwork, objects: ObjectSet,

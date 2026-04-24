@@ -251,12 +251,13 @@ class SULTree:
 
         selected = [vertices[0]]  # start with first vertex
         adj = self.graph.adj
+        vertex_set = set(vertices)
 
         # Find border vertices (adjacent to vertices outside the range)
         border = set()
         for v in vertices:
             for neighbor, _ in adj[v]:
-                if neighbor not in vertices:
+                if neighbor not in vertex_set:
                     border.add(v)
                     break
 
@@ -280,10 +281,11 @@ class SULTree:
 
         # Sample subset of border vertices
         adj = self.graph.adj
+        vertex_set = set(vertices)
         border = set()
         for v in vertices:
             for neighbor, _ in adj[v]:
-                if neighbor not in vertices:
+                if neighbor not in vertex_set:
                     border.add(v)
                     break
 

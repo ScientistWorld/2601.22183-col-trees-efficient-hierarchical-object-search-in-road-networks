@@ -25,6 +25,29 @@ from method.baselines import (
 )
 
 
+def resolve_network_path(network_name: str) -> str:
+    """Resolve a network file from known workspace locations."""
+    candidates = {
+        'usroads-48': [
+            '/home/user/data/downloads/road-usroads-48.mtx',
+            '/home/user/data/road-usroads-48.mtx',
+        ],
+        'roadnet-pa': [
+            '/home/user/data/downloads/roadNet-PA.txt',
+            '/home/user/data/roadNet-PA.txt',
+        ],
+    }
+    if network_name not in candidates:
+        raise ValueError(f"Unknown network: {network_name}")
+
+    for path in candidates[network_name]:
+        if os.path.exists(path):
+            return path
+    raise FileNotFoundError(
+        f"Could not find data for {network_name}. Run bash scripts/download.sh first."
+    )
+
+
 def run_experiment(network_name: str, query_type: str, k: int = 10,
                    n_queries: int = 50, density: float = 0.001,
                    agg: str = 'max', Q_size: int = 4,
@@ -35,17 +58,8 @@ def run_experiment(network_name: str, query_type: str, k: int = 10,
     """Run a single experiment configuration."""
 
     # Load network
-    data_dir = '/home/user/data/downloads'
-    networks = {
-        'usroads-48': f'{data_dir}/road-usroads-48.mtx',
-        'roadnet-pa': f'{data_dir}/roadNet-PA.txt',
-    }
-
-    if network_name not in networks:
-        raise ValueError(f"Unknown network: {network_name}")
-
     print(f"Loading network {network_name}...")
-    graph = load_network(networks[network_name])
+    graph = load_network(resolve_network_path(network_name))
     print(f"  Loaded: {graph.num_vertices} vertices, {graph.num_edges} edges")
 
     # Generate object set
@@ -90,7 +104,7 @@ def run_experiment(network_name: str, query_type: str, k: int = 10,
         _run_aknn_experiments(graph, obj_set, col_tree, query_vertices,
                                results, k, n_queries, agg, Q_size, seed)
     elif query_type == 'kfn':
-        _run_kfn_experiments(graph, obj_set, col_tree, query_vertices,
+        _run_kfn_experiments(graph, obj_set, sul_tree, col_tree, query_vertices,
                               results, k, n_queries, seed)
     elif query_type == 'range':
         results['radius_pct'] = radius_pct
@@ -107,7 +121,7 @@ def run_experiment(network_name: str, query_type: str, k: int = 10,
 
         kfn_results = dict(results)
         kfn_results['queries'] = []
-        _run_kfn_experiments(graph, obj_set, col_tree, query_vertices,
+        _run_kfn_experiments(graph, obj_set, sul_tree, col_tree, query_vertices,
                               kfn_results, k, n_queries, seed)
         results_all['kfn'] = kfn_results
 
@@ -175,22 +189,46 @@ def _run_aknn_experiments(graph, obj_set, col_tree, query_vertices,
           f"Accuracy={results['queries']['accuracy']:.1%}")
 
 
-def _run_kfn_experiments(graph, obj_set, col_tree, query_vertices,
+def _run_kfn_experiments(graph, obj_set, sul_tree, col_tree, query_vertices,
                           results, k, n_queries, seed):
     """Run kFN query experiments."""
     col_times = []
     brute_times = []
+    aub_times = []
     correct = 0
     total = 0
+    aub_correct = 0
+    aub_total = 0
+    col_candidate_counts = []
+    col_exact_lookups = []
+    aub_candidate_counts = []
+    aub_exact_lookups = []
 
     for i in range(n_queries):
         q = query_vertices[i]
 
         # COL-Tree query
         start = time.time()
-        col_result = col_tree.query_kfn(q, k)
+        col_result, col_stats = col_tree.query_kfn(q, k, return_stats=True)
         col_time = time.time() - start
         col_times.append(col_time * 1000)
+        col_candidate_counts.append(col_stats['candidate_objects_retrieved'])
+        col_exact_lookups.append(col_stats['exact_distance_lookups'])
+
+        start = time.time()
+        aub_result, aub_stats = kfn_aubphl(
+            graph,
+            obj_set,
+            q,
+            k,
+            landmarks=sul_tree.root.landmarks,
+            landmark_sdls=sul_tree.root.sdls,
+            return_stats=True,
+        )
+        aub_time = time.time() - start
+        aub_times.append(aub_time * 1000)
+        aub_candidate_counts.append(aub_stats['scanned_candidates'])
+        aub_exact_lookups.append(aub_stats['exact_distance_lookups'])
 
         # Brute force
         if total < 5:
@@ -203,26 +241,63 @@ def _run_kfn_experiments(graph, obj_set, col_tree, query_vertices,
             brute_set = set(brute_result)
             if col_set == brute_set:
                 correct += 1
+            aub_set = set(aub_result)
+            if aub_set == brute_set:
+                aub_correct += 1
             total += 1
+            aub_total += 1
         elif total == 0:
             brute_result = kfn_bruteforce(graph, obj_set, q, k)
             col_set = set(col_result)
             brute_set = set(brute_result)
             if col_set == brute_set:
                 correct = 1
+            aub_set = set(aub_result)
+            if aub_set == brute_set:
+                aub_correct = 1
             total = 1
+            aub_total = 1
 
     results['queries'] = {
         'col_avg_time_ms': sum(col_times) / len(col_times) if col_times else 0,
+        'aub_avg_time_ms': sum(aub_times) / len(aub_times) if aub_times else 0,
         'brute_avg_time_ms': sum(brute_times) / len(brute_times) if brute_times else 0,
         'correct': correct,
         'total': total,
         'accuracy': correct / total if total > 0 else 0,
         'individual_times': col_times,
+        'aub_individual_times': aub_times,
+        'aub_correct': aub_correct,
+        'aub_total': aub_total,
+        'aub_accuracy': aub_correct / aub_total if aub_total > 0 else 0,
+        'speedup_over_aub': (
+            (sum(aub_times) / len(aub_times)) / (sum(col_times) / len(col_times))
+            if col_times and aub_times and sum(col_times) > 0
+            else 0
+        ),
+        'col_candidate_objects_avg': (
+            sum(col_candidate_counts) / len(col_candidate_counts)
+            if col_candidate_counts else 0
+        ),
+        'col_exact_lookups_avg': (
+            sum(col_exact_lookups) / len(col_exact_lookups)
+            if col_exact_lookups else 0
+        ),
+        'aub_candidate_objects_avg': (
+            sum(aub_candidate_counts) / len(aub_candidate_counts)
+            if aub_candidate_counts else 0
+        ),
+        'aub_exact_lookups_avg': (
+            sum(aub_exact_lookups) / len(aub_exact_lookups)
+            if aub_exact_lookups else 0
+        ),
     }
     print(f"  kFN: COL avg={results['queries']['col_avg_time_ms']:.3f}ms, "
+          f"AUB avg={results['queries']['aub_avg_time_ms']:.3f}ms, "
           f"Brute avg={results['queries']['brute_avg_time_ms']:.3f}ms, "
-          f"Accuracy={results['queries']['accuracy']:.1%}")
+          f"Accuracy={results['queries']['accuracy']:.1%}, "
+          f"COL/AUB exact lookups={results['queries']['col_exact_lookups_avg']:.1f}/"
+          f"{results['queries']['aub_exact_lookups_avg']:.1f}")
 
 
 def _run_range_experiments(graph, obj_set, col_tree, query_vertices,

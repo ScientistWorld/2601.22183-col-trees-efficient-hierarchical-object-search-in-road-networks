@@ -592,15 +592,21 @@ class COLTree:
     # kFN Query Algorithm
     # =====================================================================
 
-    def query_kfn(self, q: int, k: int) -> List[int]:
+    def query_kfn(self, q: int, k: int, return_stats: bool = False):
         """
         k Farthest Neighbor query (Algorithm 2 from paper).
         """
         self._reset_query_state(self.root)
         self._kfn_q = q  # Store for use in helper methods
+        self._kfn_k = k
         result_objs = []  # min-heap: (dist, obj)
-        result_dists = []
         D_k = 0.0
+        stats = {
+            'nodes_popped': 0,
+            'leaf_visits': 0,
+            'candidate_objects_retrieved': 0,
+            'exact_distance_lookups': 0,
+        }
 
         # Precompute Dijkstra from q
         d_q = self.graph.dijkstra(q)
@@ -613,44 +619,48 @@ class COLTree:
         while pq:
             neg_ub, _, item, itype = heapq.heappop(pq)
             ub = -neg_ub
+            stats['nodes_popped'] += 1
 
             # Only prune when we have k results and ub falls below D_k
-            if len(result_dists) >= k and ub <= D_k:
+            if len(result_objs) >= k and ub <= D_k:
                 break
 
             if itype == 'node':
                 node = item
                 if node.is_leaf:
+                    stats['leaf_visits'] += 1
                     if not node.seen:
                         self._init_leaf_node_kfn(node, q)
                         node.seen = True
                         self._retrieve_objects_odl_kfn(node, d_q, result_objs,
-                                                        result_dists, D_k, pq, tie)
-                        D_k = result_dists[-1] if len(result_dists) >= k else 0.0
+                                                        D_k, pq, tie,
+                                                        stats)
+                        D_k = result_objs[0][0] if len(result_objs) >= k else 0.0
 
                     node_ub = self._compute_leaf_ub_remaining(node, self._kfn_q)
                     # Re-add if: haven't found k results, OR (node has more objects AND ub >= D_k)
                     more_objects = node.RP >= 0
-                    if len(result_dists) < k or (more_objects and node_ub >= D_k):
+                    if len(result_objs) < k or (more_objects and node_ub >= D_k):
                         heapq.heappush(pq, (-node_ub, tie, node, 'node'))
                         tie += 1
                 else:
                     for child in node.children:
                         cub = self.compute_ub(q, child)
-                        if len(result_dists) < k or cub >= D_k:
+                        if len(result_objs) < k or cub >= D_k:
                             heapq.heappush(pq, (-cub, tie, child, 'node'))
                             tie += 1
             else:
                 obj = item
                 dist = d_q[obj]
-                bisect.insort(result_dists, dist)
-                heapq.heappush(result_objs, (dist, obj))
-                if len(result_dists) > k:
-                    result_dists.pop()
-                    heapq.heappop(result_objs)
-                D_k = result_dists[-1] if len(result_dists) >= k else 0.0
+                if len(result_objs) < k:
+                    heapq.heappush(result_objs, (dist, obj))
+                elif dist > result_objs[0][0]:
+                    heapq.heapreplace(result_objs, (dist, obj))
+                D_k = result_objs[0][0] if len(result_objs) >= k else 0.0
 
         final = [obj for _, obj in sorted(result_objs, key=lambda x: -x[0])]
+        if return_stats:
+            return final[:k], stats
         return final[:k]
 
     def _init_leaf_node_kfn(self, node: COLNode, q: int):
@@ -677,8 +687,9 @@ class COLTree:
         node.best_odl_size = len(node.best_odl)
 
     def _retrieve_objects_odl_kfn(self, node: COLNode, d_q: List[float],
-                                   result_objs: List, result_dists: List,
-                                   D_k: float, pq: List, tie: int):
+                                   result_objs: List,
+                                   D_k: float, pq: List, tie: int,
+                                   stats: Optional[Dict[str, int]] = None):
         """Retrieve objects from ODL for kFN (Line 23-27 of Algorithm 2)."""
         if not hasattr(node, 'best_odl') or not node.best_odl:
             return
@@ -695,10 +706,15 @@ class COLTree:
                 break
 
             dist = d_q[obj]
+            if stats is not None:
+                stats['candidate_objects_retrieved'] += 1
+                stats['exact_distance_lookups'] += 1
             # For kFN, add if dist >= D_k (all k farthest objects)
-            if dist >= D_k:
-                bisect.insort(result_dists, dist)
+            if len(result_objs) < self._kfn_k:
                 heapq.heappush(result_objs, (dist, obj))
+            elif dist > result_objs[0][0]:
+                heapq.heapreplace(result_objs, (dist, obj))
+            D_k = result_objs[0][0] if len(result_objs) >= self._kfn_k else D_k
             node.RP -= 1
 
     def _compute_leaf_ub_remaining(self, node: COLNode, q: int) -> float:

@@ -1,3 +1,4 @@
-action: done
+action: submit
 gpus: 0
-notes: "odd/even individual_times split with slice-amortized preprocessing; 5 train experiments and 5 test experiments scored from real runs; primary-metric gaps are AkNN -1.4%, AkNN-density-anchor -1.4%, kFN +2.9%, range -12.1%, preprocessing -12.1%; caveat: density experiment is down-weighted because only one saved density point exists."
+test: false
+notes: "Run a minimal core-claim kFN benchmark on US48 at densities 0.001 and 0.01 with exactness checks, ALT-style AUB baseline timing, and summary output."
