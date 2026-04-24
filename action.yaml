@@ -1,3 +1,3 @@
 action: done
 gpus: 0
-notes: "Added p50/p10 latency percentiles to all query experiments; removed scores_train.json/scores_test.json (design phase should not produce them). All validator checks pass."
+notes: "odd/even individual_times split with slice-amortized preprocessing; 5 train experiments and 5 test experiments scored from real runs; primary-metric gaps are AkNN -1.4%, AkNN-density-anchor -1.4%, kFN +2.9%, range -12.1%, preprocessing -12.1%; caveat: density experiment is down-weighted because only one saved density point exists."

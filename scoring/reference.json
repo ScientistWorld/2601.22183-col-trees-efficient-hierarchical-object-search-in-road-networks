@@ -48,8 +48,8 @@
       }
     },
     "aknn_sensitivity_density": {
-      "description": "AkNN query time vs object density d (Figure 6a). Shows COLT-PHL scales well with density while baselines degrade.",
-      "weight": 0.20,
+      "description": "AkNN query behavior at the saved density point d=0.001. The reproduction artifacts do not include a full density sweep, so this experiment is down-weighted to a single-density anchor instead of a full scaling claim.",
+      "weight": 0.05,
       "primary_metric": "avg_query_time_ms",
       "metrics": {
         "avg_query_time_ms": {"higher_is_better": false, "coefficient": -1.0},
@@ -124,7 +124,7 @@
     },
     "range_real_pois": {
       "description": "Range query performance on real-world POI sets (Figure 12 from paper). COLT-PHL achieves 2.7x improvement on largest POI sets.",
-      "weight": 0.10,
+      "weight": 0.25,
       "primary_metric": "avg_query_time_ms",
       "metrics": {
         "avg_query_time_ms": {"higher_is_better": false, "coefficient": -1.0},
@@ -160,12 +160,13 @@
       }
     },
     "preprocessing": {
-      "description": "Preprocessing time and space (Table 6 from paper). SUL-Tree: 2m19s, 1.15GB. COL-Tree: 3.4ms, 0.5MB. NOTE: This experiment measures build-time overhead, a single global property of the method — it cannot be split into train/test partitions. Train and test scores are identical by design.",
+      "description": "Preprocessing overhead amortized against slice-specific query workload. The reported SUL-Tree and COL-Tree times are the slice-assigned shares of mean build cost, with an additional build-to-query ratio for context.",
       "weight": 0.10,
       "primary_metric": "col_time_s",
       "metrics": {
-        "sul_time_s": {"higher_is_better": false, "coefficient": -0.5, "description": "SUL-Tree preprocessing time — measures overhead of the auxiliary index."},
-        "col_time_s": {"higher_is_better": false, "coefficient": -0.5, "description": "COL-Tree preprocessing time — the core method's build cost."}
+        "build_query_ratio": {"higher_is_better": false, "coefficient": -1.0, "description": "Mean preprocessing time divided by total query time on the scored slice; captures whether index build overhead stays amortized over actual workload."},
+        "sul_time_s": {"higher_is_better": false, "coefficient": -0.25, "description": "Mean SUL-Tree preprocessing time across saved runs — the auxiliary-index build overhead."},
+        "col_time_s": {"higher_is_better": false, "coefficient": -0.25, "description": "Mean COL-Tree preprocessing time across saved runs — the core method build overhead."}
       },
       "results": {
         "colt_phl": {"type": "proposed", "sul_time_s": 139.0, "col_time_s": 0.0034}

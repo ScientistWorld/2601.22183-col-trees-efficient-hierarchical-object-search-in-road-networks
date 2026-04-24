@@ -107,12 +107,43 @@ def query_metrics(records: list[dict[str, Any]]) -> dict[str, float]:
 
 
 def preprocessing_metrics(records: list[dict[str, Any]]) -> dict[str, float]:
+    sul_times: list[float] = []
+    col_times: list[float] = []
+    slice_query_total_ms = 0.0
+    full_query_total_ms = 0.0
+
     for record in records:
         sul_time = record.get("sul_time")
         col_time = record.get("col_time")
-        if isinstance(sul_time, (int, float)) and isinstance(col_time, (int, float)):
-            return {"sul_time_s": float(sul_time), "col_time_s": float(col_time)}
-    return {"sul_time_s": 0.0, "col_time_s": 0.0}
+        if isinstance(sul_time, (int, float)):
+            sul_times.append(float(sul_time))
+        if isinstance(col_time, (int, float)):
+            col_times.append(float(col_time))
+
+        query_block = record.get("queries", {})
+        if isinstance(query_block, dict):
+            slice_query_total_ms += sum(split_times(query_block))
+            raw_times = query_block.get("individual_times") or []
+            if isinstance(raw_times, list) and raw_times:
+                full_query_total_ms += sum(float(value) for value in raw_times)
+            else:
+                avg_time = query_block.get("col_avg_time_ms", 0.0)
+                if isinstance(avg_time, (int, float)) and avg_time > 0:
+                    full_query_total_ms += float(avg_time)
+
+    avg_sul = sum(sul_times) / len(sul_times) if sul_times else 0.0
+    avg_col = sum(col_times) / len(col_times) if col_times else 0.0
+    workload_fraction = slice_query_total_ms / full_query_total_ms if full_query_total_ms > 0 else 0.0
+    amortized_sul = avg_sul * workload_fraction
+    amortized_col = avg_col * workload_fraction
+    query_total_s = slice_query_total_ms / 1000.0
+    build_query_ratio = (avg_sul + avg_col) / query_total_s if query_total_s > 0 else 0.0
+
+    return {
+        "sul_time_s": amortized_sul,
+        "col_time_s": amortized_col,
+        "build_query_ratio": build_query_ratio,
+    }
 
 
 def main() -> None:

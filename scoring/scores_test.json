@@ -1,0 +1,59 @@
+{
+  "aknn_real_pois": {
+    "results": {
+      "colt_phl": {
+        "avg_query_time_ms": 8155.125975608826,
+        "p50_query_time_ms": 7104.949712753296,
+        "p90_query_time_ms": 9205.302238464355,
+        "p10_query_time_ms": 7104.949712753296,
+        "accuracy": 1.0,
+        "speedup_over_brute": 0.999932194277297
+      }
+    }
+  },
+  "aknn_sensitivity_density": {
+    "results": {
+      "colt_phl": {
+        "avg_query_time_ms": 8155.125975608826,
+        "p50_query_time_ms": 7104.949712753296,
+        "p90_query_time_ms": 9205.302238464355,
+        "p10_query_time_ms": 7104.949712753296,
+        "accuracy": 1.0,
+        "speedup_over_brute": 0.999932194277297
+      }
+    }
+  },
+  "kfn_real_pois": {
+    "results": {
+      "colt_phl": {
+        "avg_query_time_ms": 1499.0205574035645,
+        "p50_query_time_ms": 1838.5086059570312,
+        "p90_query_time_ms": 2800.7826805114746,
+        "p10_query_time_ms": 171.74410820007324,
+        "accuracy": 1.0,
+        "speedup_over_brute": 0.9716382929227178
+      }
+    }
+  },
+  "range_real_pois": {
+    "results": {
+      "colt_phl": {
+        "avg_query_time_ms": 1840.0400638580322,
+        "p50_query_time_ms": 1906.4159393310547,
+        "p90_query_time_ms": 3297.92857170105,
+        "p10_query_time_ms": 392.5337791442871,
+        "accuracy": 1.0,
+        "speedup_over_brute": 0.7215907967456676
+      }
+    }
+  },
+  "preprocessing": {
+    "results": {
+      "colt_phl": {
+        "sul_time_s": 4.039422875043559,
+        "col_time_s": 0.1515577050043355,
+        "build_query_ratio": 0.08980224143406579
+      }
+    }
+  }
+}

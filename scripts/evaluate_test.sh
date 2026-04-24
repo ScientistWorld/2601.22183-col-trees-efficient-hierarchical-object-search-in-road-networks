@@ -1,9 +1,8 @@
 #!/bin/bash
 # Evaluate the held-out test slice from pre-generated method result artifacts.
-# Auto-discovers all method entries from existing score files or results.
 # Usage: ./scripts/evaluate_test.sh [results_json_or_dir]
 
-set -e
+set -euo pipefail
 
 cd /home/user
 
@@ -13,57 +12,73 @@ RESULTS_PATH="${1:-/home/user/experiment_results}"
 OUTPUT_FILE="/home/user/scoring/scores_test.json"
 
 if [ ! -e "$RESULTS_PATH" ]; then
-    echo "Error: Results path not found: $RESULTS_PATH"
+    echo "Error: results path not found: $RESULTS_PATH"
     echo "Usage: ./scripts/evaluate_test.sh [results_json_or_dir]"
     exit 1
 fi
 
-# Discover all method names from existing scores or results
-ALL_METHODS=$(python3 - <<'PYEOF'
+python3 - "$RESULTS_PATH" "$OUTPUT_FILE" "/home/user/eval/test/evaluate.py" <<'PYEOF'
 import json
+import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
-# Try to read from existing scores_train.json if it exists
-methods = set()
-scores_train = Path("/home/user/scoring/scores_train.json")
-if scores_train.exists():
-    try:
-        data = json.load(open(scores_train))
-        for exp in data.values():
-            if isinstance(exp, dict) and "results" in exp:
-                methods.update(exp["results"].keys())
-    except:
-        pass
+results_path = Path(sys.argv[1])
+output_file = Path(sys.argv[2])
+eval_script = Path(sys.argv[3])
 
-# Also check experiment results files for any methods
-results_dir = Path("/home/user/experiment_results")
-for f in results_dir.glob("*.json"):
-    try:
-        data = json.load(open(f))
-        # Method name often embedded in results structure
-        if "method" in data:
-            methods.add(data["method"])
-    except:
-        pass
 
-# Default to colt_phl if nothing found
-if not methods:
-    methods.add("colt_phl")
+def discover_method_inputs(path: Path) -> list[tuple[str, Path]]:
+    if path.is_file():
+        return [("colt_phl", path)]
 
-print(" ".join(sorted(methods)))
+    method_dirs = [
+        candidate for candidate in sorted(path.iterdir())
+        if candidate.is_dir() and any(candidate.glob("*.json"))
+    ]
+    if method_dirs:
+        return [(candidate.name, candidate) for candidate in method_dirs]
+
+    if any(path.glob("*.json")):
+        return [("colt_phl", path)]
+
+    raise SystemExit(f"No JSON result artifacts found under {path}")
+
+
+def merge_scores(dst: dict, src: dict) -> None:
+    for experiment_name, experiment_payload in src.items():
+        dst.setdefault(experiment_name, {"results": {}})
+        dst[experiment_name]["results"].update(experiment_payload.get("results", {}))
+
+
+discovered = discover_method_inputs(results_path)
+print("Found methods:", " ".join(name for name, _ in discovered))
+
+merged_scores: dict = {}
+with tempfile.TemporaryDirectory() as tmpdir:
+    tmpdir_path = Path(tmpdir)
+    for method_name, method_path in discovered:
+        tmp_output = tmpdir_path / f"{method_name}.json"
+        subprocess.run(
+            [
+                "python3",
+                str(eval_script),
+                str(method_path),
+                "--method-name",
+                method_name,
+                "--output",
+                str(tmp_output),
+            ],
+            check=True,
+        )
+        with tmp_output.open("r") as handle:
+            merge_scores(merged_scores, json.load(handle))
+
+output_file.parent.mkdir(parents=True, exist_ok=True)
+with output_file.open("w") as handle:
+    json.dump(merged_scores, handle, indent=2)
+    handle.write("\n")
+
+print(f"Test-slice evaluation complete. Scores written to {output_file}")
 PYEOF
-)
-
-if [ -z "$ALL_METHODS" ]; then
-    ALL_METHODS="colt_phl"
-fi
-
-echo "Found methods: $ALL_METHODS"
-
-# Score each method
-python3 /home/user/eval/test/evaluate.py "$RESULTS_PATH" \
-    --method-name "$ALL_METHODS" \
-    --output "$OUTPUT_FILE"
-
-echo "Test-slice evaluation complete. Scores written to $OUTPUT_FILE"
