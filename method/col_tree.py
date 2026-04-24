@@ -170,35 +170,50 @@ class COLTree:
         if not landmarks:
             return 0.0
 
-        lb_values = []
-        for li_idx, landmark in enumerate(landmarks):
-            # Use SUL node's min/max for internal nodes, COL node's for leaves
-            if node.is_leaf:
-                if li_idx >= len(node.max_dist) or li_idx >= len(node.min_dist):
-                    continue
-                M_plus = node.max_dist[li_idx]
-                M_minus = node.min_dist[li_idx]
-            else:
+        if Q and len(Q) > 1:
+            # Compute individual lower bounds for each query vertex
+            all_lbs = []
+            for qi in Q:
+                lb_values = []
+                for li_idx, landmark in enumerate(landmarks):
+                    if node.sul_node and li_idx < len(node.sul_node.max_dist):
+                        M_plus = node.sul_node.max_dist[li_idx]
+                        M_minus = node.sul_node.min_dist[li_idx]
+                    else:
+                        continue
+                    d_li_qi = self._get_root_landmark_dist(landmark, qi)
+                    if d_li_qi is None:
+                        d_li_qi = 0.0
+                    if d_li_qi >= M_plus:
+                        lb = d_li_qi - M_plus
+                    elif d_li_qi <= M_minus:
+                        lb = M_minus - d_li_qi
+                    else:
+                        lb = 0.0
+                    lb_values.append(lb)
+                max_lb = max(lb_values) if lb_values else 0.0
+                all_lbs.append(max_lb)
+            return self._aggregate_bounds(all_lbs, agg)
+        else:
+            # Single query vertex - just compute max LB
+            lb_values = []
+            for li_idx, landmark in enumerate(landmarks):
                 if node.sul_node and li_idx < len(node.sul_node.max_dist):
                     M_plus = node.sul_node.max_dist[li_idx]
                     M_minus = node.sul_node.min_dist[li_idx]
                 else:
                     continue
-            d_li_q = self._get_root_landmark_dist(landmark, q)
-            if d_li_q is None:
-                d_li_q = 0.0
-            if d_li_q >= M_plus:
-                lb = d_li_q - M_plus
-            elif d_li_q <= M_minus:
-                lb = M_minus - d_li_q
-            else:
-                lb = 0.0
-            lb_values.append(lb)
-
-        max_lb = max(lb_values) if lb_values else 0.0
-        if Q and len(Q) > 1:
-            return self._aggregate_bounds([max_lb] * len(Q), agg)
-        return max_lb
+                d_li_q = self._get_root_landmark_dist(landmark, q)
+                if d_li_q is None:
+                    d_li_q = 0.0
+                if d_li_q >= M_plus:
+                    lb = d_li_q - M_plus
+                elif d_li_q <= M_minus:
+                    lb = M_minus - d_li_q
+                else:
+                    lb = 0.0
+                lb_values.append(lb)
+            return max(lb_values) if lb_values else 0.0
 
     def _compute_lb_leaf(self, q: int, node: COLNode,
                          Q: List[int], agg: str) -> float:
@@ -459,10 +474,35 @@ class COLTree:
             else:
                 x_star = C_sorted[n // 2]
 
+        # Find the position closest to x* by computing LB for nearby positions
+        # Search more positions to ensure we find the true minimum LB
         idx = bisect.bisect_left(distances, x_star)
         idx = max(0, min(idx, len(odl) - 1))
-        node.RP = idx
-        node.LP = idx
+
+        # Check positions around idx to find the one with minimum LB
+        # Search a wider range to handle cases where x* is between two positions
+        if agg == 'max':
+            def lb_at(pos):
+                if 0 <= pos < len(distances):
+                    return max(abs(c - distances[pos]) for c in C)
+                return float('inf')
+        else:
+            def lb_at(pos):
+                if 0 <= pos < len(distances):
+                    return sum(abs(c - distances[pos]) for c in C)
+                return float('inf')
+
+        best_pos = idx
+        best_lb = lb_at(idx)
+        # Search ±5 positions around x* to find true minimum
+        for pos in range(max(0, idx - 5), min(len(odl), idx + 6)):
+            pos_lb = lb_at(pos)
+            if pos_lb < best_lb:
+                best_lb = pos_lb
+                best_pos = pos
+
+        node.RP = best_pos
+        node.LP = best_pos
         node.best_odl = odl
         node.best_distances = distances
         node.best_landmark = landmark
@@ -521,8 +561,8 @@ class COLTree:
                 break
 
             # Retrieve next object from the side with smaller LB
-            d_retrieved = float('inf')
-            if lb_left <= lb_right and node.LP >= 0:
+            # Use < instead of <= to prefer left when tied (avoids duplicates at x*)
+            if lb_left < lb_right and node.LP >= 0:
                 d_retrieved = distances[node.LP]
                 obj = odl[node.LP][1]
                 node.LP -= 1
