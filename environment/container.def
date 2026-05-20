@@ -26,36 +26,6 @@ From: python:3.11-slim
 # Use 'runtime' (~1 GB) unless you need to compile CUDA code,
 # in which case use 'devel' (~4 GB).
 
-%files
-    # Road network data
-    data/downloads/road-usroads-48.mtx /home/user/data/downloads/road-usroads-48.mtx
-    data/downloads/roadNet-PA.txt /home/user/data/downloads/roadNet-PA.txt
-    data/loader.py /home/user/data/loader.py
-    data/graph.py /home/user/data/graph.py
-
-    # Experiment code
-    method/sul_tree.py /home/user/method/sul_tree.py
-    method/col_tree.py /home/user/method/col_tree.py
-    method/baselines.py /home/user/method/baselines.py
-    method/graph.py /home/user/method/graph.py
-    method/experiment.py /home/user/method/experiment.py
-
-    # Evaluation code
-    eval/evaluate.py /home/user/eval/evaluate.py
-
-    # Scripts
-    scripts/download.sh /home/user/scripts/download.sh
-    scripts/evaluate.sh /home/user/scripts/evaluate.sh
-    scripts/reproduce.sh /home/user/scripts/reproduce.sh
-    scripts/baseline.sh /home/user/scripts/baseline.sh
-
-    # Scoring
-    scoring/reference.json /home/user/scoring/reference.json
-    scoring/scores.json /home/user/scoring/scores.json
-    scoring/TARGETS.md /home/user/scoring/TARGETS.md
-    scoring/CONSTRAINTS.md /home/user/scoring/CONSTRAINTS.md
-    scoring/DIRECTION.md /home/user/scoring/DIRECTION.md
-
 %post
     apt-get update && apt-get install -y --no-install-recommends \
         tmux nano vim-tiny less curl wget git && \

@@ -9,12 +9,14 @@
 - kFN, AkNN, and range query entry points run on a small local smoke graph and match exact results when ties are handled correctly.
 - `scripts/run.sh` submits the core kFN reproduction and calls `scripts/evaluate.sh` to refresh `scoring/scores.json`.
 - kFN leaf processing now advances on every revisited COL leaf, avoiding a stale requeue state after initialization.
+- `environment/container.def` no longer tries to copy gitignored download artifacts into the container; data is prepared by `scripts/download.sh` in the bind-mounted workspace.
 
 ## Results Achieved
 
 - Current verified milestone remains `method_runs`: the revised algorithm executes on a small local graph.
 - The previous `scores.json` came from older artifacts and should be replaced by the submitted core-claim job before claiming `core_claim`.
 - No fresh `experiment_results/core_claim` artifacts were present during the continuation audit, so the next CPU job is the source of truth for restoring the milestone.
+- The first resubmission did not reach the job stage because the container build attempted to copy `data/downloads/road-usroads-48.mtx`, which is not present in a fresh build checkout. The packaging issue is fixed and the core job is being resubmitted.
 
 ## Deviations From Paper
 
@@ -37,3 +39,4 @@
 - Internal COL nodes previously lacked object-specific min/max landmark distances, weakening or breaking pruning.
 - Correctness checks previously compared sets directly, which falsely rejected valid top-k ties. The experiment code now accepts any exact tied top-k result.
 - kFN leaf nodes were previously only advanced on their first priority-queue visit; that control-flow bug is fixed before the next core run.
+- The container definition previously baked workspace files, including gitignored downloads, into the image despite the workspace being bind-mounted at runtime. This caused the build failure and has been removed.

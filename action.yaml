@@ -5,4 +5,4 @@ action: submit
 gpus: 0
 test: false
 milestone: method_runs
-notes: "CPU core job: run revised local-landmark COL/SUL kFN experiment on US48 after fixing kFN leaf requeue progress, summarize results, and refresh scoring/scores.json."
+notes: "Retry CPU core job after removing container %files references to gitignored downloads; run revised local-landmark COL/SUL kFN on US48 and refresh scoring/scores.json."

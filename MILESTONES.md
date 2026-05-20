@@ -15,5 +15,10 @@
 - Fixed kFN leaf processing so a revisited COL leaf retrieves additional ODL objects instead of being requeued without progress.
 - Resubmitting the US48 kFN core job to generate real scores before restoring `core_claim`.
 
+### [2026-05-20 01:29] - method_runs
+- Container build failed because `environment/container.def` tried to bake gitignored `data/downloads/*` files into the image.
+- Removed the fragile `%files` section; runtime uses the bind-mounted workspace and `scripts/download.sh` repopulates `data/downloads/` from tracked data or verified URLs.
+- Resubmitting the same CPU core job after the environment packaging fix.
+
 ## Stop Justification
 - Not stopped. A compute job is being submitted to validate whether the revised implementation supports `core_claim`.
