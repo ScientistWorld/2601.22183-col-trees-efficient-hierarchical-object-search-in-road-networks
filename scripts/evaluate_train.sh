@@ -1,23 +1,48 @@
 #!/bin/bash
 # Evaluate the public train slice from pre-generated method result artifacts.
-# Usage: ./scripts/evaluate_train.sh [results_json_or_dir]
+#
+# Usage: ./scripts/evaluate_train.sh [results_path] [--method-name NAME[,NAME...]] [--output FILE]
 
 set -euo pipefail
 
 cd /home/user
 
-mkdir -p scoring
-
-RESULTS_PATH="${1:-/home/user/experiment_results}"
+RESULTS_PATH=""
+METHOD_NAMES=""
 OUTPUT_FILE="/home/user/scoring/scores_train.json"
 
+if [ $# -gt 0 ] && [[ "$1" != -* ]]; then
+    RESULTS_PATH="$1"
+    shift
+fi
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --method-name|-m)
+            METHOD_NAMES="${2:-}"
+            shift 2
+            ;;
+        --output|-o)
+            OUTPUT_FILE="${2:-}"
+            shift 2
+            ;;
+        *)
+            echo "Unknown argument: $1" >&2
+            exit 2
+            ;;
+    esac
+done
+
+RESULTS_PATH="${RESULTS_PATH:-/home/user/experiment_results}"
+
 if [ ! -e "$RESULTS_PATH" ]; then
-    echo "Error: results path not found: $RESULTS_PATH"
-    echo "Usage: ./scripts/evaluate_train.sh [results_json_or_dir]"
+    echo "Error: results path not found: $RESULTS_PATH" >&2
     exit 1
 fi
 
-python3 - "$RESULTS_PATH" "$OUTPUT_FILE" "/home/user/eval/train/evaluate.py" <<'PYEOF'
+mkdir -p "$(dirname "$OUTPUT_FILE")"
+
+python3 - "$RESULTS_PATH" "$OUTPUT_FILE" "$METHOD_NAMES" "/home/user/eval/train/evaluate.py" <<'PYEOF'
 import json
 import subprocess
 import sys
@@ -26,22 +51,46 @@ from pathlib import Path
 
 results_path = Path(sys.argv[1])
 output_file = Path(sys.argv[2])
-eval_script = Path(sys.argv[3])
+method_names_arg = sys.argv[3]
+eval_script = Path(sys.argv[4])
 
 
-def discover_method_inputs(path: Path) -> list[tuple[str, Path]]:
+def split_method_names(raw: str) -> list[str]:
+    return [part for part in raw.replace(",", " ").split() if part]
+
+
+def has_result_json(path: Path) -> bool:
     if path.is_file():
-        return [("colt_phl", path)]
+        return path.suffix == ".json"
+    return any(child.suffix == ".json" for child in path.iterdir() if child.is_file())
+
+
+def discover_method_inputs(path: Path, requested: list[str]) -> list[tuple[str, Path]]:
+    if requested:
+        discovered: list[tuple[str, Path]] = []
+        for method_name in requested:
+            method_dir = path / method_name if path.is_dir() else path
+            if method_dir.exists() and has_result_json(method_dir):
+                method_path = method_dir
+            elif has_result_json(path):
+                method_path = path
+            else:
+                raise SystemExit(f"No JSON result artifacts found for method {method_name}")
+            discovered.append((method_name, method_path))
+        return discovered
+
+    if path.is_file():
+        return [(path.stem, path)]
 
     method_dirs = [
-        candidate for candidate in sorted(path.iterdir())
-        if candidate.is_dir() and any(candidate.glob("*.json"))
+        child for child in sorted(path.iterdir())
+        if child.is_dir() and has_result_json(child)
     ]
     if method_dirs:
-        return [(candidate.name, candidate) for candidate in method_dirs]
+        return [(child.name, child) for child in method_dirs]
 
-    if any(path.glob("*.json")):
-        return [("colt_phl", path)]
+    if has_result_json(path):
+        return [(path.name, path)]
 
     raise SystemExit(f"No JSON result artifacts found under {path}")
 
@@ -52,7 +101,7 @@ def merge_scores(dst: dict, src: dict) -> None:
         dst[experiment_name]["results"].update(experiment_payload.get("results", {}))
 
 
-discovered = discover_method_inputs(results_path)
+discovered = discover_method_inputs(results_path, split_method_names(method_names_arg))
 print("Found methods:", " ".join(name for name, _ in discovered))
 
 merged_scores: dict = {}

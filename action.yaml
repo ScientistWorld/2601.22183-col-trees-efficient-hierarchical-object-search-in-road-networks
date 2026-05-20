@@ -2,8 +2,8 @@
 # Once you set action to 'done', STOP immediately.
 # Do NOT sleep, poll, or wait. The system reads this file
 # only after your turn ends.
-action: pending
+action: done
 gpus: 0
 test: false
 milestone: secondary_claims
-notes: ""
+notes: "Even/odd query-index split over pre-generated COL-Tree result artifacts; 3 query experiments plus preprocessing on both train and test; scripts written, scores produced later."
