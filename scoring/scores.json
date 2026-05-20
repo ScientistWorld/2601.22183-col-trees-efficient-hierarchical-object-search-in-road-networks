@@ -12,8 +12,8 @@
   "preprocessing": {
     "results": {
       "colt_us48_repro": {
-        "col_time_s": 0.49335795640945435,
-        "sul_time_s": 19.56636893749237
+        "col_time_s": 0.11228591203689575,
+        "sul_time_s": 14.007100522518158
       }
     }
   },
@@ -21,10 +21,10 @@
     "results": {
       "colt_us48_repro": {
         "accuracy": 1.0,
-        "candidate_max_ratio": 0.3023228159188204,
-        "candidate_p90_ratio": 0.24163627715237038,
-        "candidates_ratio": 0.15664803657311982,
-        "lookup_reduction_vs_brute": 6.402002364442037
+        "candidate_max_ratio": 0.28678452513080704,
+        "candidate_p90_ratio": 0.229903282067544,
+        "candidates_ratio": 0.1479275672533164,
+        "lookup_reduction_vs_brute": 6.778398463629724
       }
     }
   },
@@ -32,9 +32,9 @@
     "results": {
       "colt_us48_repro": {
         "accuracy": 1.0,
-        "candidate_max_ratio": 0.10036467417155541,
-        "candidate_p90_ratio": 0.09370540669097828,
-        "candidates_ratio": 0.08435072142064373
+        "candidate_max_ratio": 0.04946884414143016,
+        "candidate_p90_ratio": 0.04867607420326621,
+        "candidates_ratio": 0.0393742402621426
       }
     }
   }
