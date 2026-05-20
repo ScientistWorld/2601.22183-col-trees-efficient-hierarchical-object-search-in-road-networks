@@ -4,5 +4,5 @@
 action: submit
 gpus: 0
 test: false
-milestone: core_claim
-notes: "Core claim restored from completed US48 kFN run. Submit expanded CPU run at densities 0.05 and 0.10 to test core_claim_plus and refresh scoring/scores.json."
+milestone: core_claim_plus
+notes: "Core claim plus reached on kFN densities 0.05 and 0.10. Submit CPU job adding small AkNN and range runs for secondary-claim coverage and refreshed scores."

@@ -41,4 +41,33 @@ python3 scripts/summarize_core_claim.py \
     "$OUT_DIR"/kfn_density_*.json \
     --output "$OUT_DIR/summary.json"
 
+echo "=== Running secondary AkNN and range experiments ==="
+python3 method/experiment.py \
+    --network usroads-48 \
+    --query aknn \
+    --k 10 \
+    --n-queries 6 \
+    --density 0.05 \
+    --agg max \
+    --Q-size 4 \
+    --b 4 \
+    --lam 2048 \
+    --m 4 \
+    --landmark-policy random \
+    --seed 42 \
+    --output "$OUT_DIR/aknn_density_0.05.json"
+
+python3 method/experiment.py \
+    --network usroads-48 \
+    --query range \
+    --n-queries 6 \
+    --density 0.05 \
+    --radius-pct 1.0 \
+    --b 4 \
+    --lam 2048 \
+    --m 4 \
+    --landmark-policy random \
+    --seed 42 \
+    --output "$OUT_DIR/range_density_0.05.json"
+
 bash scripts/evaluate.sh "$OUT_DIR"

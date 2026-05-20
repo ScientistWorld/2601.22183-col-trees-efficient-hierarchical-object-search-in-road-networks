@@ -1,6 +1,6 @@
 # Reproduction Milestones
 
-**Current: core_claim**
+**Current: core_claim_plus**
 
 ## Progress Log
 
@@ -25,5 +25,10 @@
 - Reproduced the core benefit/constraint pair: exact kFN correctness with `candidates_ratio=0.1650` and `lookup_reduction_vs_brute=6.0601`.
 - Expanding the same core experiment to a second object density before attempting a higher milestone.
 
+### [2026-05-20 01:36] - core_claim_plus
+- CPU job `e203f389-121` completed kFN at object densities 0.05 and 0.10 with 24/24 exact queries.
+- Averaged score improved to `candidates_ratio=0.1566` and `lookup_reduction_vs_brute=6.4020` while preserving `accuracy=1.0`.
+- Adding small AkNN and range runs to test secondary query claims next.
+
 ## Stop Justification
-- Not stopped. A compute job is being submitted to test the core claim across an additional object density.
+- Not stopped. A compute job is being submitted to evaluate secondary AkNN and range query claims.
