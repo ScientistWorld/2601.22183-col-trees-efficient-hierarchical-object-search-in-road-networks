@@ -1,4 +1,20 @@
 {
+  "aknn_real_pois": {
+    "results": {
+      "colt_phl": {
+        "accuracy": 1.0,
+        "candidates_ratio": 0.1666402410020612
+      }
+    }
+  },
+  "preprocessing": {
+    "results": {
+      "colt_phl": {
+        "col_time_s": 0.37059974670410156,
+        "sul_time_s": 13.424859285354614
+      }
+    }
+  },
   "kfn_real_pois": {
     "results": {
       "colt_phl": {
@@ -8,11 +24,11 @@
       }
     }
   },
-  "preprocessing": {
+  "range_real_pois": {
     "results": {
       "colt_phl": {
-        "col_time_s": 0.9350941181182861,
-        "sul_time_s": 33.899648547172546
+        "accuracy": 1.0,
+        "candidates_ratio": 1.0
       }
     }
   }
