@@ -1,43 +1,34 @@
 {
-  "experiments": {
-    "aknn_real_pois": {
-      "results": {
-        "colt_phl": {
-          "avg_query_time_ms": 475.5,
-          "accuracy": 0.98
-        }
+  "aknn_real_pois": {
+    "results": {
+      "colt_phl": {
+        "accuracy": 1.0,
+        "candidates_ratio": 0.39999999999999997
       }
-    },
-    "aknn_sensitivity_density": {
-      "results": {
-        "colt_phl": {
-          "avg_query_time_ms": 475.5,
-          "accuracy": 0.98
-        }
+    }
+  },
+  "preprocessing": {
+    "results": {
+      "colt_phl": {
+        "sul_time_s": 1.6876513957977295,
+        "col_time_s": 0.03364241123199463
       }
-    },
-    "kfn_real_pois": {
-      "results": {
-        "colt_phl": {
-          "avg_query_time_ms": 113.0,
-          "accuracy": 0.98
-        }
+    }
+  },
+  "kfn_real_pois": {
+    "results": {
+      "colt_phl": {
+        "accuracy": 1.0,
+        "candidates_ratio": 0.3055555555555556,
+        "lookup_reduction_vs_brute": 3.272727272727273
       }
-    },
-    "range_real_pois": {
-      "results": {
-        "colt_phl": {
-          "avg_query_time_ms": 200.0,
-          "accuracy": 1.0
-        }
-      }
-    },
-    "preprocessing": {
-      "results": {
-        "colt_phl": {
-          "sul_time_s": 8.0,
-          "col_time_s": 0.3
-        }
+    }
+  },
+  "range_real_pois": {
+    "results": {
+      "colt_phl": {
+        "accuracy": 1.0,
+        "candidates_ratio": 0.6311340206185567
       }
     }
   }

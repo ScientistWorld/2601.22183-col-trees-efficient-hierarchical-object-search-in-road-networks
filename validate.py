@@ -291,6 +291,71 @@ def compare_scores(scores: dict, reference: dict) -> None:
 # ── Structural checks ────────────────────────────────────────────────────────
 
 
+_EVAL_REGEN_HINTS = re.compile(
+    r"\b(generate_synthetic_data|generate_data|simulate_data|run_simulation|"
+    r"np\.random\.(?:default_rng|RandomState|seed)|"
+    r"torch\.manual_seed|random\.seed)\b"
+)
+# A read call (open / pd.read_* / np.load / torch.load / .read_text /
+# .read_bytes / json.load(open / joblib.load) whose first string-literal
+# argument contains a path fragment that looks like an artifact the agent's
+# method writes (predictions, outputs, checkpoints, state_dict, etc.).
+_EVAL_OUTPUT_READ = re.compile(
+    r"(?:open|pd\.read_csv|pd\.read_json|pd\.read_parquet|"
+    r"np\.load(?:txt)?|torch\.load|joblib\.load|"
+    r"json\.load\s*\(\s*open|\.read_text|\.read_bytes)"
+    r"\s*\(\s*[\"'][^\"']*?"
+    r"(?:predictions?|preds?|outputs?|checkpoints?|submission|state_dict|"
+    r"\.(?:pt|pth|bin|safetensors|ckpt))",
+    re.IGNORECASE,
+)
+
+
+def check_eval_reads_method_outputs() -> list[str]:
+    """SOFT WARNING (heuristic): does eval/ read anything the method produced?
+
+    Returns *warnings*, not errors — the validator's caller should print
+    these but not fail the run. The heuristic flags eval files that:
+
+    1. contain regen-style calls (``generate_*``, ``np.random.seed``, etc.),
+       suggesting eval is rerunning the experiment in-place, AND
+    2. don't reference any output-shaped path (``predictions``, ``outputs``,
+       ``checkpoints``, ``state_dict``, etc.) — i.e. nothing produced by
+       the method.
+
+    A detached eval (regen + no method-output reads) is the failure mode
+    where a future agent's edits to ``method/`` produce zero change in
+    scores. False positives are possible (an oracle eval that reads only
+    the dataset's labels), so this is reported as a warning, not an error.
+    """
+    warnings: list[str] = []
+    eval_dir = WORKSPACE_DIR / "eval"
+    if not eval_dir.is_dir():
+        return warnings
+
+    for py in sorted(eval_dir.rglob("*.py")):
+        if "__pycache__" in py.parts:
+            continue
+        try:
+            text = py.read_text()
+        except OSError:
+            continue
+        rel = py.relative_to(WORKSPACE_DIR)
+        regen_match = _EVAL_REGEN_HINTS.search(text)
+        output_match = _EVAL_OUTPUT_READ.search(text)
+        if regen_match and not output_match:
+            warnings.append(
+                f"{rel}: looks detached from the method — found "
+                f"'{regen_match.group(0)}' (regenerating the experiment) "
+                f"and no reference to any path that looks like a method "
+                f"output (predictions, outputs, checkpoints, state_dict, "
+                f"etc.). If a future agent edits method/ and these scores "
+                f"don't change, eval is broken. Read the method's "
+                f"artifacts; do not rerun the science yourself."
+            )
+    return warnings
+
+
 def check_import_separation() -> list[str]:
     """Check that eval/ and data/ do not import from method/."""
     errors = []
@@ -1055,6 +1120,193 @@ def check_primary_metric_differs_train_test() -> list[str]:
     return errors
 
 
+def _classify_deviation(paper_val: float, repro_val: float) -> list[str]:
+    """Return reasons ``repro_val`` is wildly off from ``paper_val``, else []."""
+    kinds: list[str] = []
+    # Sign flip — the strongest signal that the reproduction broke.
+    if paper_val != 0 and repro_val != 0 and (paper_val > 0) != (repro_val > 0):
+        kinds.append("sign flip")
+    # 2x magnitude gap, but only when both sides are non-trivially nonzero
+    # (|val| >= 0.01) so tiny-value noise doesn't trip us.
+    ap, ar = abs(paper_val), abs(repro_val)
+    if ap >= 0.01 and ar >= 0.01:
+        ratio = max(ap, ar) / min(ap, ar)
+        if ratio >= 2.0:
+            kinds.append(f"{ratio:.2f}x off in magnitude")
+    # Absolute gap >= 0.3 for metrics that live in the bounded unit-interval
+    # range [-1, 1] (R^2, accuracy, F1, correlation, etc.). Picks up the
+    # 0.99 -> 0.60 case that ratio alone would miss.
+    if -1.5 <= paper_val <= 1.5 and -1.5 <= repro_val <= 1.5:
+        if abs(paper_val - repro_val) >= 0.3:
+            kinds.append(f"absolute gap {abs(paper_val - repro_val):.2f}")
+    seen: set[str] = set()
+    out: list[str] = []
+    for k in kinds:
+        if k not in seen:
+            seen.add(k)
+            out.append(k)
+    return out
+
+
+def check_reproduction_not_wildly_off_from_paper(
+    scores_files: tuple[str, ...],
+) -> list[str]:
+    """Reject when any of ``scores_files`` deviates wildly from reference.json.
+
+    The caller chooses which scores files to compare. Before designer_stage_3
+    only ``scores.json`` exists and is the reproducer's paper-level output,
+    so pass ``("scores.json",)``. After designer_stage_3 the runner has
+    produced the split files too, so pass
+    ``("scores.json", "scores_train.json", "scores_test.json")``.
+
+    For each ``(file, experiment, method)`` triple where the scores file
+    and ``reference.json.results`` both carry a numeric value on the
+    experiment's ``primary_metric``, fails when the reproduced value is:
+
+    * sign-flipped relative to the paper, or
+    * >= 2x off in magnitude (non-trivial values), or
+    * >= 0.3 absolute gap when both lie in [-1.5, 1.5] (R^2 / accuracy).
+
+    Error messages name the specific scores file, so the agent knows
+    exactly which file to fix.
+    """
+    ref_path = SCORING_DIR / "reference.json"
+    if not ref_path.is_file():
+        return []
+    try:
+        ref = json.loads(ref_path.read_text())
+    except (OSError, json.JSONDecodeError):
+        return []
+    ref_exps = ref.get("experiments", {}) or {}
+    if not ref_exps:
+        return []
+
+    errors: list[str] = []
+    for scores_filename in scores_files:
+        scores_path = SCORING_DIR / scores_filename
+        if not scores_path.is_file():
+            continue
+        try:
+            scores = json.loads(scores_path.read_text())
+        except (OSError, json.JSONDecodeError):
+            continue
+        scores_exps = _extract_scores_experiments(scores)
+
+        for exp_name in sorted(set(ref_exps) & set(scores_exps)):
+            primary = ref_exps[exp_name].get("primary_metric")
+            if not primary:
+                continue
+            ref_results = ref_exps[exp_name].get("results") or {}
+            score_methods = scores_exps[exp_name]
+            if not isinstance(score_methods, dict):
+                continue
+            for method_name in sorted(set(ref_results) & set(score_methods)):
+                if method_name.startswith("_"):
+                    continue
+                ref_method = ref_results[method_name]
+                score_method = score_methods[method_name]
+                if not (isinstance(ref_method, dict)
+                        and isinstance(score_method, dict)):
+                    continue
+                paper_val = ref_method.get(primary)
+                repro_val = score_method.get(primary)
+                if isinstance(paper_val, bool) or isinstance(repro_val, bool):
+                    continue
+                if not (isinstance(paper_val, (int, float))
+                        and isinstance(repro_val, (int, float))):
+                    continue
+                reasons = _classify_deviation(float(paper_val), float(repro_val))
+                if not reasons:
+                    continue
+                errors.append(
+                    f"{scores_filename}: experiments.{exp_name}.{method_name}"
+                    f": primary metric '{primary}' — paper reports "
+                    f"{paper_val} but {scores_filename} has {repro_val} "
+                    f"({', '.join(reasons)}). This gap is too large to "
+                    f"accept — one of the two sides is wrong. Either the "
+                    f"value in {scores_filename} is wrong (broken training, "
+                    f"wrong data split, missing preprocessing, wrong unit, "
+                    f"etc.) OR the paper-reported value in reference.json "
+                    f"is wrong (reference.json was written by an earlier "
+                    f"agent and is not verified). Fix whichever is off — "
+                    f"edit either {scores_filename} (re-run the method) "
+                    f"or reference.json (correct the transcribed value). "
+                    f"Re-read the paper if you are sure your reproduction "
+                    f"is good. Do not claim the milestone until this "
+                    f"experiment's numbers are consistent."
+                )
+    return errors
+
+
+def check_primary_metric_discriminates_on_train() -> list[str]:
+    """Reject papers whose primary metric is identical across methods on train.
+
+    The train slice is what a future agent optimizes against during
+    development.  If every method on train gets the same primary-metric
+    value (the metric saturates — e.g., ``coverage = 1.0`` for all
+    methods), the train slice gives that agent no ranking signal: every
+    approach they try looks equally good.  The gym cannot measure
+    improvement and the anti-shortcut design collapses.
+
+    Skips experiments with fewer than 2 methods that report a numeric
+    primary-metric value.
+    """
+    ref_path = SCORING_DIR / "reference.json"
+    train_path = SCORING_DIR / "scores_train.json"
+    if not all(p.is_file() for p in (ref_path, train_path)):
+        return []
+    try:
+        ref = json.loads(ref_path.read_text())
+        train = json.loads(train_path.read_text())
+    except (OSError, json.JSONDecodeError):
+        return []
+
+    ref_exps = ref.get("experiments", {})
+    train_exps = _extract_scores_experiments(train)
+
+    errors: list[str] = []
+    for exp_name in sorted(set(train_exps) & set(ref_exps)):
+        primary = ref_exps[exp_name].get("primary_metric")
+        if not primary:
+            continue
+
+        methods = train_exps[exp_name]
+        if not isinstance(methods, dict):
+            continue
+
+        values: list[tuple[str, float]] = []
+        for name, data in methods.items():
+            if name.startswith("_") or not isinstance(data, dict):
+                continue
+            v = data.get(primary)
+            if isinstance(v, (int, float)) and not isinstance(v, bool):
+                values.append((name, float(v)))
+
+        if len(values) < 2:
+            continue
+        if len({v for _, v in values}) > 1:
+            continue
+
+        # All values identical across all reporting methods.
+        sample_val = values[0][1]
+        methods_shown = ", ".join(f"{n}={v}" for n, v in values[:4])
+        errors.append(
+            f"experiments.{exp_name}: primary metric '{primary}' is "
+            f"identical ({sample_val}) across every method on the train "
+            f"slice ({methods_shown}). The train slice cannot rank methods "
+            f"on this metric, so a future agent gets no feedback signal "
+            f"while developing against scores_train.json. "
+            f"Fix: either (1) change primary_metric on this experiment to "
+            f"a metric whose values already differ across methods on "
+            f"train, or (2) adjust the experiment so '{primary}' actually "
+            f"spreads methods out (harder inputs, a tighter operating "
+            f"point, a stricter scoring protocol). Do NOT simply delete "
+            f"the experiment — find a metric that discriminates."
+        )
+
+    return errors
+
+
 _SHARED_PATTERN = re.compile(r"(?<![A-Za-z0-9_/])/?shared/(?:datasets|models|hf_cache)\b")
 
 
@@ -1111,6 +1363,12 @@ def main():
                            "populated and differ). On after the final "
                            "designer stage, for the packager, and for the "
                            "verifier.")
+    mode.add_argument("--post-reproducer", action="store_true",
+                      help="Activate post-reproducer checks: scores.json "
+                           "must not deviate wildly from reference.json "
+                           "(catches broken reproductions that would poison "
+                           "every downstream agent-vs-source comparison). "
+                           "On at the end of each reproducer iteration.")
     args = parser.parse_args()
 
     ok = True
@@ -1197,6 +1455,36 @@ def main():
             ):
                 print("  split-mode artifacts — OK (all 6 present)")
 
+        # Scores ↔ reference deviation check. Two branches by design:
+        #   --post-reproducer: only scores.json exists and is authoritative,
+        #                      so check that one file.
+        #   --post-design:     designer_stage_3 has produced the split files,
+        #                      so check all three.
+        if args.post_reproducer:
+            deviation_files: tuple[str, ...] = ("scores.json",)
+        elif args.post_design:
+            deviation_files = ("scores.json", "scores_train.json", "scores_test.json")
+        else:
+            deviation_files = ()
+
+        if deviation_files:
+            deviation_errors = check_reproduction_not_wildly_off_from_paper(
+                deviation_files
+            )
+            if deviation_errors:
+                print(
+                    f"  scores ↔ paper consistency — "
+                    f"{len(deviation_errors)} error(s):"
+                )
+                for e in deviation_errors:
+                    print(f"    ✗ {e}")
+                ok = False
+            else:
+                print(
+                    f"  scores ↔ paper consistency — OK "
+                    f"(checked {', '.join(deviation_files)})"
+                )
+
     # 3. Import separation
     print("\n── Structure ──")
     sep_errors = check_import_separation()
@@ -1207,6 +1495,17 @@ def main():
         ok = False
     else:
         print("  import separation — OK (eval/ and data/ do not import from method/)")
+
+    # Soft warning: heuristic for "eval/ regenerates the experiment instead
+    # of reading method outputs". Does NOT fail validation — only flags so
+    # the agent can take a closer look. Prone to false positives.
+    detached_warnings = check_eval_reads_method_outputs()
+    if detached_warnings:
+        print(f"  eval reads method outputs — {len(detached_warnings)} warning(s):")
+        for w in detached_warnings:
+            print(f"    ⚠ {w}")
+    elif (WORKSPACE_DIR / "eval").is_dir():
+        print("  eval reads method outputs — OK (no regen-without-read pattern)")
 
     # 4. Imports don't land on gitignored files (would break on fresh clone)
     ignored_errors = check_imports_not_gitignored()
@@ -1298,6 +1597,17 @@ def main():
         if ((SCORING_DIR / "scores_train.json").is_file()
             and (SCORING_DIR / "scores_test.json").is_file()):
             print("  primary metric train/test differentiation — OK")
+
+    # 12. Primary metric must discriminate between methods on train
+    disc_errors = check_primary_metric_discriminates_on_train()
+    if disc_errors:
+        print(f"  primary metric discriminates methods on train — {len(disc_errors)} error(s):")
+        for e in disc_errors:
+            print(f"    ✗ {e}")
+        ok = False
+    else:
+        if (SCORING_DIR / "scores_train.json").is_file():
+            print("  primary metric discriminates methods on train — OK")
 
     # Summary
     print()

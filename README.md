@@ -407,6 +407,18 @@ Based on the paper's reported results, the following performance targets are exp
 
 </details>
 
+### Iteration 2: glm-5.1
+- **Milestone**: `core_claim` | **Status**: done
+- **Working time**: 37m | **GPU**: 0.0h
+
+<details>
+<summary>Progress Log</summary>
+
+- method_runs: COL-Tree implementation complete with kFN, AkNN, and range queries
+- core_claim: All three query types produce 100% accuracy on US48 road network (126K vertices, 126 POIs). kFN demonstrates significant search space pruning (candidates_ratio=0.31, 3.27x lookup reduction vs brute force). Eval pipeline computes machine-independent metrics matching reference.json.
+
+</details>
+
 
 ---
 

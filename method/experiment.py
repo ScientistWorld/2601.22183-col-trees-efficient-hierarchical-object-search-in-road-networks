@@ -142,17 +142,19 @@ def _run_aknn_experiments(graph, obj_set, col_tree, query_vertices,
     brute_times = []
     correct = 0
     total = 0
+    per_query_candidates = []
 
     for i in range(n_queries):
         if i * Q_size >= len(query_vertices):
             break
         Q = query_vertices[i * Q_size:(i + 1) * Q_size]
 
-        # COL-Tree query
+        # COL-Tree query with stats
         start = time.time()
-        col_result = col_tree.query_aknn(Q, k, agg)
+        col_result, col_stats = col_tree.query_aknn(Q, k, agg, return_stats=True)
         col_time = time.time() - start
-        col_times.append(col_time * 1000)  # ms
+        col_times.append(col_time * 1000)
+        per_query_candidates.append(col_stats['candidate_objects_retrieved'])
 
         # Brute force (on small subset for validation)
         if total < 5:
@@ -161,20 +163,11 @@ def _run_aknn_experiments(graph, obj_set, col_tree, query_vertices,
             brute_time = time.time() - start
             brute_times.append(brute_time * 1000)
 
-            # Check correctness
             col_set = set(col_result)
             brute_set = set(brute_result)
             if col_set == brute_set:
                 correct += 1
             total += 1
-        elif total == 0 and i == 0:
-            # Just verify on first query
-            brute_result = aknn_bruteforce(graph, obj_set, Q, k, agg)
-            col_set = set(col_result)
-            brute_set = set(brute_result)
-            if col_set == brute_set:
-                correct = 1
-            total = 1
 
     results['queries'] = {
         'col_avg_time_ms': sum(col_times) / len(col_times) if col_times else 0,
@@ -183,6 +176,8 @@ def _run_aknn_experiments(graph, obj_set, col_tree, query_vertices,
         'total': total,
         'accuracy': correct / total if total > 0 else 0,
         'individual_times': col_times,
+        'individual_candidates': per_query_candidates,
+        'col_candidate_objects_avg': sum(per_query_candidates) / len(per_query_candidates) if per_query_candidates else 0,
     }
     print(f"  AkNN ({agg}): COL avg={results['queries']['col_avg_time_ms']:.3f}ms, "
           f"Brute avg={results['queries']['brute_avg_time_ms']:.3f}ms, "
@@ -283,6 +278,7 @@ def _run_kfn_experiments(graph, obj_set, sul_tree, col_tree, query_vertices,
             sum(col_exact_lookups) / len(col_exact_lookups)
             if col_exact_lookups else 0
         ),
+        'individual_candidates': col_candidate_counts,
         'aub_candidate_objects_avg': (
             sum(aub_candidate_counts) / len(aub_candidate_counts)
             if aub_candidate_counts else 0
@@ -320,17 +316,17 @@ def _run_range_experiments(graph, obj_set, col_tree, query_vertices,
     brute_times = []
     correct = 0
     total = 0
-    total_recall = 0
-    total_precision = 0
+    per_query_candidates = []
 
     for i in range(n_queries):
         q = query_vertices[i]
 
-        # COL-Tree query
+        # COL-Tree query with stats
         start = time.time()
-        col_result = col_tree.query_range(q, radius)
+        col_result, col_stats = col_tree.query_range(q, radius, return_stats=True)
         col_time = time.time() - start
         col_times.append(col_time * 1000)
+        per_query_candidates.append(col_stats['candidate_objects_retrieved'])
 
         # Brute force
         if total < 5:
@@ -344,16 +340,6 @@ def _run_range_experiments(graph, obj_set, col_tree, query_vertices,
             if col_set == brute_set:
                 correct += 1
             total += 1
-            if brute_set:
-                recall = len(col_set & brute_set) / len(brute_set)
-                total_recall += recall
-        elif total == 0:
-            brute_result = range_bruteforce(graph, obj_set, q, radius)
-            col_set = set(col_result)
-            brute_set = set(brute_result)
-            if col_set == brute_set:
-                correct = 1
-            total = 1
 
     results['queries'] = {
         'radius': radius,
@@ -364,6 +350,8 @@ def _run_range_experiments(graph, obj_set, col_tree, query_vertices,
         'total': total,
         'accuracy': correct / total if total > 0 else 0,
         'individual_times': col_times,
+        'individual_candidates': per_query_candidates,
+        'col_candidate_objects_avg': sum(per_query_candidates) / len(per_query_candidates) if per_query_candidates else 0,
     }
     print(f"  Range (r={radius:.1f}): COL avg={results['queries']['col_avg_time_ms']:.3f}ms, "
           f"Brute avg={results['queries']['brute_avg_time_ms']:.3f}ms, "

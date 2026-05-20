@@ -308,31 +308,33 @@ class COLTree:
     # AkNN Query Algorithm
     # =====================================================================
 
-    def query_aknn(self, Q: List[int], k: int, agg: str = 'max') -> List[int]:
+    def query_aknn(self, Q: List[int], k: int, agg: str = 'max',
+                    return_stats: bool = False):
         """Aggregate k Nearest Neighbor query."""
         if agg == 'sum':
-            return self._aknn_sum(Q, k)
+            result, stats = self._aknn_sum(Q, k, return_stats=True)
         else:
-            return self._aknn_max(Q, k)
+            result, stats = self._aknn_max(Q, k, return_stats=True)
+        if return_stats:
+            return result, stats
+        return result
 
-    def _aknn_max(self, Q: List[int], k: int) -> List[int]:
+    def _aknn_max(self, Q: List[int], k: int, return_stats: bool = False) -> List[int]:
         """
         AkNN with max aggregate. Implements Algorithm 1 from the paper.
         """
-        # Reset query state on all nodes
         self._reset_query_state(self.root)
 
-        # Precompute Dijkstra distances for Q vertices (cache for performance)
         dijkstra_cache = {}
         for qi in Q:
             if qi not in dijkstra_cache:
                 dijkstra_cache[qi] = self.graph.dijkstra(qi)
 
-        result_objs = []  # max-heap: (neg_agg_dist, obj)
+        result_objs = []
         result_dists = []
         D_k = float('inf')
+        stats = {'candidate_objects_retrieved': 0, 'exact_distance_lookups': 0}
 
-        # Priority queue: (lb, tie, item, item_type)
         pq = [(0.0, 0, self.root, 'node')]
         tie = 1
 
@@ -365,6 +367,8 @@ class COLTree:
                         tie += 1
             else:
                 obj = item
+                stats['candidate_objects_retrieved'] += 1
+                stats['exact_distance_lookups'] += 1
                 dist = self._compute_aggregate_distance(obj, Q, 'max', dijkstra_cache)
                 if dist < D_k:
                     bisect.insort(result_dists, dist)
@@ -376,12 +380,13 @@ class COLTree:
                             heapq.heappop(result_objs)
 
         final_results = [obj for _, obj in sorted(result_objs, key=lambda x: -x[0])]
+        if return_stats:
+            return final_results[:k], stats
         return final_results[:k]
 
-    def _aknn_sum(self, Q: List[int], k: int) -> List[int]:
+    def _aknn_sum(self, Q: List[int], k: int, return_stats: bool = False) -> List[int]:
         """AkNN with sum aggregate."""
         self._reset_query_state(self.root)
-        # Precompute Dijkstra distances for Q vertices
         dijkstra_cache = {}
         for qi in Q:
             if qi not in dijkstra_cache:
@@ -390,6 +395,7 @@ class COLTree:
         result_objs = []
         result_dists = []
         D_k = float('inf')
+        stats = {'candidate_objects_retrieved': 0, 'exact_distance_lookups': 0}
         pq = [(0.0, 0, self.root, 'node')]
         tie = 1
 
@@ -405,7 +411,6 @@ class COLTree:
                     if not node.seen:
                         self._init_leaf_node_aknn(node, Q, 'sum')
                         node.seen = True
-                        # Retrieve objects from ODL (only once per node visit)
                         self._retrieve_objects_odl_aknn(node, Q, 'sum', result_objs,
                                                         result_dists, D_k, pq, tie)
 
@@ -420,6 +425,8 @@ class COLTree:
                         tie += 1
             else:
                 obj = item
+                stats['candidate_objects_retrieved'] += 1
+                stats['exact_distance_lookups'] += 1
                 dist = self._compute_aggregate_distance(obj, Q, 'sum', dijkstra_cache)
                 if dist < D_k:
                     bisect.insort(result_dists, dist)
@@ -431,6 +438,8 @@ class COLTree:
                             heapq.heappop(result_objs)
 
         final_results = [obj for _, obj in sorted(result_objs, key=lambda x: -x[0])]
+        if return_stats:
+            return final_results[:k], stats
         return final_results[:k]
 
     def _init_leaf_node_aknn(self, node: COLNode, Q: List[int], agg: str):
@@ -771,46 +780,61 @@ class COLTree:
     # Range Query Algorithm
     # =====================================================================
 
-    def query_range(self, q: int, r: float) -> List[int]:
+    def query_range(self, q: int, r: float, return_stats: bool = False):
         """
         Range query: find all objects within distance r from q.
         """
-        # Precompute distances from q to all vertices once
         d_q = self.graph.dijkstra(q)
         results = []
+        stats = {'candidate_objects_retrieved': 0, 'exact_distance_lookups': 0}
         stack = [self.root]
 
         while stack:
             node = stack.pop()
             if node.is_leaf:
-                objs = self._range_leaf(node, r, d_q)
+                objs, leaf_stats = self._range_leaf(node, r, d_q)
                 results.extend(objs)
+                stats['candidate_objects_retrieved'] += leaf_stats['candidate_objects_retrieved']
+                stats['exact_distance_lookups'] += leaf_stats['exact_distance_lookups']
             else:
                 for child in node.children:
                     lb = self.compute_lb(q, child)
                     ub = self.compute_ub(q, child)
                     if ub <= r:
-                        results.extend(self._get_all_objects_in_node(child))
+                        sub_objs = self._get_all_objects_in_node(child)
+                        results.extend(sub_objs)
+                        stats['candidate_objects_retrieved'] += len(sub_objs)
                     elif lb <= r:
                         stack.append(child)
-        return list(set(results))
+        final = list(set(results))
+        if return_stats:
+            return final, stats
+        return final
 
-    def _range_leaf(self, node: COLNode, r: float, d_q: List[float]) -> List[int]:
+    def _range_leaf(self, node: COLNode, r: float, d_q: List[float]):
         """Process leaf node for range query."""
+        stats = {'candidate_objects_retrieved': 0, 'exact_distance_lookups': 0}
         if not node.odls:
-            return []
+            return [], stats
 
-        results = []
-        for li_idx, odl in enumerate(node.odls):
+        results = set()
+        checked = set()
+        # Use only the first ODL to avoid double-counting objects
+        for li_idx in [0]:
+            odl = node.odls[li_idx] if li_idx < len(node.odls) else []
             if not odl:
                 continue
             landmark = node.get_landmarks()[li_idx]
             d_lq = d_q[landmark] if landmark < len(d_q) else float('inf')
 
             for d_lp, obj in odl:
+                if obj in checked:
+                    continue
+                checked.add(obj)
+                stats['candidate_objects_retrieved'] += 1
                 ub = d_lq + d_lp
                 if ub <= r:
-                    results.append(obj)
+                    results.add(obj)
                     continue
 
                 M_plus = node.max_dist[li_idx] if li_idx < len(node.max_dist) else float('inf')
@@ -824,11 +848,12 @@ class COLTree:
                     lb = 0.0
 
                 if lb <= r:
+                    stats['exact_distance_lookups'] += 1
                     dist = d_q[obj]
                     if dist <= r:
-                        results.append(obj)
+                        results.add(obj)
 
-        return list(set(results))
+        return list(results), stats
 
     def _get_all_objects_in_node(self, node: COLNode) -> List[int]:
         """Get all objects in a node recursively."""
