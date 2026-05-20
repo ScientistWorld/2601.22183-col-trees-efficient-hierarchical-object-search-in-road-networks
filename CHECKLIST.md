@@ -11,7 +11,7 @@ Check off items as you complete them. Order doesn't matter — work however make
 ## Scoring
 - [x] `scoring/reference.json` — paper's reported numbers
 - [x] Workspace validated via `python validate.py`
-- [ ] `scoring/scores.json` — reproduced numbers (must match reference.json experiment/metric structure)
+- [x] `scoring/scores.json` — reproduced numbers (must match reference.json experiment/metric structure)
 - [x] `scoring/TARGETS.md` — primary, constraint, and ablation targets (do not edit until wrap up)
 - [x] `scoring/CONSTRAINTS.md` — what a scientist must hold fixed (do not edit until wrap up)
 - [x] `scoring/DIRECTION.md` — research direction scope for scientist (do not edit until wrap up)

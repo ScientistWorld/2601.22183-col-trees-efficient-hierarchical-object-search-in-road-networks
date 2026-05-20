@@ -12,6 +12,15 @@ import glob
 from pathlib import Path
 
 
+def percentile(values, pct):
+    """Nearest-rank percentile for small per-query metric lists."""
+    numeric = sorted(v for v in values if isinstance(v, (int, float)))
+    if not numeric:
+        return 0
+    idx = int((pct / 100.0) * (len(numeric) - 1))
+    return numeric[idx]
+
+
 def load_json(path):
     with open(path) as f:
         return json.load(f)
@@ -57,10 +66,15 @@ def evaluate_kfn(result, method_name):
 
     candidates_ratio = col_candidates / n_objects if n_objects > 0 else 1.0
     lookup_reduction = n_objects / col_exact if col_exact > 0 else 1.0
+    candidate_counts = q.get("individual_candidates", [])
+    candidate_p90_ratio = percentile(candidate_counts, 90) / n_objects if n_objects > 0 else 1.0
+    candidate_max_ratio = max(candidate_counts) / n_objects if candidate_counts and n_objects > 0 else candidates_ratio
 
     return {
         "accuracy": accuracy,
         "candidates_ratio": candidates_ratio,
+        "candidate_p90_ratio": candidate_p90_ratio,
+        "candidate_max_ratio": candidate_max_ratio,
         "lookup_reduction_vs_brute": lookup_reduction,
     }
 
@@ -72,7 +86,15 @@ def evaluate_aknn(result, method_name):
     accuracy = q.get("accuracy", 0)
     col_candidates = q.get("col_candidate_objects_avg", 0)
     candidates_ratio = col_candidates / n_objects if n_objects > 0 else 1.0
-    return {"accuracy": accuracy, "candidates_ratio": candidates_ratio}
+    candidate_counts = q.get("individual_candidates", [])
+    candidate_p90_ratio = percentile(candidate_counts, 90) / n_objects if n_objects > 0 else 1.0
+    candidate_max_ratio = max(candidate_counts) / n_objects if candidate_counts and n_objects > 0 else candidates_ratio
+    return {
+        "accuracy": accuracy,
+        "candidates_ratio": candidates_ratio,
+        "candidate_p90_ratio": candidate_p90_ratio,
+        "candidate_max_ratio": candidate_max_ratio,
+    }
 
 
 def evaluate_range(result, method_name):
@@ -82,7 +104,15 @@ def evaluate_range(result, method_name):
     accuracy = q.get("accuracy", 0)
     col_candidates = q.get("col_candidate_objects_avg", 0)
     candidates_ratio = col_candidates / n_objects if n_objects > 0 else 1.0
-    return {"accuracy": accuracy, "candidates_ratio": candidates_ratio}
+    candidate_counts = q.get("individual_candidates", [])
+    candidate_p90_ratio = percentile(candidate_counts, 90) / n_objects if n_objects > 0 else 1.0
+    candidate_max_ratio = max(candidate_counts) / n_objects if candidate_counts and n_objects > 0 else candidates_ratio
+    return {
+        "accuracy": accuracy,
+        "candidates_ratio": candidates_ratio,
+        "candidate_p90_ratio": candidate_p90_ratio,
+        "candidate_max_ratio": candidate_max_ratio,
+    }
 
 
 def evaluate_preprocessing(result, method_name):

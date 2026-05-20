@@ -2,4 +2,4 @@ action: done
 gpus: 0
 test: false
 milestone: secondary_claims
-notes: "Packaged downloads to fetch public road-network artifacts into data/downloads and aligned gitignore/method paths for fresh clones."
+notes: "Secondary-claims reproduction is packaged. Evaluator now reports average, p90, and worst-query candidate-ratio constraints from saved method artifacts; validate.py --compare passes."

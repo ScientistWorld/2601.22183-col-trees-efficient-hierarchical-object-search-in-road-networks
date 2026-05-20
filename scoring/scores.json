@@ -3,6 +3,8 @@
     "results": {
       "colt_us48_repro": {
         "accuracy": 1.0,
+        "candidate_max_ratio": 0.24591723481845568,
+        "candidate_p90_ratio": 0.20469319803393055,
         "candidates_ratio": 0.1666402410020612
       }
     }
@@ -19,6 +21,8 @@
     "results": {
       "colt_us48_repro": {
         "accuracy": 1.0,
+        "candidate_max_ratio": 0.3023228159188204,
+        "candidate_p90_ratio": 0.24163627715237038,
         "candidates_ratio": 0.15664803657311982,
         "lookup_reduction_vs_brute": 6.402002364442037
       }
@@ -28,6 +32,8 @@
     "results": {
       "colt_us48_repro": {
         "accuracy": 1.0,
+        "candidate_max_ratio": 0.10036467417155541,
+        "candidate_p90_ratio": 0.09370540669097828,
         "candidates_ratio": 0.08435072142064373
       }
     }

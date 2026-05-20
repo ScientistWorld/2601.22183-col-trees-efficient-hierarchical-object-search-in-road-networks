@@ -40,5 +40,9 @@
 - All evaluated query families were exact: kFN, AkNN, and range each reached `accuracy=1.0`.
 - Secondary pruning now holds: AkNN `candidates_ratio=0.1666`, range `candidates_ratio=0.0844`, and kFN `lookup_reduction_vs_brute=6.4020`.
 
+### [2026-05-20 02:21] - secondary_claims
+- Refreshed the evaluator to populate p90 and worst-query candidate-ratio constraint metrics from saved per-query method artifacts.
+- Re-ran `scripts/evaluate.sh`, `scripts/evaluate_train.sh`, `scripts/evaluate_test.sh`, and `python validate.py --compare`; all checks pass.
+
 ## Stop Justification
 - Completed at milestone `secondary_claims`.
