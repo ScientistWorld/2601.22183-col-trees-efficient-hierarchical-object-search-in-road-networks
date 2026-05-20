@@ -5,7 +5,7 @@ Checked the train/test evaluation split, both evaluate scripts, the scoring sche
 Changes made:
 - Added `candidate_p90_ratio` and `candidate_max_ratio` to both `eval/train/evaluate.py` and `eval/test/evaluate.py`. These are computed on the same parity split as `candidates_ratio`, so a method that only optimizes mean candidate retrieval on visible queries is more likely to regress on held-out tail queries.
 - Added the new tail-pruning metrics to `scoring/reference.json` for `kfn_real_pois`, `aknn_real_pois`, and `range_real_pois`.
-- Reweighted experiments from `0.40/0.25/0.25/0.10` to `0.50/0.25/0.25/0.00`, moving score weight away from preprocessing wall-clock seconds and onto the core kFN pruning claim.
+- Reweighted experiments from `0.40/0.25/0.25/0.10` to `0.49/0.25/0.25/0.01`, moving nearly all score weight away from preprocessing wall-clock seconds and onto the core kFN pruning claim while keeping the schema validator's positive-weight requirement satisfied.
 - Set preprocessing time metric coefficients to `0.0` and marked them diagnostic because wall-clock build time is hardware-dependent. The values are still emitted for runner visibility, but they no longer drive ranking.
 
 Checks:
