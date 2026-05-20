@@ -3,16 +3,16 @@
     "results": {
       "colt_phl": {
         "accuracy": 1.0,
-        "candidates_ratio": 0.16501506262882512,
-        "lookup_reduction_vs_brute": 6.060052846504925
+        "candidates_ratio": 0.15664803657311982,
+        "lookup_reduction_vs_brute": 6.402002364442037
       }
     }
   },
   "preprocessing": {
     "results": {
       "colt_phl": {
-        "col_time_s": 1.0630602836608887,
-        "sul_time_s": 23.61161184310913
+        "col_time_s": 0.9350941181182861,
+        "sul_time_s": 33.899648547172546
       }
     }
   }
