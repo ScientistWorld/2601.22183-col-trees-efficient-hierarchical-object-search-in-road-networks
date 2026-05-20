@@ -186,13 +186,8 @@ Thumbs.db
 core.*
 # Auto-added by swarm
 environment/overlay.img
-!data/
-data/*
-!data/.gitkeep
-!data/*.py
-!data/downloads/
-data/downloads/*
-!data/downloads/.gitkeep
+data/*.mtx
+data/*.html
 jobs/
 tmp/
 protocol.md
@@ -200,7 +195,6 @@ protocol.md
 core.[0-9]*
 
 # Auto-added by swarm
-data/downloads/
 environment/*.tar.xz
 oci_layout/
 oci-image/

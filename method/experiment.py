@@ -52,14 +52,13 @@ def _valid_farthest_topk(graph, candidates, objects, q, k):
 
 def resolve_network_path(network_name: str) -> str:
     """Resolve a network file from known workspace locations."""
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
     candidates = {
         'usroads-48': [
-            '/home/user/data/downloads/road-usroads-48.mtx',
-            '/home/user/data/road-usroads-48.mtx',
+            os.path.join(project_root, 'data', 'downloads', 'road-usroads-48.mtx'),
         ],
         'roadnet-pa': [
-            '/home/user/data/downloads/roadNet-PA.txt',
-            '/home/user/data/roadNet-PA.txt',
+            os.path.join(project_root, 'data', 'downloads', 'roadNet-PA.txt'),
         ],
     }
     if network_name not in candidates:
