@@ -13,10 +13,11 @@
 
 ## Results Achieved
 
-- Current verified milestone remains `method_runs`: the revised algorithm executes on a small local graph.
-- The previous `scores.json` came from older artifacts and should be replaced by the submitted core-claim job before claiming `core_claim`.
-- No fresh `experiment_results/core_claim` artifacts were present during the continuation audit, so the next CPU job is the source of truth for restoring the milestone.
-- The first resubmission did not reach the job stage because the container build attempted to copy `data/downloads/road-usroads-48.mtx`, which is not present in a fresh build checkout. The packaging issue is fixed and the core job is being resubmitted.
+- Current verified milestone is `core_claim`.
+- CPU job `90b0e53b-aab` ran the revised COL/SUL kFN implementation on US48 at object density 0.05 with 6,307 objects and 12 queries.
+- Reproduced score: `accuracy=1.0`, `candidates_ratio=0.165015`, `lookup_reduction_vs_brute=6.060053`, `sul_time_s=23.6116`, `col_time_s=1.0631`.
+- The result is weaker than the paper's reported `candidates_ratio=0.01` and `lookup_reduction_vs_brute=100`, but it supports the core claim at reduced scale: exact kFN answers while verifying a fraction of the object set.
+- An earlier resubmission did not reach the job stage because the container build attempted to copy `data/downloads/road-usroads-48.mtx`, which is not present in a fresh build checkout. The packaging issue was fixed before job `90b0e53b-aab`.
 
 ## Deviations From Paper
 
@@ -29,8 +30,8 @@
 
 ## What Remains
 
-- Run the submitted US48 kFN core job and inspect whether COL-Tree achieves exact results with meaningful candidate reduction versus brute force/AUB.
-- If the core result is weak, tune `lambda`, density, branch factor, and landmark count while preserving the COL/SUL algorithm.
+- Run the expanded US48 kFN core job at density 0.10 and inspect whether exactness and candidate reduction hold across densities.
+- If the expanded result is weak, tune `lambda`, density, branch factor, and landmark count while preserving the COL/SUL algorithm.
 - Extend evaluation to AkNN and range after the kFN core claim is supported.
 
 ## Issues Encountered

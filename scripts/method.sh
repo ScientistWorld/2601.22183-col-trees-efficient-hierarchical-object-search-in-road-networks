@@ -30,7 +30,7 @@ COMMON_ARGS=(
 )
 
 echo "=== Running core-claim kFN experiments ==="
-for density in 0.05; do
+for density in 0.05 0.10; do
     python3 method/experiment.py \
         "${COMMON_ARGS[@]}" \
         --density "$density" \

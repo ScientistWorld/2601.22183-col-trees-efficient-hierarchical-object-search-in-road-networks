@@ -1,6 +1,6 @@
 # Reproduction Milestones
 
-**Current: method_runs**
+**Current: core_claim**
 
 ## Progress Log
 
@@ -20,5 +20,10 @@
 - Removed the fragile `%files` section; runtime uses the bind-mounted workspace and `scripts/download.sh` repopulates `data/downloads/` from tracked data or verified URLs.
 - Resubmitting the same CPU core job after the environment packaging fix.
 
+### [2026-05-20 01:32] - core_claim
+- CPU job `90b0e53b-aab` completed the US48 kFN core experiment with 12/12 exact queries.
+- Reproduced the core benefit/constraint pair: exact kFN correctness with `candidates_ratio=0.1650` and `lookup_reduction_vs_brute=6.0601`.
+- Expanding the same core experiment to a second object density before attempting a higher milestone.
+
 ## Stop Justification
-- Not stopped. A compute job is being submitted to validate whether the revised implementation supports `core_claim`.
+- Not stopped. A compute job is being submitted to test the core claim across an additional object density.
