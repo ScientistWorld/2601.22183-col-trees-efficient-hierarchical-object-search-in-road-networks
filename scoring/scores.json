@@ -10,8 +10,8 @@
   "preprocessing": {
     "results": {
       "colt_phl": {
-        "col_time_s": 0.37059974670410156,
-        "sul_time_s": 13.424859285354614
+        "col_time_s": 0.49335795640945435,
+        "sul_time_s": 19.56636893749237
       }
     }
   },
@@ -28,7 +28,7 @@
     "results": {
       "colt_phl": {
         "accuracy": 1.0,
-        "candidates_ratio": 1.0
+        "candidates_ratio": 0.08435072142064373
       }
     }
   }
