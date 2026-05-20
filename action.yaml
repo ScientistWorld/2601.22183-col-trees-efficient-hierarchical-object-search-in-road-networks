@@ -2,8 +2,8 @@
 # Once you set action to 'done', STOP immediately.
 # Do NOT sleep, poll, or wait. The system reads this file
 # only after your turn ends.
-action: pending
+action: done
 gpus: 0
 test: false
 milestone: secondary_claims
-notes: ""
+notes: "Improvements: added train/test tail-pruning metrics, kept preprocessing diagnostic with validator-compliant positive weight, documented remaining artifact-format risks. Notes: python validate.py and bash -n passed; no scores_train/test stubs present."
