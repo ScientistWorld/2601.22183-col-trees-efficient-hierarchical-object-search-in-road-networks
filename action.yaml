@@ -2,4 +2,4 @@ action: done
 gpus: 0
 test: false
 milestone: secondary_claims
-notes: "Validation passes. Split scores regenerated from core_claim artifacts; 15 train and 15 test metrics; primary ratios stay reference-consistent while differing by slice (AkNN 0.1476/0.2047, kFN 0.1416/0.1717, range 0.0789/0.0898)."
+notes: "Packaged downloads to fetch public road-network artifacts into data/downloads and aligned gitignore/method paths for fresh clones."
