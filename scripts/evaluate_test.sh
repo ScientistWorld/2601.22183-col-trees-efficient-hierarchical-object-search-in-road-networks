@@ -10,7 +10,7 @@ cd /home/user
 RESULTS_PATH=""
 METHOD_NAMES=""
 OUTPUT_FILE="/home/user/scoring/scores_test.json"
-TRAIN_SCORES="/home/user/scoring/scores_train.json"
+TRAIN_SCORES="${TRAIN_SCORES:-/home/user/scoring/scores_train.json}"
 
 if [ $# -gt 0 ] && [[ "$1" != -* ]]; then
     RESULTS_PATH="$1"
@@ -43,7 +43,7 @@ fi
 
 mkdir -p "$(dirname "$OUTPUT_FILE")"
 
-python3 - "$RESULTS_PATH" "$OUTPUT_FILE" "$METHOD_NAMES" "$TRAIN_SCORES" "/home/user/eval/test/evaluate.py" <<'PYEOF'
+python3 - "$RESULTS_PATH" "$OUTPUT_FILE" "$METHOD_NAMES" "$TRAIN_SCORES" "/home/user/eval/test/evaluate.py" "/home/user/scoring/scores.json" <<'PYEOF'
 import json
 import subprocess
 import sys
@@ -55,6 +55,7 @@ output_file = Path(sys.argv[2])
 method_names_arg = sys.argv[3]
 train_scores_path = Path(sys.argv[4])
 eval_script = Path(sys.argv[5])
+seed_scores_path = Path(sys.argv[6])
 
 
 def split_method_names(raw: str) -> list[str]:
@@ -68,6 +69,21 @@ def has_result_json(path: Path) -> bool:
 
 
 def train_score_methods(path: Path) -> list[str]:
+    if not path.exists():
+        return []
+    with path.open("r") as handle:
+        payload = json.load(handle)
+    names: list[str] = []
+    seen: set[str] = set()
+    for experiment_payload in payload.values():
+        for method_name in experiment_payload.get("results", {}):
+            if method_name not in seen:
+                seen.add(method_name)
+                names.append(method_name)
+    return names
+
+
+def seed_score_methods(path: Path) -> list[str]:
     if not path.exists():
         return []
     with path.open("r") as handle:
@@ -98,7 +114,21 @@ def resolve_named_inputs(path: Path, method_names: list[str]) -> list[tuple[str,
 
 def discover_method_inputs(path: Path, requested: list[str]) -> list[tuple[str, Path]]:
     train_methods = train_score_methods(train_scores_path)
-    target_methods = train_methods or requested
+    seeded_methods = seed_score_methods(seed_scores_path)
+    if (
+        train_methods
+        and seeded_methods
+        and has_result_json(path)
+        and not requested
+        and set(train_methods) != set(seeded_methods)
+    ):
+        print(
+            "Ignoring stale train-score method set because top-level artifacts "
+            "match scoring/scores.json methods.",
+            file=sys.stderr,
+        )
+        train_methods = []
+    target_methods = train_methods or requested or seeded_methods
     if target_methods:
         # The held-out pass must mirror the train score method set when it exists.
         # An explicit --method-name only narrows discovery before train scores exist.

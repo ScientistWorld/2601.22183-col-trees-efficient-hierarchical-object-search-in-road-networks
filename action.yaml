@@ -1,4 +1,4 @@
 action: submit
 gpus: 0
 test: false
-notes: "Run evaluate_train.sh and evaluate_test.sh over experiment_results to populate train/test split scores."
+notes: "Re-run train/test scoring after fixing mixed-layout discovery so top-level artifacts score as colt_us48_repro."

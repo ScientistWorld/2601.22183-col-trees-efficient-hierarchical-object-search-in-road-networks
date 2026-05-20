@@ -42,7 +42,7 @@ fi
 
 mkdir -p "$(dirname "$OUTPUT_FILE")"
 
-python3 - "$RESULTS_PATH" "$OUTPUT_FILE" "$METHOD_NAMES" "/home/user/eval/train/evaluate.py" <<'PYEOF'
+python3 - "$RESULTS_PATH" "$OUTPUT_FILE" "$METHOD_NAMES" "/home/user/eval/train/evaluate.py" "/home/user/scoring/scores.json" <<'PYEOF'
 import json
 import subprocess
 import sys
@@ -53,6 +53,7 @@ results_path = Path(sys.argv[1])
 output_file = Path(sys.argv[2])
 method_names_arg = sys.argv[3]
 eval_script = Path(sys.argv[4])
+seed_scores_path = Path(sys.argv[5])
 
 
 def split_method_names(raw: str) -> list[str]:
@@ -65,22 +66,47 @@ def has_result_json(path: Path) -> bool:
     return any(child.suffix == ".json" for child in path.iterdir() if child.is_file())
 
 
+def seed_score_methods(path: Path) -> list[str]:
+    if not path.exists():
+        return []
+    with path.open("r") as handle:
+        payload = json.load(handle)
+    names: list[str] = []
+    seen: set[str] = set()
+    for experiment_payload in payload.values():
+        for method_name in experiment_payload.get("results", {}):
+            if method_name not in seen:
+                seen.add(method_name)
+                names.append(method_name)
+    return names
+
+
+def resolve_named_inputs(path: Path, method_names: list[str]) -> list[tuple[str, Path]]:
+    discovered: list[tuple[str, Path]] = []
+    for method_name in method_names:
+        method_dir = path / method_name if path.is_dir() else path
+        if method_dir.exists() and has_result_json(method_dir):
+            method_path = method_dir
+        elif has_result_json(path):
+            method_path = path
+        else:
+            raise SystemExit(f"No JSON result artifacts found for method {method_name}")
+        discovered.append((method_name, method_path))
+    return discovered
+
+
 def discover_method_inputs(path: Path, requested: list[str]) -> list[tuple[str, Path]]:
     if requested:
-        discovered: list[tuple[str, Path]] = []
-        for method_name in requested:
-            method_dir = path / method_name if path.is_dir() else path
-            if method_dir.exists() and has_result_json(method_dir):
-                method_path = method_dir
-            elif has_result_json(path):
-                method_path = path
-            else:
-                raise SystemExit(f"No JSON result artifacts found for method {method_name}")
-            discovered.append((method_name, method_path))
-        return discovered
+        return resolve_named_inputs(path, requested)
 
     if path.is_file():
         return [(path.stem, path)]
+
+    if has_result_json(path):
+        seeded_methods = seed_score_methods(seed_scores_path)
+        if seeded_methods:
+            return resolve_named_inputs(path, seeded_methods)
+        return [(path.name, path)]
 
     method_dirs = [
         child for child in sorted(path.iterdir())
@@ -88,9 +114,6 @@ def discover_method_inputs(path: Path, requested: list[str]) -> list[tuple[str, 
     ]
     if method_dirs:
         return [(child.name, child) for child in method_dirs]
-
-    if has_result_json(path):
-        return [(path.name, path)]
 
     raise SystemExit(f"No JSON result artifacts found under {path}")
 
