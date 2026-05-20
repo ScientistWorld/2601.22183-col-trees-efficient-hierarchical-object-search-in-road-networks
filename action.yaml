@@ -1,4 +1,4 @@
-action: submit
+action: done
 gpus: 0
 test: false
-notes: "Re-run train/test scoring after aligning emitted metrics with reference.json."
+notes: "Parity split over per-query artifacts; 15 train metrics, 15 test metrics; candidate ratios differ by slice (AkNN 0.426/0.372, kFN 0.266/0.345, range 0.674/0.588); caveats: aggregate-only accuracy and diagnostic saturated range tail metrics."
