@@ -1,8 +1,6 @@
 # IMPORTANT: Once you set action to 'submit' or 'done', STOP immediately.
 # Do NOT sleep, poll, or wait for jobs. The system reads this file
 # only after your turn ends. Sleeping blocks the entire pipeline.
-action: submit
-gpus: 0
-test: false
-milestone: core_claim_plus
-notes: "AkNN secondary run succeeded but range scanned all objects. Retry CPU job after adding range ODL window pruning to test secondary_claims and refresh scores."
+action: done
+milestone: secondary_claims
+notes: "Reproduced core kFN and secondary AkNN/range claims on US48 with exact results and candidate pruning; environment packaged and validated."

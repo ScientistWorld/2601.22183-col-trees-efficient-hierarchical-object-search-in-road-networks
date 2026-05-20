@@ -1,6 +1,6 @@
 # Reproduction Milestones
 
-**Current: core_claim_plus**
+**Current: secondary_claims**
 
 ## Progress Log
 
@@ -35,5 +35,10 @@
 - Fixed range leaf processing to use the ODL landmark-distance window implied by triangle inequality before exact checks.
 - Resubmitting secondary query coverage before claiming `secondary_claims`.
 
+### [2026-05-20 01:44] - secondary_claims
+- CPU job `d266aebb-8f5` reran kFN, AkNN, and range after range ODL pruning.
+- All evaluated query families were exact: kFN, AkNN, and range each reached `accuracy=1.0`.
+- Secondary pruning now holds: AkNN `candidates_ratio=0.1666`, range `candidates_ratio=0.0844`, and kFN `lookup_reduction_vs_brute=6.4020`.
+
 ## Stop Justification
-- Not stopped. A compute job is being submitted to evaluate secondary AkNN and range query claims.
+- Stopping at `secondary_claims`: the reusable environment now evaluates core kFN plus secondary AkNN/range claims on the shipped US48 reproduction setting. Higher milestones would require broader paper-scale tables and the unavailable original DIMACS/OSM POI benchmark.
