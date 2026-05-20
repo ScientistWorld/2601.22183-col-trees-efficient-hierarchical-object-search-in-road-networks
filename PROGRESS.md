@@ -18,6 +18,7 @@
 - Reproduced score: `accuracy=1.0`, `candidates_ratio=0.165015`, `lookup_reduction_vs_brute=6.060053`, `sul_time_s=23.6116`, `col_time_s=1.0631`.
 - The result is weaker than the paper's reported `candidates_ratio=0.01` and `lookup_reduction_vs_brute=100`, but it supports the core claim at reduced scale: exact kFN answers while verifying a fraction of the object set.
 - CPU job `e203f389-121` expanded kFN to densities 0.05 and 0.10 with 24/24 exact queries. Averaged scoring is `accuracy=1.0`, `candidates_ratio=0.156648`, `lookup_reduction_vs_brute=6.402002`.
+- CPU job `26aa2eab-2d1` added AkNN and range runs. AkNN reached `accuracy=1.0` with `candidates_ratio=0.166640`; range reached `accuracy=1.0` but scanned all objects with `candidates_ratio=1.0`, so it does not yet support the secondary efficiency claim.
 - An earlier resubmission did not reach the job stage because the container build attempted to copy `data/downloads/road-usroads-48.mtx`, which is not present in a fresh build checkout. The packaging issue was fixed before job `90b0e53b-aab`.
 
 ## Deviations From Paper
@@ -31,7 +32,7 @@
 
 ## What Remains
 
-- Run the submitted AkNN and range secondary job and inspect exactness/candidate reduction for both query types.
+- Rerun the submitted AkNN and range secondary job after fixing range ODL window pruning.
 - If secondary results are weak, tune `lambda`, density, branch factor, and landmark count while preserving the COL/SUL algorithm.
 
 ## Issues Encountered
@@ -41,3 +42,4 @@
 - Correctness checks previously compared sets directly, which falsely rejected valid top-k ties. The experiment code now accepts any exact tied top-k result.
 - kFN leaf nodes were previously only advanced on their first priority-queue visit; that control-flow bug is fixed before the next core run.
 - The container definition previously baked workspace files, including gitignored downloads, into the image despite the workspace being bind-mounted at runtime. This caused the build failure and has been removed.
+- Range leaf processing scanned the full ODL even when the landmark triangle lower bound excluded most objects. It now restricts exact checks to the feasible sorted-distance window.

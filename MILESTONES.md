@@ -30,5 +30,10 @@
 - Averaged score improved to `candidates_ratio=0.1566` and `lookup_reduction_vs_brute=6.4020` while preserving `accuracy=1.0`.
 - Adding small AkNN and range runs to test secondary query claims next.
 
+### [2026-05-20 01:40] - core_claim_plus
+- CPU job `26aa2eab-2d1` verified AkNN and range correctness, but range scanned all objects (`candidates_ratio=1.0`).
+- Fixed range leaf processing to use the ODL landmark-distance window implied by triangle inequality before exact checks.
+- Resubmitting secondary query coverage before claiming `secondary_claims`.
+
 ## Stop Justification
 - Not stopped. A compute job is being submitted to evaluate secondary AkNN and range query claims.

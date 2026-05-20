@@ -5,4 +5,4 @@ action: submit
 gpus: 0
 test: false
 milestone: core_claim_plus
-notes: "Core claim plus reached on kFN densities 0.05 and 0.10. Submit CPU job adding small AkNN and range runs for secondary-claim coverage and refreshed scores."
+notes: "AkNN secondary run succeeded but range scanned all objects. Retry CPU job after adding range ODL window pruning to test secondary_claims and refresh scores."

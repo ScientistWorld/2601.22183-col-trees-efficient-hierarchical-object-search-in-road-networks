@@ -816,15 +816,24 @@ class COLTree:
 
         results = set()
         checked = set()
-        # Use only the first ODL to avoid double-counting objects
+        # Use one ODL to avoid double-counting objects. Triangle inequality
+        # implies every true result must satisfy |d(l, q) - d(l, p)| <= r, so
+        # the sorted ODL lets us skip objects outside that feasible window.
         for li_idx in [0]:
             odl = node.odls[li_idx] if li_idx < len(node.odls) else []
             if not odl:
                 continue
             landmark = node.get_landmarks()[li_idx]
             d_lq = d_q[landmark] if landmark < len(d_q) else float('inf')
+            if d_lq == float('inf'):
+                continue
 
-            for d_lp, obj in odl:
+            lo = max(0.0, d_lq - r)
+            hi = d_lq + r
+            left = bisect.bisect_left(odl, (lo, -1))
+            right = bisect.bisect_right(odl, (hi, self.graph.num_vertices + 1))
+
+            for d_lp, obj in odl[left:right]:
                 if obj in checked:
                     continue
                 checked.add(obj)
