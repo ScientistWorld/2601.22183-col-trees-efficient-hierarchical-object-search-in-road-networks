@@ -1,42 +1,42 @@
 {
   "aknn_real_pois": {
     "results": {
-      "core_claim": {
+      "colt_us48_repro": {
         "accuracy": 1.0,
-        "candidates_ratio": 0.2253052164261931,
-        "candidate_p90_ratio": 0.24179483114000316,
-        "candidate_max_ratio": 0.24591723481845568,
-        "lookup_reduction_vs_brute": 4.475884477219415
+        "candidates_ratio": 0.42612942612942606,
+        "candidate_p90_ratio": 0.5952380952380952,
+        "candidate_max_ratio": 0.7857142857142857,
+        "lookup_reduction_vs_brute": 2.5708067613202337
       }
     }
   },
   "kfn_real_pois": {
     "results": {
-      "core_claim": {
+      "colt_us48_repro": {
         "accuracy": 1.0,
-        "candidates_ratio": 0.1565720627873791,
-        "candidate_p90_ratio": 0.24835896622800063,
-        "candidate_max_ratio": 0.28381163786269226,
-        "lookup_reduction_vs_brute": 8.807507951482291
+        "candidates_ratio": 0.26634920634920645,
+        "candidate_p90_ratio": 0.5587301587301589,
+        "candidate_max_ratio": 0.6349206349206349,
+        "lookup_reduction_vs_brute": 5.607482262002983
       }
     }
   },
   "range_real_pois": {
     "results": {
-      "core_claim": {
+      "colt_us48_repro": {
         "accuracy": 1.0,
-        "candidates_ratio": 0.08366365414090164,
-        "candidate_p90_ratio": 0.09110512129380054,
-        "candidate_max_ratio": 0.09370540669097828,
-        "lookup_reduction_vs_brute": 12.040225498399034
+        "candidates_ratio": 0.6738144329896908,
+        "candidate_p90_ratio": 1.0,
+        "candidate_max_ratio": 1.0,
+        "lookup_reduction_vs_brute": 2.5225705979980027
       }
     }
   },
   "preprocessing": {
     "results": {
-      "core_claim": {
-        "sul_time_s": 10.371899858876455,
-        "col_time_s": 0.26152319496816145
+      "colt_us48_repro": {
+        "sul_time_s": 0.8676483493202963,
+        "col_time_s": 0.013799567118686991
       }
     }
   }
