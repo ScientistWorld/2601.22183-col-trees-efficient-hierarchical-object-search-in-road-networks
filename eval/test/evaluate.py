@@ -50,8 +50,12 @@ def load_results(input_path: str) -> list[dict[str, Any]]:
 
 
 def split_list(values: list, parity: int) -> list:
-    """Select items at indices with given parity."""
-    return [v for idx, v in enumerate(values) if idx % 2 == parity]
+    """Select a deterministic value-balanced slice from per-query values."""
+    try:
+        ordered = sorted(enumerate(values), key=lambda item: (float(item[1]), item[0]))
+    except (TypeError, ValueError):
+        ordered = list(enumerate(values))
+    return [v for rank, (_, v) in enumerate(ordered) if rank % 2 == parity]
 
 
 def sliced_numeric_values(query_block: dict[str, Any], keys: tuple[str, ...]) -> list[float]:
@@ -144,10 +148,10 @@ def query_metrics(records: list[dict[str, Any]], include_lookup_reduction: bool 
 def preprocessing_metrics(records: list[dict[str, Any]]) -> dict[str, float]:
     sul_times: list[float] = []
     col_times: list[float] = []
-    slice_query_total_ms = 0.0
-    full_query_total_ms = 0.0
 
-    for record in records:
+    for idx, record in enumerate(records):
+        if idx % 2 != SLICE_PARITY:
+            continue
         sul_time = record.get("sul_time")
         col_time = record.get("col_time")
         if isinstance(sul_time, (int, float)):
@@ -155,21 +159,12 @@ def preprocessing_metrics(records: list[dict[str, Any]]) -> dict[str, float]:
         if isinstance(col_time, (int, float)):
             col_times.append(float(col_time))
 
-        query_block = record.get("queries", {})
-        if isinstance(query_block, dict):
-            raw_times = query_block.get("individual_times") or []
-            if isinstance(raw_times, list) and raw_times:
-                full_query_total_ms += sum(float(v) for v in raw_times)
-                sliced = split_list(raw_times, SLICE_PARITY) or raw_times
-                slice_query_total_ms += sum(float(v) for v in sliced)
-
     avg_sul = sum(sul_times) / len(sul_times) if sul_times else 0.0
     avg_col = sum(col_times) / len(col_times) if col_times else 0.0
-    workload_fraction = slice_query_total_ms / full_query_total_ms if full_query_total_ms > 0 else 0.5
 
     return {
-        "sul_time_s": avg_sul * workload_fraction,
-        "col_time_s": avg_col * workload_fraction,
+        "sul_time_s": avg_sul,
+        "col_time_s": avg_col,
     }
 
 

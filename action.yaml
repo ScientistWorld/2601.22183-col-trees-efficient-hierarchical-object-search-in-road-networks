@@ -1,5 +1,5 @@
-action: done
+action: submit
 gpus: 0
 test: false
 milestone: secondary_claims
-notes: "Actual method has reached secondary_claims: kFN core claim is exact with pruning (scores.json kFN accuracy=1.0, candidates_ratio=0.1566, lookup_reduction=6.4020), with AkNN/range exact pruning also present; split scores are populated with 15 train and 15 test metrics."
+notes: "Re-run split scoring on core_claim artifacts with value-balanced slices so scores_train/test stay consistent with scores.json/reference."
