@@ -1,4 +1,5 @@
 action: done
 gpus: 0
 test: false
-notes: "Parity split over per-query artifacts; 15 train metrics, 15 test metrics; candidate ratios differ by slice (AkNN 0.426/0.372, kFN 0.266/0.345, range 0.674/0.588); caveats: aggregate-only accuracy and diagnostic saturated range tail metrics."
+milestone: secondary_claims
+notes: "Actual method has reached secondary_claims: kFN core claim is exact with pruning (scores.json kFN accuracy=1.0, candidates_ratio=0.1566, lookup_reduction=6.4020), with AkNN/range exact pruning also present; split scores are populated with 15 train and 15 test metrics."

@@ -42,3 +42,4 @@
 
 ## Stop Justification
 - Completed at milestone `secondary_claims`.
+- Final split-design scoring also supports at least `core_claim`: the scored final method is exact on kFN (`accuracy=1.0`) while pruning the object set (`candidates_ratio=0.1566`, `lookup_reduction_vs_brute=6.4020` in `scoring/scores.json`; train/test kFN candidate ratios 0.2663/0.3448). AkNN and range secondary rows remain exact with non-trivial pruning.
