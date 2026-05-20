@@ -27,6 +27,7 @@
 - Scores are reported under `colt_us48_repro` because this is a documented US48/synthetic-POI substitute. The paper's `colt_phl` reference row remains reserved for the original DIMACS/OSM+PHL setting; `reference.json` also includes `colt_us48_repro` rows as the fixed target for validating this shipped replacement benchmark.
 - On 2026-05-20 02:27, `python3 -m py_compile baseline/bruteforce.py method/experiment.py eval/evaluate.py`, `bash scripts/evaluate.sh /home/user/experiment_results/core_claim`, and `python3 validate.py --compare` all passed after moving baseline helpers out of `method/`.
 - On 2026-05-20 02:32, bytecode checks and a tiny local graph smoke test passed after correcting SUL/COL distance storage and kFN candidate scheduling. Fresh benchmark scores are pending the submitted CPU job.
+- On 2026-05-20 02:35, final verification confirmed the current saved artifacts are stale under the stricter evaluator: `scripts/evaluate.sh /home/user/experiment_results/core_claim` fails until the prepared CPU job regenerates artifacts with `queries.per_query`.
 - An earlier resubmission did not reach the job stage because the container build attempted to copy `data/downloads/road-usroads-48.mtx`, which is not present in a fresh build checkout. The packaging issue was fixed before job `90b0e53b-aab`.
 
 ## Deviations From Paper
@@ -52,3 +53,4 @@
 - The container definition previously baked workspace files, including gitignored downloads, into the image despite the workspace being bind-mounted at runtime. This caused the build failure and has been removed.
 - Range leaf processing scanned the full ODL even when the landmark triangle lower bound excluded most objects. It now restricts exact checks to the feasible sorted-distance window.
 - A later audit found the evaluator trusted method-reported aggregate correctness and train/test silently fell back to aggregate fields. The method now emits per-query outputs, main eval recomputes correctness independently, and train/test require per-query correctness and exact lookup counts.
+- Final verification found the checked-in score files still reflect pre-audit artifacts. The workspace is therefore left at `method_runs` with a CPU regeneration job queued rather than signed off as `secondary_claims`.

@@ -15,7 +15,6 @@ Returned query results must be exact. Ties at the kth boundary may be returned i
 
 ## Constraint: Preprocessing
 
-The index must be built from hierarchical subgraph landmarks and a compact object index rather than all-pairs distances.
+The method must build a reusable graph/POI preprocessing structure rather than answering every query from scratch with all-pairs distances.
 
 - **Metric**: `sul_time_s` and `col_time_s` (lower is better, reported as overhead)
-

@@ -58,5 +58,11 @@
 - Updated evaluation to recompute main accuracy from method outputs and exact ground truth, tightened train/test evaluators to require per-query correctness and exact lookup counts, and changed `scripts/run.sh` to regenerate method artifacts before scoring.
 - Bytecode checks and a tiny local graph smoke test pass; submitting a CPU job to regenerate the benchmark artifacts.
 
+### [2026-05-20 02:35] - method_runs
+- Final verification found that the checked-in `experiment_results/core_claim` artifacts are still stale and fail standalone `scripts/evaluate.sh` because they lack `queries.per_query`.
+- Verified both download URLs with `curl -I -L --max-time 15`; both returned HTTP 200.
+- Cleaned public scoring guidance to avoid exposing implementation names in method-agnostic/high-level gym documents.
+- Keeping the milestone at `method_runs` and submitting the prepared CPU job to regenerate artifacts and scores before any final `secondary_claims` sign-off.
+
 ## Stop Justification
 - Pending fresh compute verification after paper-alignment fixes.

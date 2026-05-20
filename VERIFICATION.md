@@ -2,29 +2,26 @@
 
 ## Initial Assessment
 
-The workspace started at milestone `secondary_claims`, with completed COL-Tree reproduction artifacts for kFN, AkNN, and range queries on the shipped US48 replacement benchmark. The claimed milestone was justified: saved result artifacts showed exact correctness for all evaluated query families and nontrivial candidate pruning, and `python validate.py --compare` passed.
+The previous workflow had reached `secondary_claims`, but the current workspace had already been reset to `method_runs` after a deeper audit. That reset is justified. The code and evaluator have been tightened, but the checked-in `experiment_results/core_claim` artifacts are stale: they do not contain the per-query outputs now required for independent correctness recomputation.
 
 ## Issues Found
 
-- **Minor**: Strict method-agnostic documentation leaked method and baseline names in `briefing/evaluation.md` and `scoring/EXPERIMENTS.md`.
-- **Minor**: `reference.json` included shipped US48 replacement target rows without explicit notes separating them from paper-reported rows.
-- **Minor**: Ignored duplicate downloaded data files were present directly under `data/` instead of only under `data/downloads/`.
-- **Minor**: `scripts/baseline.sh` imported brute-force helpers from `method/`, which weakened the baseline/method organization even though the evaluator was already independent.
+- **Critical**: `scripts/evaluate.sh /home/user/experiment_results/core_claim` fails because the saved artifacts lack `queries.per_query`. Current `scores.json`, `scores_train.json`, and `scores_test.json` are structurally valid but stale relative to the stricter evaluator.
+- **Minor**: High-level public scoring documents still named implementation structures directly in places where future from-scratch agents should only see constraints and direction.
+- **Minor**: Ignored Python bytecode directories were present under source/data directories.
 
 ## Fixes Applied
 
-- Rewrote `briefing/evaluation.md`, adjusted `briefing/problem.md`, and rewrote `scoring/EXPERIMENTS.md` to describe the task and experiments without exposing the paper method.
-- Added experiment-level notes in `scoring/reference.json` documenting that `colt_us48_repro` rows are fixed shipped-benchmark replacement targets, not original paper numbers.
-- Removed unused ignored duplicate data artifacts from `data/`; canonical fetched data remains in `data/downloads/`.
-- Added `baseline/bruteforce.py` and updated `scripts/baseline.sh` to use `baseline/` plus `data/`, not `method/`.
-- Verified both download URLs with `curl -I -L --max-time 15`; both returned HTTP 200.
-- Re-ran `scripts/evaluate.sh experiment_results/core_claim` and `python validate.py --compare`; all checks pass.
+- Verified both URLs in `scripts/download.sh` with `curl -I -L --max-time 15`; both returned HTTP 200.
+- Confirmed committed code does not reference `/shared` paths and `eval/` does not import from `method/`.
+- Tightened `briefing/evaluation.md`, `scoring/TARGETS.md`, `scoring/CONSTRAINTS.md`, and `scoring/DIRECTION.md` to keep public gym guidance focused on the task, constraints, and allowed research direction rather than implementation names.
+- Confirmed `scripts/run.sh` is prepared to regenerate method artifacts, run main/train/test evaluation, and validate scores in a CPU test job.
 
 ## Final Judgment
 
-The workspace is ready to serve as a research gym. Improve-mode agents can build on the reproduced method and saved results. From-scratch agents can use the method-agnostic problem, evaluation, data, and scoring documents without being handed the implementation design. The main limitation is that this gym uses an accessible US48 graph with sampled POIs instead of the original large road-network/real-POI/PHL setup.
+The workspace is not ready for final `done` yet because the saved artifacts and score files are stale under the current evaluator. The appropriate next action is a CPU test job to regenerate `experiment_results/core_claim`, `scoring/scores.json`, `scoring/scores_train.json`, and `scoring/scores_test.json`. If that job passes, the prior `secondary_claims` milestone can be restored; until then the honest milestone is `method_runs`.
 
-- Milestone: secondary_claims
-- Ready for gym use: yes
-- Confidence: high
-- Key limitation: shipped US48/synthetic-POI replacement benchmark rather than the paper's original full-scale data and distance-oracle setup.
+- Milestone: method_runs
+- Ready for gym use: partial
+- Confidence: medium
+- Key limitation: fresh post-audit benchmark artifacts are pending regeneration; the benchmark also uses an accessible US48/synthetic-POI replacement rather than the paper's original full-scale data and distance-oracle setup.

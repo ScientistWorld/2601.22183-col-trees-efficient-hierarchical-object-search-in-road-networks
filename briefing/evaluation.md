@@ -27,8 +27,10 @@ These metrics measure how much work a submitted method leaves for exact verifica
 
 Build-time fields are reported for context but have zero score weight because wall-clock timing depends on hardware and implementation language.
 
-- `sul_time_s`
-- `col_time_s`
+- `sul_time_s`: legacy field name for first-stage preprocessing time.
+- `col_time_s`: legacy field name for object-index preprocessing time.
+
+These fields are retained for compatibility with the score schema. They are not optimization targets.
 
 ## Protocol
 
