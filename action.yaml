@@ -3,6 +3,6 @@
 # only after your turn ends. Sleeping blocks the entire pipeline.
 action: submit
 gpus: 0
-test: true
+test: false
 milestone: method_runs
-notes: "CPU smoke/core job: run revised local-landmark COL/SUL kFN experiment on US48, summarize results, and refresh scoring/scores.json."
+notes: "CPU core job: run revised local-landmark COL/SUL kFN experiment on US48 after fixing kFN leaf requeue progress, summarize results, and refresh scoring/scores.json."

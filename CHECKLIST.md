@@ -32,7 +32,7 @@ Check off items as you complete them. Order doesn't matter — work however make
 
 ## Data
 - [x] Dataset acquired (shared dir or `data/`)
-- [ ] Pretrained models downloaded if needed
+- [x] Pretrained models downloaded if needed (none needed)
 
 ## Milestones
 - [x] `method_runs` — executes end-to-end without errors

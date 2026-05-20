@@ -679,10 +679,11 @@ class COLTree:
                     if not node.seen:
                         self._init_leaf_node_kfn(node, q)
                         node.seen = True
-                        self._retrieve_objects_odl_kfn(node, d_q, result_objs,
-                                                        D_k, pq, 0,
-                                                        stats)
-                        D_k = result_objs[0][0] if len(result_objs) >= k else 0.0
+
+                    self._retrieve_objects_odl_kfn(node, d_q, result_objs,
+                                                    D_k, pq, 0,
+                                                    stats)
+                    D_k = result_objs[0][0] if len(result_objs) >= k else 0.0
 
                     node_ub = self._compute_leaf_ub_remaining(node, self._kfn_q)
                     # Re-add if: haven't found k results, OR (node has more objects AND ub >= D_k)

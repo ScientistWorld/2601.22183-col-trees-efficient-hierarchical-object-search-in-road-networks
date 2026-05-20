@@ -15,6 +15,7 @@ bash scripts/download.sh
 
 OUT_DIR="/home/user/experiment_results/core_claim"
 mkdir -p "$OUT_DIR"
+rm -f "$OUT_DIR"/*.json
 
 COMMON_ARGS=(
     --network usroads-48

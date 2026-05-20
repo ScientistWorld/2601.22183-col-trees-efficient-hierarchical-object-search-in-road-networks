@@ -8,11 +8,13 @@
 - COL-Tree now builds POI-specific internal min/max landmark bounds and leaf ODLs.
 - kFN, AkNN, and range query entry points run on a small local smoke graph and match exact results when ties are handled correctly.
 - `scripts/run.sh` submits the core kFN reproduction and calls `scripts/evaluate.sh` to refresh `scoring/scores.json`.
+- kFN leaf processing now advances on every revisited COL leaf, avoiding a stale requeue state after initialization.
 
 ## Results Achieved
 
 - Current verified milestone remains `method_runs`: the revised algorithm executes on a small local graph.
 - The previous `scores.json` came from older artifacts and should be replaced by the submitted core-claim job before claiming `core_claim`.
+- No fresh `experiment_results/core_claim` artifacts were present during the continuation audit, so the next CPU job is the source of truth for restoring the milestone.
 
 ## Deviations From Paper
 
@@ -34,4 +36,4 @@
 - The inherited implementation used root landmarks for every SUL node, which was not faithful to the paper.
 - Internal COL nodes previously lacked object-specific min/max landmark distances, weakening or breaking pruning.
 - Correctness checks previously compared sets directly, which falsely rejected valid top-k ties. The experiment code now accepts any exact tied top-k result.
-
+- kFN leaf nodes were previously only advanced on their first priority-queue visit; that control-flow bug is fixed before the next core run.
