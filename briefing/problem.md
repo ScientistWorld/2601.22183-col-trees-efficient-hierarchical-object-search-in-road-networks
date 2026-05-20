@@ -1,4 +1,4 @@
-# Problem Definition: Hierarchical POI Search in Road Networks
+# Problem Definition: Efficient POI Search in Road Networks
 
 ## Domain
 
@@ -49,9 +49,9 @@ All POIs within network distance r from q.
 
 - **Scale**: Real-world road networks can have tens of millions of vertices and edges (e.g., the DIMACS network with ~24M vertices, ~58M edges), making repeated shortest-path computations costly.
 - **Multi-objective nature**: AkNN involves finding a set of k POIs jointly, not independently, which is combinatorially harder than finding a single nearest neighbor.
-- **Query diversity**: Different query types (AkNN, kFN, Range) require different algorithmic strategies.
+- **Query diversity**: Different query types (AkNN, kFN, Range) stress different parts of a search system.
 - **Dynamic POI sets**: The POI set P may change between queries (different POI types), requiring the index to support multiple object sets efficiently.
 
 ## Scope
 
-This reproduction targets the three query types above on static road networks with static POI sets, evaluated on the DIMACS US road network with various POI types (schools, parks, hospitals, etc.).
+This environment targets the three query types above on static road networks with static POI sets. The shipped benchmark uses a public US road graph with reproducible vertex-sampled POI sets; the original paper evaluated larger road networks with real POI categories.

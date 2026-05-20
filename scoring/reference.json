@@ -1,7 +1,8 @@
 {
   "experiments": {
     "kfn_real_pois": {
-      "description": "kFN query: COL-Tree achieves exact results while pruning the search space. Scored on machine-independent metrics: accuracy and candidate reduction ratio.",
+      "description": "kFN query: exact results while pruning the search space. Scored on machine-independent metrics: accuracy and candidate reduction ratio.",
+      "notes": "Rows named colt_phl and aub_phl summarize paper-reported reference behavior. The colt_us48_repro row is the fixed shipped-benchmark target from the US48/synthetic-POI replacement setting, included so fresh workspace scores can validate against the same accessible benchmark rather than the unavailable original POI/PHL setup.",
       "weight": 0.49,
       "primary_metric": "candidates_ratio",
       "metrics": {
@@ -38,7 +39,8 @@
       }
     },
     "aknn_real_pois": {
-      "description": "AkNN query correctness. COL-Tree returns exact results using landmark-based LB pruning.",
+      "description": "AkNN query correctness and candidate reduction for multiple query vertices.",
+      "notes": "The colt_phl row summarizes paper-reported reference behavior. The colt_us48_repro row is the fixed shipped-benchmark target from the US48/synthetic-POI replacement setting.",
       "weight": 0.25,
       "primary_metric": "candidates_ratio",
       "metrics": {
@@ -69,7 +71,8 @@
       }
     },
     "range_real_pois": {
-      "description": "Range query correctness. COL-Tree returns exact results with LB/UB pruning.",
+      "description": "Range query correctness and candidate reduction.",
+      "notes": "The colt_phl row summarizes paper-reported reference behavior. The colt_us48_repro row is the fixed shipped-benchmark target from the US48/synthetic-POI replacement setting.",
       "weight": 0.25,
       "primary_metric": "candidates_ratio",
       "metrics": {
@@ -100,7 +103,8 @@
       }
     },
     "preprocessing": {
-      "description": "Index construction overhead.",
+      "description": "Preprocessing overhead diagnostics.",
+      "notes": "Timing metrics are retained only as zero-weight diagnostics. The colt_us48_repro row is from the shipped replacement benchmark and should not be read as a paper-reported number.",
       "weight": 0.01,
       "primary_metric": "col_time_s",
       "metrics": {

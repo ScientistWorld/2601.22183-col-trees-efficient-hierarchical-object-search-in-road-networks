@@ -2,4 +2,4 @@ action: done
 gpus: 0
 test: false
 milestone: secondary_claims
-notes: "Secondary-claims reproduction is packaged. Evaluator now reports average, p90, and worst-query candidate-ratio constraints from saved method artifacts; validate.py --compare passes."
+notes: "Final verification passed: method-agnostic docs cleaned, reference notes added, URLs verified, baseline organization fixed, and validate.py --compare passes."

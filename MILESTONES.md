@@ -44,5 +44,9 @@
 - Refreshed the evaluator to populate p90 and worst-query candidate-ratio constraint metrics from saved per-query method artifacts.
 - Re-ran `scripts/evaluate.sh`, `scripts/evaluate_train.sh`, `scripts/evaluate_test.sh`, and `python validate.py --compare`; all checks pass.
 
+### [2026-05-20 02:23] - secondary_claims
+- Final verification passed after cleaning method-agnostic documentation, documenting replacement benchmark reference rows, and moving brute-force baseline helpers under `baseline/`.
+- Verified download URLs and reran `python validate.py --compare`; all checks pass.
+
 ## Stop Justification
 - Completed at milestone `secondary_claims`.

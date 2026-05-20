@@ -22,8 +22,8 @@ echo "AkNN brute force..."
 python3 -c "
 import time, json
 from data.loader import load_network
-from method.graph import ObjectSet
-from method.baselines import aknn_bruteforce
+from data.graph import ObjectSet
+from baseline.bruteforce import aknn_bruteforce
 
 G = load_network('data/downloads/road-usroads-48.mtx')
 obj_set = ObjectSet.uniform_random(G, 0.001, seed=42)
@@ -44,8 +44,8 @@ echo "kFN brute force..."
 python3 -c "
 import time
 from data.loader import load_network
-from method.graph import ObjectSet
-from method.baselines import kfn_bruteforce
+from data.graph import ObjectSet
+from baseline.bruteforce import kfn_bruteforce
 
 G = load_network('data/downloads/road-usroads-48.mtx')
 obj_set = ObjectSet.uniform_random(G, 0.001, seed=42)
@@ -66,8 +66,8 @@ echo "Range brute force..."
 python3 -c "
 import time
 from data.loader import load_network
-from method.graph import ObjectSet
-from method.baselines import range_bruteforce
+from data.graph import ObjectSet
+from baseline.bruteforce import range_bruteforce
 
 G = load_network('data/downloads/road-usroads-48.mtx')
 obj_set = ObjectSet.uniform_random(G, 0.001, seed=42)
