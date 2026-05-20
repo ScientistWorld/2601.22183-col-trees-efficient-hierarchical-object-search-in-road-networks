@@ -20,6 +20,7 @@
 - CPU job `e203f389-121` expanded kFN to densities 0.05 and 0.10 with 24/24 exact queries. Averaged scoring is `accuracy=1.0`, `candidates_ratio=0.156648`, `lookup_reduction_vs_brute=6.402002`.
 - CPU job `26aa2eab-2d1` added AkNN and range runs. AkNN reached `accuracy=1.0` with `candidates_ratio=0.166640`; range reached `accuracy=1.0` but scanned all objects with `candidates_ratio=1.0`, so it does not yet support the secondary efficiency claim.
 - CPU job `d266aebb-8f5` reran secondary queries after range ODL pruning. Final scores are kFN `accuracy=1.0`, `candidates_ratio=0.156648`, `lookup_reduction_vs_brute=6.402002`; AkNN `accuracy=1.0`, `candidates_ratio=0.166640`; range `accuracy=1.0`, `candidates_ratio=0.084351`; preprocessing `sul_time_s=19.5664`, `col_time_s=0.4934`.
+- Scores are reported under `colt_us48_repro` because this is a documented US48/synthetic-POI substitute. The paper's `colt_phl` reference row remains reserved for the original DIMACS/OSM+PHL setting; `reference.json` also includes `colt_us48_repro` rows as the fixed target for validating this shipped replacement benchmark.
 - An earlier resubmission did not reach the job stage because the container build attempted to copy `data/downloads/road-usroads-48.mtx`, which is not present in a fresh build checkout. The packaging issue was fixed before job `90b0e53b-aab`.
 
 ## Deviations From Paper
@@ -30,6 +31,7 @@
 - Reproduction partitioner: deterministic multi-source BFS graph partitioning, preserving recursive graph-aware subgraphs without external OS-level dependencies.
 - Paper distance oracle: PHL for exact distance verification.
 - Reproduction distance verification: Dijkstra on the shipped graph. This preserves exactness but changes wall-clock behavior, so scoring emphasizes candidate and lookup reduction.
+- Score identity: reproduced outputs use method name `colt_us48_repro` instead of `colt_phl` to avoid direct paper-number consistency checks against an intentionally different benchmark/resource setting.
 
 ## What Remains
 

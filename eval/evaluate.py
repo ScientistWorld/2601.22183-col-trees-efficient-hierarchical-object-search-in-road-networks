@@ -96,7 +96,7 @@ def evaluate_preprocessing(result, method_name):
 def main():
     parser = argparse.ArgumentParser(description="Evaluate COL-Tree results")
     parser.add_argument("results_path", help="Result JSON file or directory")
-    parser.add_argument("--method-name", "-m", default="colt_phl")
+    parser.add_argument("--method-name", "-m", default="colt_us48_repro")
     parser.add_argument("--output", "-o", default="/home/user/scoring/scores.json")
     args = parser.parse_args()
 

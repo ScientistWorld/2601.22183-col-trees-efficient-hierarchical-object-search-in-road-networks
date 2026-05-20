@@ -3,4 +3,4 @@
 # only after your turn ends. Sleeping blocks the entire pipeline.
 action: done
 milestone: secondary_claims
-notes: "Reproduced core kFN and secondary AkNN/range claims on US48 with exact results and candidate pruning; environment packaged and validated."
+notes: "Reproduced core kFN and secondary AkNN/range claims on US48 as colt_us48_repro; environment packaged and validated."

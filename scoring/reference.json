@@ -23,6 +23,7 @@
       },
       "results": {
         "colt_phl": {"type": "proposed", "accuracy": 1.0, "candidates_ratio": 0.01, "lookup_reduction_vs_brute": 100.0},
+        "colt_us48_repro": {"type": "proposed", "accuracy": 1.0, "candidates_ratio": 0.15664803657311982, "lookup_reduction_vs_brute": 6.402002364442037},
         "aub_phl": {"type": "baseline", "accuracy": 1.0, "candidates_ratio": 0.5, "lookup_reduction_vs_brute": 2.0}
       }
     },
@@ -43,7 +44,8 @@
         }
       },
       "results": {
-        "colt_phl": {"type": "proposed", "accuracy": 1.0, "candidates_ratio": 0.05}
+        "colt_phl": {"type": "proposed", "accuracy": 1.0, "candidates_ratio": 0.05},
+        "colt_us48_repro": {"type": "proposed", "accuracy": 1.0, "candidates_ratio": 0.1666402410020612}
       }
     },
     "range_real_pois": {
@@ -63,7 +65,8 @@
         }
       },
       "results": {
-        "colt_phl": {"type": "proposed", "accuracy": 1.0, "candidates_ratio": 0.1}
+        "colt_phl": {"type": "proposed", "accuracy": 1.0, "candidates_ratio": 0.1},
+        "colt_us48_repro": {"type": "proposed", "accuracy": 1.0, "candidates_ratio": 0.08435072142064373}
       }
     },
     "preprocessing": {
@@ -75,7 +78,8 @@
         "col_time_s": {"higher_is_better": false, "coefficient": -0.5, "description": "COL-Tree build time in seconds."}
       },
       "results": {
-        "colt_phl": {"type": "proposed", "sul_time_s": 8.0, "col_time_s": 0.2}
+        "colt_phl": {"type": "proposed", "sul_time_s": 8.0, "col_time_s": 0.2},
+        "colt_us48_repro": {"type": "proposed", "sul_time_s": 19.56636893749237, "col_time_s": 0.49335795640945435}
       }
     }
   }

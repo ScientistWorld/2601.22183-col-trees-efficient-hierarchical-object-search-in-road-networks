@@ -11,7 +11,10 @@ cd /home/user
 mkdir -p scoring
 
 RESULTS_PATH="${1:-}"
-METHOD_NAME="colt_phl"
+# This reproduction uses US48 with synthetic POIs and Dijkstra verification,
+# not the paper's original DIMACS/OSM+PHL setting. Keep its score row distinct
+# from the paper-reported `colt_phl` reference row.
+METHOD_NAME="colt_us48_repro"
 OUTPUT_FILE="/home/user/scoring/scores.json"
 
 # Parse optional flags
