@@ -96,8 +96,6 @@ class SULTree:
 
         self.root: Optional[SULNode] = None
         self.node_count = 0
-        self.landmark_distances: Dict[int, List[float]] = {}
-
         # Partition the graph
         self._partition()
 
@@ -407,11 +405,10 @@ class SULTree:
         node.max_dist = []
 
         for landmark in node.landmarks:
-            # Dijkstra from landmark
-            if landmark not in self.landmark_distances:
-                self.landmark_distances[landmark] = self.graph.dijkstra(landmark)
-            dist = self.landmark_distances[landmark]
-            # Extract distances for vertices in this subgraph
+            # Run one-to-many Dijkstra, but store only the SDL entries for
+            # this subgraph. This matches the paper's storage model: local
+            # landmarks do not materialize full-graph distance arrays.
+            dist = self.graph.dijkstra(landmark)
             sdl = [dist[v] if v < len(dist) else float('inf') for v in vertices]
             node.sdls.append(sdl)
 

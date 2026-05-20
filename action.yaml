@@ -1,5 +1,5 @@
-action: done
+action: submit
 gpus: 0
-test: false
-milestone: secondary_claims
-notes: "Final verification passed: method-agnostic docs cleaned, reference notes added, URLs verified, baseline organization fixed, and validate.py --compare passes."
+test: true
+milestone: method_runs
+notes: "CPU test job: regenerate COL/SUL method artifacts with paper-aligned bounds and per-query outputs, then run main/train/test evaluators and validate.py --compare."

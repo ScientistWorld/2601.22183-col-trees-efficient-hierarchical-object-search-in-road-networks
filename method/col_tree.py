@@ -176,6 +176,51 @@ class COLTree:
             return sdl[idx]
         return float('inf')
 
+    def _root_distance(self, landmark_idx: int, vertex: int) -> float:
+        """Distance from a root landmark to a graph vertex."""
+        root = self.sul_tree.root
+        if root is None or landmark_idx >= len(root.sdls):
+            return float('inf')
+        sdl = root.sdls[landmark_idx]
+        if 0 <= vertex < len(sdl):
+            return sdl[vertex]
+        return float('inf')
+
+    def _local_landmark_query_bounds(
+        self,
+        node: COLNode,
+        landmark_idx: int,
+        query_vertex: int,
+    ) -> Tuple[float, float]:
+        """
+        Bound d(local landmark, query) using the paper's root-landmark
+        substitution when the query is outside the local SUL subgraph.
+
+        If the query is inside the same SUL node, its local SDL entry is exact.
+        Otherwise root SDLs provide LB=max|d(r,l)-d(r,q)| and
+        UB=min(d(r,l)+d(r,q)).
+        """
+        sul_node = node.sul_node
+        if sul_node is None or landmark_idx >= len(sul_node.landmarks):
+            return 0.0, float('inf')
+
+        exact = self._sul_sdl_distance(sul_node, landmark_idx, query_vertex)
+        if exact < float('inf'):
+            return exact, exact
+
+        landmark = sul_node.landmarks[landmark_idx]
+        lower = 0.0
+        upper = float('inf')
+        root = self.sul_tree.root
+        for root_idx, _ in enumerate(root.landmarks if root else []):
+            d_root_landmark = self._root_distance(root_idx, landmark)
+            d_root_query = self._root_distance(root_idx, query_vertex)
+            if d_root_landmark == float('inf') or d_root_query == float('inf'):
+                continue
+            lower = max(lower, abs(d_root_landmark - d_root_query))
+            upper = min(upper, d_root_landmark + d_root_query)
+        return lower, upper
+
     def compute_lb(self, q: int, node: COLNode, Q: List[int] = None,
                    agg: str = 'max') -> float:
         if node.is_leaf:
@@ -200,13 +245,11 @@ class COLTree:
                         M_minus = node.min_dist[li_idx]
                     else:
                         continue
-                    d_li_qi = self._get_root_landmark_dist(landmark, qi)
-                    if d_li_qi is None:
-                        d_li_qi = 0.0
-                    if d_li_qi >= M_plus:
-                        lb = d_li_qi - M_plus
-                    elif d_li_qi <= M_minus:
-                        lb = M_minus - d_li_qi
+                    lb_lq, ub_lq = self._local_landmark_query_bounds(node, li_idx, qi)
+                    if lb_lq >= M_plus:
+                        lb = lb_lq - M_plus
+                    elif ub_lq <= M_minus:
+                        lb = M_minus - ub_lq
                     else:
                         lb = 0.0
                     lb_values.append(lb)
@@ -222,13 +265,11 @@ class COLTree:
                     M_minus = node.min_dist[li_idx]
                 else:
                     continue
-                d_li_q = self._get_root_landmark_dist(landmark, q)
-                if d_li_q is None:
-                    d_li_q = 0.0
-                if d_li_q >= M_plus:
-                    lb = d_li_q - M_plus
-                elif d_li_q <= M_minus:
-                    lb = M_minus - d_li_q
+                lb_lq, ub_lq = self._local_landmark_query_bounds(node, li_idx, q)
+                if lb_lq >= M_plus:
+                    lb = lb_lq - M_plus
+                elif ub_lq <= M_minus:
+                    lb = M_minus - ub_lq
                 else:
                     lb = 0.0
                 lb_values.append(lb)
@@ -248,13 +289,11 @@ class COLTree:
                         continue
                     M_plus = node.max_dist[li_idx]
                     M_minus = node.min_dist[li_idx]
-                    d_li_qi = self._get_root_landmark_dist(landmark, qi)
-                    if d_li_qi is None:
-                        d_li_qi = 0.0
-                    if d_li_qi >= M_plus:
-                        lb = d_li_qi - M_plus
-                    elif d_li_qi <= M_minus:
-                        lb = M_minus - d_li_qi
+                    lb_lq, ub_lq = self._local_landmark_query_bounds(node, li_idx, qi)
+                    if lb_lq >= M_plus:
+                        lb = lb_lq - M_plus
+                    elif ub_lq <= M_minus:
+                        lb = M_minus - ub_lq
                     else:
                         lb = 0.0
                     lbs.append(lb)
@@ -268,13 +307,11 @@ class COLTree:
                     continue
                 M_plus = node.max_dist[li_idx]
                 M_minus = node.min_dist[li_idx]
-                d_li_q = self._get_root_landmark_dist(landmark, q)
-                if d_li_q is None:
-                    d_li_q = 0.0
-                if d_li_q >= M_plus:
-                    lb = d_li_q - M_plus
-                elif d_li_q <= M_minus:
-                    lb = M_minus - d_li_q
+                lb_lq, ub_lq = self._local_landmark_query_bounds(node, li_idx, q)
+                if lb_lq >= M_plus:
+                    lb = lb_lq - M_plus
+                elif ub_lq <= M_minus:
+                    lb = M_minus - ub_lq
                 else:
                     lb = 0.0
                 lbs.append(lb)
@@ -290,21 +327,17 @@ class COLTree:
             if li_idx >= len(node.max_dist):
                 continue
             M_plus = node.max_dist[li_idx]
-            d_li_q = self._get_root_landmark_dist(landmark, q)
-            if d_li_q is None:
-                d_li_q = 0.0
-            ub_values.append(d_li_q + M_plus)
+            _, ub_lq = self._local_landmark_query_bounds(node, li_idx, q)
+            ub_values.append(ub_lq + M_plus)
         return min(ub_values) if ub_values else float('inf')
 
     def _get_root_landmark_dist(self, landmark: int, target: int) -> Optional[float]:
         """
-        Get distance from any local landmark to a query target.
+        Get exact distance from a root landmark to a query target.
 
-        Root landmark distances are already materialized over the whole graph.
-        For non-root landmarks this reproducer computes and caches the exact
-        landmark SSSP lazily. The paper avoids many of these lookups using
-        root/LCA lower/upper-bound substitution; exact cached values preserve
-        admissibility while keeping the query algorithm easy to audit.
+        Non-root local landmarks are intentionally not resolved here; their
+        query distances are handled by _local_landmark_query_bounds using
+        root-landmark lower/upper-bound substitution.
         """
         for li_idx, lm in enumerate(self.sul_tree.root.landmarks):
             if lm == landmark:
@@ -312,15 +345,6 @@ class COLTree:
                     sdl = self.sul_tree.root.sdls[li_idx]
                     if 0 <= target < len(sdl):
                         return sdl[target]
-        if hasattr(self.sul_tree, 'landmark_distances') and landmark in self.sul_tree.landmark_distances:
-            dist = self.sul_tree.landmark_distances[landmark]
-            if target < len(dist):
-                return dist[target]
-        if landmark not in self._landmark_distance_cache:
-            self._landmark_distance_cache[landmark] = self.graph.dijkstra(landmark)
-        dist = self._landmark_distance_cache[landmark]
-        if target < len(dist):
-            return dist[target]
         return None
 
     def _aggregate_bounds(self, bounds: List[float], agg: str) -> float:
@@ -379,7 +403,7 @@ class COLTree:
                 node = item
                 if node.is_leaf:
                     if not node.seen:
-                        self._init_leaf_node_aknn(node, Q, 'max')
+                        self._init_leaf_node_aknn(node, Q, 'max', dijkstra_cache)
                         node.seen = True
                     self._retrieve_objects_odl_aknn(node, Q, 'max', result_objs,
                                                     result_dists, D_k, pq, 0)
@@ -437,7 +461,7 @@ class COLTree:
                 node = item
                 if node.is_leaf:
                     if not node.seen:
-                        self._init_leaf_node_aknn(node, Q, 'sum')
+                        self._init_leaf_node_aknn(node, Q, 'sum', dijkstra_cache)
                         node.seen = True
                     self._retrieve_objects_odl_aknn(node, Q, 'sum', result_objs,
                                                     result_dists, D_k, pq, 0)
@@ -468,7 +492,13 @@ class COLTree:
             return final_results[:k], stats
         return final_results[:k]
 
-    def _init_leaf_node_aknn(self, node: COLNode, Q: List[int], agg: str):
+    def _init_leaf_node_aknn(
+        self,
+        node: COLNode,
+        Q: List[int],
+        agg: str,
+        dijkstra_cache: Dict[int, List[float]],
+    ):
         """Initialize leaf node for AkNN processing (Line 15-19 of Algorithm 1)."""
         if not node.odls:
             return
@@ -480,7 +510,7 @@ class COLTree:
             if not odl:
                 continue
             landmark = node.get_landmarks()[li_idx]
-            avg_d = sum(self._get_root_landmark_dist(landmark, qi) or 0 for qi in Q) / len(Q)
+            avg_d = sum(dijkstra_cache[qi][landmark] for qi in Q) / len(Q)
             if avg_d > best_avg:
                 best_avg = avg_d
                 best_idx = li_idx
@@ -490,7 +520,7 @@ class COLTree:
 
         # Compute constants C_i for each query vertex
         landmark = node.get_landmarks()[best_idx]
-        C = [self._get_root_landmark_dist(landmark, qi) or 0 for qi in Q]
+        C = [dijkstra_cache[qi][landmark] for qi in Q]
 
         # Binary search for minimizing x*
         odl = node.odls[best_idx]
@@ -656,7 +686,10 @@ class COLTree:
             'exact_distance_lookups': 0,
         }
 
-        # Precompute Dijkstra from q
+        # Precompute the query SSSP once as the exact-distance oracle for
+        # candidate verification. Candidate ordering still uses COL upper
+        # bounds; exact distances are consumed only when object candidates are
+        # extracted from the priority queue.
         d_q = self.graph.dijkstra(q)
 
         # Max-heap for traversal by upper bound
@@ -677,13 +710,10 @@ class COLTree:
                 if node.is_leaf:
                     stats['leaf_visits'] += 1
                     if not node.seen:
-                        self._init_leaf_node_kfn(node, q)
+                        self._init_leaf_node_kfn(node, d_q)
                         node.seen = True
 
-                    self._retrieve_objects_odl_kfn(node, d_q, result_objs,
-                                                    D_k, pq, 0,
-                                                    stats)
-                    D_k = result_objs[0][0] if len(result_objs) >= k else 0.0
+                    self._retrieve_objects_odl_kfn(node, D_k, pq, stats)
 
                     node_ub = self._compute_leaf_ub_remaining(node, self._kfn_q)
                     # Re-add if: haven't found k results, OR (node has more objects AND ub >= D_k)
@@ -697,6 +727,8 @@ class COLTree:
                             heapq.heappush(pq, (-cub, self._next_tie(), child, 'node'))
             else:
                 obj = item
+                if stats is not None:
+                    stats['exact_distance_lookups'] += 1
                 dist = d_q[obj]
                 if len(result_objs) < k:
                     heapq.heappush(result_objs, (dist, obj))
@@ -709,19 +741,20 @@ class COLTree:
             return final[:k], stats
         return final[:k]
 
-    def _init_leaf_node_kfn(self, node: COLNode, q: int):
+    def _init_leaf_node_kfn(self, node: COLNode, d_q: List[float]):
         """Initialize leaf node for kFN processing."""
         if not node.odls:
             return
 
-        # Choose ODL with closest landmark
+        # Choose the ODL whose landmark is closest to the query; high
+        # landmark-object distances then give tight upper-bound ordering.
         best_idx = 0
         best_min = float('inf')
         for li_idx, odl in enumerate(node.odls):
             if not odl:
                 continue
             landmark = node.get_landmarks()[li_idx]
-            d_lq = self._get_root_landmark_dist(landmark, q) or float('inf')
+            d_lq = d_q[landmark]
             if d_lq < best_min:
                 best_min = d_lq
                 best_idx = li_idx
@@ -729,38 +762,28 @@ class COLTree:
         node.best_odl_idx = best_idx
         node.best_odl = node.odls[best_idx]
         node.best_landmark = node.get_landmarks()[best_idx]
+        node.best_landmark_query_distance = best_min
         node.RP = len(node.best_odl) - 1 if node.best_odl else -1
         node.best_odl_size = len(node.best_odl)
 
-    def _retrieve_objects_odl_kfn(self, node: COLNode, d_q: List[float],
-                                   result_objs: List,
-                                   D_k: float, pq: List, tie: int,
+    def _retrieve_objects_odl_kfn(self, node: COLNode, D_k: float, pq: List,
                                    stats: Optional[Dict[str, int]] = None):
-        """Retrieve objects from ODL for kFN (Line 23-27 of Algorithm 2)."""
+        """Retrieve ODL objects by upper bound, matching Algorithm 2."""
         if not hasattr(node, 'best_odl') or not node.best_odl:
             return
 
         odl = node.best_odl
-        landmark = node.best_landmark
-        d_lq = self._get_root_landmark_dist(landmark, self._kfn_q) or 0.0
+        d_lq = node.best_landmark_query_distance
 
         while node.RP >= 0:
             d_lp, obj = odl[node.RP]
             ub = d_lq + d_lp
-            # For kFN, stop when ub <= D_k (no remaining object can be farther than D_k)
-            if ub <= D_k:
+            next_global_ub = -pq[0][0] if pq else float('-inf')
+            if ub < next_global_ub or ub <= D_k:
                 break
-
-            dist = d_q[obj]
             if stats is not None:
                 stats['candidate_objects_retrieved'] += 1
-                stats['exact_distance_lookups'] += 1
-            # For kFN, add if dist >= D_k (all k farthest objects)
-            if len(result_objs) < self._kfn_k:
-                heapq.heappush(result_objs, (dist, obj))
-            elif dist > result_objs[0][0]:
-                heapq.heapreplace(result_objs, (dist, obj))
-            D_k = result_objs[0][0] if len(result_objs) >= self._kfn_k else D_k
+            heapq.heappush(pq, (-ub, self._next_tie(), obj, 'obj'))
             node.RP -= 1
 
     def _compute_leaf_ub_remaining(self, node: COLNode, q: int) -> float:
@@ -770,7 +793,7 @@ class COLTree:
         if node.RP < 0:
             return 0.0
 
-        d_lq = self._get_root_landmark_dist(node.best_landmark, q) or 0.0
+        d_lq = getattr(node, 'best_landmark_query_distance', 0.0)
         return d_lq + node.best_odl[node.RP][0]
 
     # =====================================================================
@@ -815,49 +838,40 @@ class COLTree:
             return [], stats
 
         results = set()
-        checked = set()
-        # Use one ODL to avoid double-counting objects. Triangle inequality
-        # implies every true result must satisfy |d(l, q) - d(l, p)| <= r, so
-        # the sorted ODL lets us skip objects outside that feasible window.
-        for li_idx in [0]:
-            odl = node.odls[li_idx] if li_idx < len(node.odls) else []
+
+        best = None
+        for li_idx, odl in enumerate(node.odls):
             if not odl:
                 continue
             landmark = node.get_landmarks()[li_idx]
             d_lq = d_q[landmark] if landmark < len(d_q) else float('inf')
             if d_lq == float('inf'):
                 continue
-
             lo = max(0.0, d_lq - r)
             hi = d_lq + r
             left = bisect.bisect_left(odl, (lo, -1))
             right = bisect.bisect_right(odl, (hi, self.graph.num_vertices + 1))
+            window_size = right - left
+            if best is None or window_size < best[0]:
+                best = (window_size, li_idx, odl, d_lq, left, right)
 
-            for d_lp, obj in odl[left:right]:
-                if obj in checked:
-                    continue
-                checked.add(obj)
-                stats['candidate_objects_retrieved'] += 1
-                ub = d_lq + d_lp
-                if ub <= r:
+        if best is None:
+            return [], stats
+
+        _, li_idx, odl, d_lq, left, right = best
+        for d_lp, obj in odl[left:right]:
+            stats['candidate_objects_retrieved'] += 1
+            ub = d_lq + d_lp
+            if ub <= r:
+                results.add(obj)
+                continue
+
+            lb = abs(d_lq - d_lp)
+            if lb <= r:
+                stats['exact_distance_lookups'] += 1
+                dist = d_q[obj]
+                if dist <= r:
                     results.add(obj)
-                    continue
-
-                M_plus = node.max_dist[li_idx] if li_idx < len(node.max_dist) else float('inf')
-                M_minus = node.min_dist[li_idx] if li_idx < len(node.min_dist) else 0.0
-
-                if d_lq >= M_plus:
-                    lb = d_lq - M_plus
-                elif d_lq <= M_minus:
-                    lb = M_minus - d_lq
-                else:
-                    lb = 0.0
-
-                if lb <= r:
-                    stats['exact_distance_lookups'] += 1
-                    dist = d_q[obj]
-                    if dist <= r:
-                        results.add(obj)
 
         return list(results), stats
 

@@ -1,6 +1,6 @@
 # Reproduction Milestones
 
-**Current: secondary_claims**
+**Current: method_runs**
 
 ## Progress Log
 
@@ -48,5 +48,15 @@
 - Final verification passed after cleaning method-agnostic documentation, documenting replacement benchmark reference rows, and moving brute-force baseline helpers under `baseline/`.
 - Verified download URLs and reran `python validate.py --compare`; all checks pass.
 
+### [2026-05-20 02:27] - secondary_claims
+- Re-audited the submitted workspace, moved the AUB-PHL-style helper used by the experiment harness into `baseline/`, and removed the stale baseline module from `method/`.
+- Re-ran bytecode checks, `scripts/evaluate.sh`, and `python3 validate.py --compare`; all checks pass.
+
+### [2026-05-20 02:32] - method_runs
+- Sub-agent audit found that the previous results relied on stale artifacts and exact full-graph local-landmark distances, so the honest current milestone is reset pending a fresh job.
+- Removed full-graph local-landmark SDL caching, switched COL node bounds to root-landmark lower/upper-bound substitution, changed kFN leaves to enqueue object candidates by upper bound before exact verification, and made result artifacts include per-query outputs.
+- Updated evaluation to recompute main accuracy from method outputs and exact ground truth, tightened train/test evaluators to require per-query correctness and exact lookup counts, and changed `scripts/run.sh` to regenerate method artifacts before scoring.
+- Bytecode checks and a tiny local graph smoke test pass; submitting a CPU job to regenerate the benchmark artifacts.
+
 ## Stop Justification
-- Completed at milestone `secondary_claims`.
+- Pending fresh compute verification after paper-alignment fixes.

@@ -95,12 +95,10 @@ def query_metrics(records: list[dict[str, Any]], include_lookup_reduction: bool 
             query_block,
             ("individual_correct", "correct_flags", "is_correct"),
         )
-        if correctness:
-            correct += sum(correctness)
-            total += len(correctness)
-        else:
-            correct += float(query_block.get("correct", 0) or 0)
-            total += float(query_block.get("total", 0) or 0)
+        if not correctness:
+            raise ValueError("Result artifact must include per-query correctness flags")
+        correct += sum(correctness)
+        total += len(correctness)
 
         candidates = sliced_numeric_values(query_block, ("individual_candidates",))
         if candidates and n_objects:
@@ -113,14 +111,12 @@ def query_metrics(records: list[dict[str, Any]], include_lookup_reduction: bool 
         if include_lookup_reduction:
             lookups = sliced_numeric_values(
                 query_block,
-                ("individual_exact_lookups", "individual_lookups", "individual_candidates"),
+                ("individual_exact_lookups", "individual_lookups"),
             )
+            if not lookups:
+                raise ValueError("kFN artifacts must include individual_exact_lookups")
             if lookups and n_objects:
                 lookup_reductions.extend(float(n_objects) / value for value in lookups if value > 0)
-            elif n_objects:
-                avg_lookups = query_block.get("col_exact_lookups_avg")
-                if isinstance(avg_lookups, (int, float)) and avg_lookups > 0:
-                    lookup_reductions.append(float(n_objects) / float(avg_lookups))
 
     accuracy = correct / total if total else 0.0
     candidates_ratio = (

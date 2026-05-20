@@ -19,7 +19,7 @@ from data.graph import RoadNetwork, ObjectSet
 from data.loader import load_network
 from method.sul_tree import SULTree
 from method.col_tree import COLTree
-from method.baselines import (
+from baseline.bruteforce import (
     aknn_bruteforce, kfn_bruteforce, range_bruteforce,
     kfn_aubphl
 )
@@ -115,6 +115,7 @@ def run_experiment(network_name: str, query_type: str, k: int = 10,
         'query_type': query_type,
         'k': k,
         'density': density,
+        'seed': seed,
         'n_objects': len(obj_set),
         'n_query_vertices': n_queries,
         'sul_time': sul_time,
@@ -167,6 +168,8 @@ def _run_aknn_experiments(graph, obj_set, col_tree, query_vertices,
     correct = 0
     total = 0
     per_query_candidates = []
+    per_query_correct = []
+    per_query = []
 
     for i in range(n_queries):
         if i * Q_size >= len(query_vertices):
@@ -185,8 +188,15 @@ def _run_aknn_experiments(graph, obj_set, col_tree, query_vertices,
         brute_time = time.time() - start
         brute_times.append(brute_time * 1000)
 
-        if _valid_nearest_topk(graph, col_result, obj_set, Q, k, agg):
+        is_correct = _valid_nearest_topk(graph, col_result, obj_set, Q, k, agg)
+        if is_correct:
             correct += 1
+        per_query_correct.append(1 if is_correct else 0)
+        per_query.append({
+            'query_vertices': Q,
+            'result': col_result,
+            'candidates': col_stats['candidate_objects_retrieved'],
+        })
         total += 1
 
     results['queries'] = {
@@ -197,6 +207,8 @@ def _run_aknn_experiments(graph, obj_set, col_tree, query_vertices,
         'accuracy': correct / total if total > 0 else 0,
         'individual_times': col_times,
         'individual_candidates': per_query_candidates,
+        'individual_correct': per_query_correct,
+        'per_query': per_query,
         'col_candidate_objects_avg': sum(per_query_candidates) / len(per_query_candidates) if per_query_candidates else 0,
     }
     print(f"  AkNN ({agg}): COL avg={results['queries']['col_avg_time_ms']:.3f}ms, "
@@ -218,6 +230,8 @@ def _run_kfn_experiments(graph, obj_set, sul_tree, col_tree, query_vertices,
     col_exact_lookups = []
     aub_candidate_counts = []
     aub_exact_lookups = []
+    per_query_correct = []
+    per_query = []
 
     for i in range(n_queries):
         q = query_vertices[i]
@@ -250,10 +264,18 @@ def _run_kfn_experiments(graph, obj_set, sul_tree, col_tree, query_vertices,
         brute_time = time.time() - start
         brute_times.append(brute_time * 1000)
 
-        if _valid_farthest_topk(graph, col_result, obj_set, q, k):
+        is_correct = _valid_farthest_topk(graph, col_result, obj_set, q, k)
+        if is_correct:
             correct += 1
         if _valid_farthest_topk(graph, aub_result, obj_set, q, k):
             aub_correct += 1
+        per_query_correct.append(1 if is_correct else 0)
+        per_query.append({
+            'query_vertex': q,
+            'result': col_result,
+            'candidates': col_stats['candidate_objects_retrieved'],
+            'exact_lookups': col_stats['exact_distance_lookups'],
+        })
         total += 1
         aub_total += 1
 
@@ -283,6 +305,9 @@ def _run_kfn_experiments(graph, obj_set, sul_tree, col_tree, query_vertices,
             if col_exact_lookups else 0
         ),
         'individual_candidates': col_candidate_counts,
+        'individual_exact_lookups': col_exact_lookups,
+        'individual_correct': per_query_correct,
+        'per_query': per_query,
         'aub_candidate_objects_avg': (
             sum(aub_candidate_counts) / len(aub_candidate_counts)
             if aub_candidate_counts else 0
@@ -321,6 +346,8 @@ def _run_range_experiments(graph, obj_set, col_tree, query_vertices,
     correct = 0
     total = 0
     per_query_candidates = []
+    per_query_correct = []
+    per_query = []
 
     for i in range(n_queries):
         q = query_vertices[i]
@@ -339,8 +366,15 @@ def _run_range_experiments(graph, obj_set, col_tree, query_vertices,
 
         col_set = set(col_result)
         brute_set = set(brute_result)
-        if col_set == brute_set:
+        is_correct = col_set == brute_set
+        if is_correct:
             correct += 1
+        per_query_correct.append(1 if is_correct else 0)
+        per_query.append({
+            'query_vertex': q,
+            'result': col_result,
+            'candidates': col_stats['candidate_objects_retrieved'],
+        })
         total += 1
 
     results['queries'] = {
@@ -353,6 +387,8 @@ def _run_range_experiments(graph, obj_set, col_tree, query_vertices,
         'accuracy': correct / total if total > 0 else 0,
         'individual_times': col_times,
         'individual_candidates': per_query_candidates,
+        'individual_correct': per_query_correct,
+        'per_query': per_query,
         'col_candidate_objects_avg': sum(per_query_candidates) / len(per_query_candidates) if per_query_candidates else 0,
     }
     print(f"  Range (r={radius:.1f}): COL avg={results['queries']['col_avg_time_ms']:.3f}ms, "

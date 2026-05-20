@@ -9,8 +9,24 @@ import json
 import argparse
 import os
 import glob
+import sys
 from pathlib import Path
 
+sys.path.insert(0, "/home/user")
+
+from data.graph import ObjectSet
+from data.loader import load_network
+
+
+def resolve_network_path(network_name):
+    candidates = {
+        "usroads-48": ["/home/user/data/downloads/road-usroads-48.mtx"],
+        "roadnet-pa": ["/home/user/data/downloads/roadNet-PA.txt"],
+    }
+    for path in candidates.get(network_name, []):
+        if os.path.exists(path):
+            return path
+    raise FileNotFoundError(f"Missing network data for {network_name}; run scripts/download.sh")
 
 def percentile(values, pct):
     """Nearest-rank percentile for small per-query metric lists."""
@@ -54,12 +70,86 @@ def average_metrics(metric_records):
     return averaged
 
 
+def build_objects(record):
+    graph = load_network(resolve_network_path(record["network"]))
+    objects = ObjectSet.uniform_random(
+        graph,
+        float(record["density"]),
+        seed=int(record.get("seed", 42)),
+    )
+    return graph, objects
+
+
+def valid_nearest_topk(graph, candidates, objects, query_vertices, k, agg):
+    if len(set(candidates)) != min(k, len(objects.objects)):
+        return False
+    distance_cache = {q: graph.dijkstra(q) for q in query_vertices}
+
+    def score(obj):
+        distances = [distance_cache[q][obj] for q in query_vertices]
+        return sum(distances) if agg == "sum" else max(distances)
+
+    all_scores = sorted(score(obj) for obj in objects.objects)
+    threshold = all_scores[min(k, len(all_scores)) - 1]
+    return all(score(obj) <= threshold + 1e-9 for obj in candidates)
+
+
+def valid_farthest_topk(graph, candidates, objects, query_vertex, k):
+    if len(set(candidates)) != min(k, len(objects.objects)):
+        return False
+    distances = graph.dijkstra(query_vertex)
+    all_scores = sorted((distances[obj] for obj in objects.objects), reverse=True)
+    threshold = all_scores[min(k, len(all_scores)) - 1]
+    return all(distances[obj] >= threshold - 1e-9 for obj in candidates)
+
+
+def recompute_accuracy(result):
+    per_query = result.get("queries", {}).get("per_query")
+    if not isinstance(per_query, list) or not per_query:
+        raise ValueError("Result artifact must include queries.per_query for independent evaluation")
+
+    graph, objects = build_objects(result)
+    query_type = result.get("query_type", "")
+    correct = 0
+    for item in per_query:
+        returned = item.get("result", [])
+        if query_type == "aknn":
+            ok = valid_nearest_topk(
+                graph,
+                returned,
+                objects,
+                item["query_vertices"],
+                int(result["k"]),
+                result.get("agg", "max"),
+            )
+        elif query_type == "kfn":
+            ok = valid_farthest_topk(
+                graph,
+                returned,
+                objects,
+                int(item["query_vertex"]),
+                int(result["k"]),
+            )
+        elif query_type == "range":
+            distances = graph.dijkstra(int(item["query_vertex"]))
+            radius = float(result.get("queries", {}).get("radius", 0.0))
+            expected = {
+                obj for obj in objects.objects
+                if obj < len(distances) and distances[obj] <= radius
+            }
+            ok = set(returned) == expected
+        else:
+            ok = False
+        correct += 1 if ok else 0
+    return correct / len(per_query)
+
+
 def evaluate_kfn(result, method_name):
     """Compute kFN metrics matching reference.json kfn_real_pois."""
     q = result.get("queries", {})
     n_objects = result.get("n_objects", 0)
 
-    accuracy = q.get("accuracy", 0)
+    accuracy = recompute_accuracy(result)
 
     col_candidates = q.get("col_candidate_objects_avg", 0)
     col_exact = q.get("col_exact_lookups_avg", 0)
@@ -83,7 +173,7 @@ def evaluate_aknn(result, method_name):
     """Compute AkNN metrics matching reference.json aknn_real_pois."""
     q = result.get("queries", {})
     n_objects = result.get("n_objects", 0)
-    accuracy = q.get("accuracy", 0)
+    accuracy = recompute_accuracy(result)
     col_candidates = q.get("col_candidate_objects_avg", 0)
     candidates_ratio = col_candidates / n_objects if n_objects > 0 else 1.0
     candidate_counts = q.get("individual_candidates", [])
@@ -101,7 +191,7 @@ def evaluate_range(result, method_name):
     """Compute range metrics matching reference.json range_real_pois."""
     q = result.get("queries", {})
     n_objects = result.get("n_objects", 0)
-    accuracy = q.get("accuracy", 0)
+    accuracy = recompute_accuracy(result)
     col_candidates = q.get("col_candidate_objects_avg", 0)
     candidates_ratio = col_candidates / n_objects if n_objects > 0 else 1.0
     candidate_counts = q.get("individual_candidates", [])
