@@ -2,7 +2,7 @@
   "experiments": {
     "kfn_real_pois": {
       "description": "kFN query: COL-Tree achieves exact results while pruning the search space. Scored on machine-independent metrics: accuracy and candidate reduction ratio.",
-      "weight": 0.40,
+      "weight": 0.50,
       "primary_metric": "candidates_ratio",
       "metrics": {
         "accuracy": {
@@ -14,6 +14,16 @@
           "higher_is_better": false,
           "coefficient": -0.5,
           "description": "Fraction of objects requiring exact distance verification. Lower = more efficient pruning."
+        },
+        "candidate_p90_ratio": {
+          "higher_is_better": false,
+          "coefficient": -0.25,
+          "description": "90th-percentile fraction of objects retrieved on the slice, penalizing methods that only optimize average-case pruning."
+        },
+        "candidate_max_ratio": {
+          "higher_is_better": false,
+          "coefficient": -0.1,
+          "description": "Worst per-query fraction of objects retrieved on the slice, catching brittle pruning on hard queries."
         },
         "lookup_reduction_vs_brute": {
           "higher_is_better": true,
@@ -41,6 +51,16 @@
           "higher_is_better": false,
           "coefficient": -0.5,
           "description": "Fraction of objects examined during AkNN query. Lower = more efficient pruning."
+        },
+        "candidate_p90_ratio": {
+          "higher_is_better": false,
+          "coefficient": -0.25,
+          "description": "90th-percentile fraction of objects examined, detecting methods tuned only for easy AkNN queries."
+        },
+        "candidate_max_ratio": {
+          "higher_is_better": false,
+          "coefficient": -0.1,
+          "description": "Worst per-query fraction of objects examined, detecting brittle AkNN pruning."
         }
       },
       "results": {
@@ -62,6 +82,16 @@
           "higher_is_better": false,
           "coefficient": -0.5,
           "description": "Fraction of objects examined during range query. Lower = more efficient pruning."
+        },
+        "candidate_p90_ratio": {
+          "higher_is_better": false,
+          "coefficient": -0.25,
+          "description": "90th-percentile fraction of objects examined, detecting methods tuned only for easy range queries."
+        },
+        "candidate_max_ratio": {
+          "higher_is_better": false,
+          "coefficient": -0.1,
+          "description": "Worst per-query fraction of objects examined, detecting brittle range-query pruning."
         }
       },
       "results": {
@@ -71,11 +101,11 @@
     },
     "preprocessing": {
       "description": "Index construction overhead.",
-      "weight": 0.10,
+      "weight": 0.00,
       "primary_metric": "col_time_s",
       "metrics": {
-        "sul_time_s": {"higher_is_better": false, "coefficient": -0.5, "description": "SUL-Tree build time in seconds."},
-        "col_time_s": {"higher_is_better": false, "coefficient": -0.5, "description": "COL-Tree build time in seconds."}
+        "sul_time_s": {"higher_is_better": false, "coefficient": 0.0, "description": "SUL-Tree build time in seconds, reported for diagnostics only because wall-clock speed is hardware-dependent."},
+        "col_time_s": {"higher_is_better": false, "coefficient": 0.0, "description": "COL-Tree build time in seconds, reported for diagnostics only because wall-clock speed is hardware-dependent."}
       },
       "results": {
         "colt_phl": {"type": "proposed", "sul_time_s": 8.0, "col_time_s": 0.2},

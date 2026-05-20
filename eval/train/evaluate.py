@@ -62,6 +62,19 @@ def sliced_numeric_values(query_block: dict[str, Any], keys: tuple[str, ...]) ->
     return []
 
 
+def quantile(values: list[float], q: float) -> float:
+    if not values:
+        return 0.0
+    ordered = sorted(values)
+    if len(ordered) == 1:
+        return ordered[0]
+    pos = (len(ordered) - 1) * q
+    lower = int(pos)
+    upper = min(lower + 1, len(ordered) - 1)
+    frac = pos - lower
+    return ordered[lower] * (1.0 - frac) + ordered[upper] * frac
+
+
 def query_metrics(records: list[dict[str, Any]]) -> dict[str, float]:
     correct = 0.0
     total = 0.0
@@ -113,6 +126,13 @@ def query_metrics(records: list[dict[str, Any]]) -> dict[str, float]:
         "accuracy": accuracy,
         "candidates_ratio": candidates_ratio,
     }
+
+    if candidate_ratios:
+        metrics["candidate_p90_ratio"] = quantile(candidate_ratios, 0.9)
+        metrics["candidate_max_ratio"] = max(candidate_ratios)
+    else:
+        metrics["candidate_p90_ratio"] = candidates_ratio
+        metrics["candidate_max_ratio"] = candidates_ratio
 
     if lookup_reductions:
         metrics["lookup_reduction_vs_brute"] = sum(lookup_reductions) / len(lookup_reductions)
