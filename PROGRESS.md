@@ -28,6 +28,8 @@
 - On 2026-05-20 02:27, `python3 -m py_compile baseline/bruteforce.py method/experiment.py eval/evaluate.py`, `bash scripts/evaluate.sh /home/user/experiment_results/core_claim`, and `python3 validate.py --compare` all passed after moving baseline helpers out of `method/`.
 - On 2026-05-20 02:32, bytecode checks and a tiny local graph smoke test passed after correcting SUL/COL distance storage and kFN candidate scheduling. Fresh benchmark scores are pending the submitted CPU job.
 - On 2026-05-20 02:35, final verification confirmed the current saved artifacts are stale under the stricter evaluator: `scripts/evaluate.sh /home/user/experiment_results/core_claim` fails until the prepared CPU job regenerates artifacts with `queries.per_query`.
+- CPU job `714f3f12-b67` completed the post-audit regeneration successfully. Fresh scores are kFN `accuracy=1.0`, `candidates_ratio=0.147928`, `candidate_p90_ratio=0.229903`, `candidate_max_ratio=0.286785`, `lookup_reduction_vs_brute=6.778398`; AkNN `accuracy=1.0`, `candidates_ratio=0.166640`; range `accuracy=1.0`, `candidates_ratio=0.039374`.
+- The regenerated train/test slices also pass validation: kFN train/test candidate ratios are `0.133463`/`0.162392`, AkNN `0.147614`/`0.204693`, and range `0.038000`/`0.040748`.
 - An earlier resubmission did not reach the job stage because the container build attempted to copy `data/downloads/road-usroads-48.mtx`, which is not present in a fresh build checkout. The packaging issue was fixed before job `90b0e53b-aab`.
 
 ## Deviations From Paper
@@ -53,4 +55,4 @@
 - The container definition previously baked workspace files, including gitignored downloads, into the image despite the workspace being bind-mounted at runtime. This caused the build failure and has been removed.
 - Range leaf processing scanned the full ODL even when the landmark triangle lower bound excluded most objects. It now restricts exact checks to the feasible sorted-distance window.
 - A later audit found the evaluator trusted method-reported aggregate correctness and train/test silently fell back to aggregate fields. The method now emits per-query outputs, main eval recomputes correctness independently, and train/test require per-query correctness and exact lookup counts.
-- Final verification found the checked-in score files still reflect pre-audit artifacts. The workspace is therefore left at `method_runs` with a CPU regeneration job queued rather than signed off as `secondary_claims`.
+- Final verification initially found stale pre-audit artifacts. The follow-up CPU regeneration job fixed this, and the workspace is signed off at `secondary_claims`.

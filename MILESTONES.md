@@ -1,6 +1,6 @@
 # Reproduction Milestones
 
-**Current: method_runs**
+**Current: secondary_claims**
 
 ## Progress Log
 
@@ -64,5 +64,10 @@
 - Cleaned public scoring guidance to avoid exposing implementation names in method-agnostic/high-level gym documents.
 - Keeping the milestone at `method_runs` and submitting the prepared CPU job to regenerate artifacts and scores before any final `secondary_claims` sign-off.
 
+### [2026-05-20 02:39] - secondary_claims
+- CPU job `714f3f12-b67` regenerated post-audit artifacts and completed `scripts/run.sh` with exit code 0.
+- Fresh artifacts now include `queries.per_query`, per-query correctness flags, and kFN exact-lookup counts required by the stricter evaluator.
+- `python3 validate.py --compare` passed in the job; regenerated scores show exact kFN, AkNN, and range results with nontrivial candidate pruning.
+
 ## Stop Justification
-- Pending fresh compute verification after paper-alignment fixes.
+- Reached `secondary_claims`: the post-audit method runs on the shipped benchmark, main/train/test evaluators pass, and the core plus secondary query families show exactness with candidate pruning.

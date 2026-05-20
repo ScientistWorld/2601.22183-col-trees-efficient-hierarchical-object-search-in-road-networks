@@ -2,7 +2,7 @@
   "experiments": {
     "kfn_real_pois": {
       "description": "kFN query: exact results while pruning the search space. Scored on machine-independent metrics: accuracy and candidate reduction ratio.",
-      "notes": "Rows named colt_phl and aub_phl summarize paper-reported reference behavior. The colt_us48_repro row is the fixed shipped-benchmark target from the US48/synthetic-POI replacement setting, included so fresh workspace scores can validate against the same accessible benchmark rather than the unavailable original POI/PHL setup.",
+      "notes": "Rows named colt_phl and aub_phl summarize paper-reported reference behavior. The colt_us48_repro row is the fixed shipped-benchmark target from the US48/synthetic-POI replacement setting, refreshed after the post-audit regeneration job on 2026-05-20.",
       "weight": 0.49,
       "primary_metric": "candidates_ratio",
       "metrics": {
@@ -34,13 +34,13 @@
       },
       "results": {
         "colt_phl": {"type": "proposed", "accuracy": 1.0, "candidates_ratio": 0.01, "lookup_reduction_vs_brute": 100.0},
-        "colt_us48_repro": {"type": "proposed", "accuracy": 1.0, "candidates_ratio": 0.15664803657311982, "lookup_reduction_vs_brute": 6.402002364442037},
+        "colt_us48_repro": {"type": "proposed", "accuracy": 1.0, "candidates_ratio": 0.1479275672533164, "candidate_p90_ratio": 0.229903282067544, "candidate_max_ratio": 0.28678452513080704, "lookup_reduction_vs_brute": 6.778398463629724},
         "aub_phl": {"type": "baseline", "accuracy": 1.0, "candidates_ratio": 0.5, "lookup_reduction_vs_brute": 2.0}
       }
     },
     "aknn_real_pois": {
       "description": "AkNN query correctness and candidate reduction for multiple query vertices.",
-      "notes": "The colt_phl row summarizes paper-reported reference behavior. The colt_us48_repro row is the fixed shipped-benchmark target from the US48/synthetic-POI replacement setting.",
+      "notes": "The colt_phl row summarizes paper-reported reference behavior. The colt_us48_repro row is the fixed shipped-benchmark target from the US48/synthetic-POI replacement setting, refreshed after the post-audit regeneration job on 2026-05-20.",
       "weight": 0.25,
       "primary_metric": "candidates_ratio",
       "metrics": {
@@ -67,12 +67,12 @@
       },
       "results": {
         "colt_phl": {"type": "proposed", "accuracy": 1.0, "candidates_ratio": 0.05},
-        "colt_us48_repro": {"type": "proposed", "accuracy": 1.0, "candidates_ratio": 0.1666402410020612}
+        "colt_us48_repro": {"type": "proposed", "accuracy": 1.0, "candidates_ratio": 0.1666402410020612, "candidate_p90_ratio": 0.20469319803393055, "candidate_max_ratio": 0.24591723481845568}
       }
     },
     "range_real_pois": {
       "description": "Range query correctness and candidate reduction.",
-      "notes": "The colt_phl row summarizes paper-reported reference behavior. The colt_us48_repro row is the fixed shipped-benchmark target from the US48/synthetic-POI replacement setting.",
+      "notes": "The colt_phl row summarizes paper-reported reference behavior. The colt_us48_repro row is the fixed shipped-benchmark target from the US48/synthetic-POI replacement setting, refreshed after the post-audit regeneration job on 2026-05-20.",
       "weight": 0.25,
       "primary_metric": "candidates_ratio",
       "metrics": {
@@ -99,7 +99,7 @@
       },
       "results": {
         "colt_phl": {"type": "proposed", "accuracy": 1.0, "candidates_ratio": 0.1},
-        "colt_us48_repro": {"type": "proposed", "accuracy": 1.0, "candidates_ratio": 0.08435072142064373}
+        "colt_us48_repro": {"type": "proposed", "accuracy": 1.0, "candidates_ratio": 0.0393742402621426, "candidate_p90_ratio": 0.04867607420326621, "candidate_max_ratio": 0.04946884414143016}
       }
     },
     "preprocessing": {
@@ -113,7 +113,7 @@
       },
       "results": {
         "colt_phl": {"type": "proposed", "sul_time_s": 8.0, "col_time_s": 0.2},
-        "colt_us48_repro": {"type": "proposed", "sul_time_s": 19.56636893749237, "col_time_s": 0.49335795640945435}
+        "colt_us48_repro": {"type": "proposed", "sul_time_s": 14.007100522518158, "col_time_s": 0.11228591203689575}
       }
     }
   }
