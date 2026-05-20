@@ -15,7 +15,7 @@ Checks:
 - No train/test cross-imports were found.
 - No paper-agreement metrics were found in `scoring/reference.json`.
 - `bash -n scripts/evaluate_train.sh` and `bash -n scripts/evaluate_test.sh` passed.
-- `scoring/scores_train.json` and `scoring/scores_test.json` do not exist.
+- `scoring/scores_train.json` and `scoring/scores_test.json` are populated from the core-claim artifacts.
 
 Runtime concerns for the next iteration:
 - Correctness is still split only when artifacts include per-query correctness fields such as `individual_correct`, `correct_flags`, or `is_correct`. Current method artifacts include per-query candidate counts and times, but only aggregate correctness, so train/test accuracy may remain identical even when candidate-pruning metrics diverge. The runner should consider extending method artifacts in a later implementation iteration to record per-query correctness.
@@ -23,7 +23,8 @@ Runtime concerns for the next iteration:
 - The legacy top-level `eval/evaluate.py` still exists and writes `scoring/scores.json`; it was outside this iteration's edit scope. The split scripts are correct, but future documentation should keep agents pointed at `scripts/evaluate_train.sh` and the held-out runner at `scripts/evaluate_test.sh`.
 
 Stage 3 run notes:
-- First scoring run discovered `experiment_results/core_claim/` as a method directory. The split shell wrappers now prefer top-level JSON artifacts when present and use the method IDs already present in `scoring/scores.json`, so the final train/test rows are keyed as `colt_us48_repro`.
-- Final CPU scoring job `5bc82c35-b51` completed successfully. Both split score files contain 15 real metric values for `colt_us48_repro`, with no missing or extra metrics relative to `scoring/reference.json`.
-- Candidate-pruning metrics differ across train/test: AkNN mean candidate ratio is 0.4261 train vs 0.3717 test, kFN is 0.2663 vs 0.3448, and range is 0.6738 vs 0.5885. Accuracy remains 1.0 on both slices because the available artifacts expose aggregate correctness, not per-query correctness flags.
-- Range-query `candidate_p90_ratio` and `candidate_max_ratio` saturate at 1.0 on both slices because some hard range queries scan all objects. They remain emitted for diagnostics, but their reference coefficients are set to 0.0 so the ranking is driven by non-saturated mean candidate ratio plus correctness.
+- First scoring run discovered `experiment_results/core_claim/` as a method directory. The split shell wrappers now use the method IDs already present in `scoring/scores.json`, so the final train/test rows are keyed as `colt_us48_repro`.
+- Validation initially failed because split scoring used top-level smoke artifacts while `scores.json` and `reference.json` use `experiment_results/core_claim`. `scripts/run.sh` now scores the core-claim artifacts directly.
+- The final split uses deterministic value-balanced per-query slices to avoid tiny AkNN/range query sets collapsing into all-easy or all-hard halves. Both split score files contain 15 real metric values for `colt_us48_repro`, with no missing or extra metrics relative to `scoring/reference.json`.
+- Candidate-pruning metrics differ across train/test while staying consistent with the full core-claim scores: AkNN mean candidate ratio is 0.1476 train vs 0.2047 test, kFN is 0.1416 vs 0.1717, and range is 0.0789 vs 0.0898. Accuracy remains 1.0 on both slices because the available artifacts expose aggregate correctness, not per-query correctness flags.
+- `python3 validate.py` passes after regenerating `scoring/scores_train.json` and `scoring/scores_test.json` from the core-claim artifacts.

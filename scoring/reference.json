@@ -85,13 +85,13 @@
         },
         "candidate_p90_ratio": {
           "higher_is_better": false,
-          "coefficient": 0.0,
-          "description": "90th-percentile fraction of objects examined, reported diagnostically because the final method saturates this tail metric on hard range queries."
+          "coefficient": -0.25,
+          "description": "90th-percentile fraction of objects examined, detecting methods tuned only for easy range queries."
         },
         "candidate_max_ratio": {
           "higher_is_better": false,
-          "coefficient": 0.0,
-          "description": "Worst per-query fraction of objects examined, reported diagnostically because any full-scan range query saturates this metric."
+          "coefficient": -0.1,
+          "description": "Worst per-query fraction of objects examined, detecting brittle range-query pruning."
         }
       },
       "results": {
