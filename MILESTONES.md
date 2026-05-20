@@ -41,4 +41,4 @@
 - Secondary pruning now holds: AkNN `candidates_ratio=0.1666`, range `candidates_ratio=0.0844`, and kFN `lookup_reduction_vs_brute=6.4020`.
 
 ## Stop Justification
-- Stopping at `secondary_claims`: the reusable environment now evaluates core kFN plus secondary AkNN/range claims on the shipped US48 reproduction setting. Higher milestones would require broader paper-scale tables and the unavailable original DIMACS/OSM POI benchmark.
+- Completed at milestone `secondary_claims`.
