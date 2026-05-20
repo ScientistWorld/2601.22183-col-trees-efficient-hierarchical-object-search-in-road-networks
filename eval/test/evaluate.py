@@ -75,7 +75,7 @@ def quantile(values: list[float], q: float) -> float:
     return ordered[lower] * (1.0 - frac) + ordered[upper] * frac
 
 
-def query_metrics(records: list[dict[str, Any]]) -> dict[str, float]:
+def query_metrics(records: list[dict[str, Any]], include_lookup_reduction: bool = False) -> dict[str, float]:
     correct = 0.0
     total = 0.0
     candidate_ratios: list[float] = []
@@ -106,16 +106,17 @@ def query_metrics(records: list[dict[str, Any]]) -> dict[str, float]:
             if isinstance(avg_candidates, (int, float)):
                 candidate_ratios.append(float(avg_candidates) / float(n_objects))
 
-        lookups = sliced_numeric_values(
-            query_block,
-            ("individual_exact_lookups", "individual_lookups", "individual_candidates"),
-        )
-        if lookups and n_objects:
-            lookup_reductions.extend(float(n_objects) / value for value in lookups if value > 0)
-        elif n_objects:
-            avg_lookups = query_block.get("col_exact_lookups_avg")
-            if isinstance(avg_lookups, (int, float)) and avg_lookups > 0:
-                lookup_reductions.append(float(n_objects) / float(avg_lookups))
+        if include_lookup_reduction:
+            lookups = sliced_numeric_values(
+                query_block,
+                ("individual_exact_lookups", "individual_lookups", "individual_candidates"),
+            )
+            if lookups and n_objects:
+                lookup_reductions.extend(float(n_objects) / value for value in lookups if value > 0)
+            elif n_objects:
+                avg_lookups = query_block.get("col_exact_lookups_avg")
+                if isinstance(avg_lookups, (int, float)) and avg_lookups > 0:
+                    lookup_reductions.append(float(n_objects) / float(avg_lookups))
 
     accuracy = correct / total if total else 0.0
     candidates_ratio = (
@@ -194,7 +195,7 @@ def main() -> None:
             ("kfn_real_pois", "kfn"),
             ("range_real_pois", "range"),
         ]:
-            metrics = query_metrics(by_type.get(qt, []))
+            metrics = query_metrics(by_type.get(qt, []), include_lookup_reduction=(qt == "kfn"))
             if exp_name not in scores:
                 scores[exp_name] = {"results": {}}
             scores[exp_name]["results"][method] = metrics

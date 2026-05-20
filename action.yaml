@@ -1,4 +1,4 @@
 action: submit
 gpus: 0
 test: false
-notes: "Re-run train/test scoring after fixing mixed-layout discovery so top-level artifacts score as colt_us48_repro."
+notes: "Re-run train/test scoring after aligning emitted metrics with reference.json."
