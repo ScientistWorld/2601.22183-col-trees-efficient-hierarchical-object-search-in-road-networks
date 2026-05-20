@@ -2,82 +2,36 @@
 
 ## What Works
 
-- SUL-Tree construction with hierarchical b-way partitioning and landmark-based Subgraph Distance Lists (SDLs)
-- COL-Tree construction with Object Distance Lists (ODLs) at leaf nodes
-- AkNN query (aggregate k nearest neighbors, both max and sum aggregates) - **FIXED**
-- kFN query (k farthest neighbors) - **FIXED**
-- Range query (all objects within radius r)
-- All query types verified ~95-100% correct against brute-force on US48 (126K vertices, 324K edges)
-- Brute-force baselines for all three query types with Dijkstra caching for performance
-- Experiment pipeline with structured result JSON generation
-- Evaluation script computing speedup, accuracy, and timing metrics
+- Paper analysis and briefing files are in place for the COL-Tree/SUL-Tree road-network POI search paper.
+- Data download script provides the US48 road graph and Pennsylvania road graph fallback.
+- SUL-Tree now builds graph-aware recursive partitions and computes local per-node landmark SDLs.
+- COL-Tree now builds POI-specific internal min/max landmark bounds and leaf ODLs.
+- kFN, AkNN, and range query entry points run on a small local smoke graph and match exact results when ties are handled correctly.
+- `scripts/run.sh` submits the core kFN reproduction and calls `scripts/evaluate.sh` to refresh `scoring/scores.json`.
 
-## Results
+## Results Achieved
 
-### US48 Network (126,146 vertices, 323,900 edges)
+- Current verified milestone remains `method_runs`: the revised algorithm executes on a small local graph.
+- The previous `scores.json` came from older artifacts and should be replaced by the submitted core-claim job before claiming `core_claim`.
 
-| Query Type | Density | Accuracy | COL Time (ms) | Brute Time (ms) | Speedup |
-|---|---|---|---|---|---|
-| AkNN (k=5, Q=4, max) | 0.001 | 95% (19/20) | 528ms | 535ms | 1.01x |
-| AkNN (k=5, Q=4, max) | 0.01 | 95% (19/20) | 662ms | 645ms | 0.97x |
-| kFN (k=5) | 0.001 | 95% (19/20) | 144ms | 147ms | 1.03x |
-| kFN (k=5) | 0.01 | 100% (20/20) | 241ms | 250ms | 1.04x |
+## Deviations From Paper
 
-### Preprocessing
+- Paper dataset: DIMACS continental US road network with OSM POIs.
+- Reproduction dataset: US48 road graph with synthetic POI subsets sampled from graph vertices, because the full paper dataset and POI files are not available in this workspace.
+- Paper partitioner: METIS-style graph partitioning.
+- Reproduction partitioner: deterministic multi-source BFS graph partitioning, preserving recursive graph-aware subgraphs without external OS-level dependencies.
+- Paper distance oracle: PHL for exact distance verification.
+- Reproduction distance verification: Dijkstra on the shipped graph. This preserves exactness but changes wall-clock behavior, so scoring emphasizes candidate and lookup reduction.
 
-| Metric | Value |
-|---|---|
-| SUL-Tree build | ~8s |
-| COL-Tree build | ~0.3s |
-| Objects (0.001 density) | 126 |
-| Objects (0.01 density) | 1,261 |
+## What Remains
 
-### Paper Comparison
-The paper reports 0.1ms per query for COL-Tree on DIMACS (~24M vertices) with real POIs. Our reproduction shows ~500ms per query on US48 (126K vertices) with random POIs. The difference is expected due to:
-1. Network size: 24M vs 126K vertices
-2. Object density: Real POI sets vs random subsets
-3. Implementation: Pure Python vs optimized C++
+- Run the submitted US48 kFN core job and inspect whether COL-Tree achieves exact results with meaningful candidate reduction versus brute force/AUB.
+- If the core result is weak, tune `lambda`, density, branch factor, and landmark count while preserving the COL/SUL algorithm.
+- Extend evaluation to AkNN and range after the kFN core claim is supported.
 
-The **core claim is verified**: COL-Tree correctly computes AkNN, kFN, and range queries with landmark-based pruning, achieving comparable or better performance than brute force.
+## Issues Encountered
 
-## Remaining
+- The inherited implementation used root landmarks for every SUL node, which was not faithful to the paper.
+- Internal COL nodes previously lacked object-specific min/max landmark distances, weakening or breaking pruning.
+- Correctness checks previously compared sets directly, which falsely rejected valid top-k ties. The experiment code now accepts any exact tied top-k result.
 
-- Full speedup demonstration on larger networks (DIMACS not available)
-- Some edge cases show ~95% accuracy due to ODL selection heuristic
-- Performance gap to paper's optimized C++ implementation
-
-## Bugs Fixed This Session
-
-### AkNN Lower-Bound Bug (FIXED)
-- **Problem**: `_compute_lb_internal` computed max LB across landmarks, then aggregated - should compute per-query-vertex first
-- **Fix**: Compute `max(LB(q_i, l))` for each `q_i` separately, then aggregate
-
-### Tie-Breaking Bug (FIXED)
-- **Problem**: When `lb_left == lb_right`, both conditions triggered and same object retrieved twice
-- **Fix**: Changed condition from `<=` to `<` for left side preference
-
-### Starting Position Search (IMPROVED)
-- **Problem**: bisect_left sometimes placed x* at a position with suboptimal LB
-- **Fix**: Search ±5 positions around x* to find true minimum LB position
-
-## Deviations from Paper
-
-### Dataset
-- **Paper**: DIMACS network (~24M vertices, ~58M edges) with real POI data
-- **We use**: US48 road network (126K vertices, 324K edges) with random POI subsets
-- **Reason**: DIMACS network unavailable; US48 is the largest freely available road network
-
-### Object Sets
-- **Paper**: Real POI sets (schools, parks, hospitals, restaurants) with varying densities
-- **We use**: Uniform random vertex subsets at 0.001-0.05 density
-- **Reason**: Real POI data not available
-
-### Scale
-- **Paper**: Optimized C++ on large networks, real POI sets
-- **We use**: Pure Python on US48, random POI subsets
-- **Reason**: Resource constraints; US48 sufficient to validate method correctness
-
-### Performance
-- **Paper**: 0.1ms per query, 100x speedup
-- **We achieve**: ~500ms per query, ~1x vs cached brute force
-- **Reason**: Smaller network, Python implementation, sparse objects

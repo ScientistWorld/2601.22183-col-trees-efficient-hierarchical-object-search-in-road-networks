@@ -28,6 +28,23 @@ def load_results(input_path):
     return [load_json(p)]
 
 
+def add_result(accumulator, experiment, method, metrics):
+    bucket = accumulator.setdefault(experiment, {}).setdefault(method, [])
+    bucket.append(metrics)
+
+
+def average_metrics(metric_records):
+    if not metric_records:
+        return {}
+    keys = sorted({key for record in metric_records for key in record})
+    averaged = {}
+    for key in keys:
+        values = [record[key] for record in metric_records if isinstance(record.get(key), (int, float))]
+        if values:
+            averaged[key] = sum(values) / len(values)
+    return averaged
+
+
 def evaluate_kfn(result, method_name):
     """Compute kFN metrics matching reference.json kfn_real_pois."""
     q = result.get("queries", {})
@@ -86,29 +103,27 @@ def main():
     records = load_results(args.results_path)
     method = args.method_name
 
-    scores = {}
+    accumulator = {}
 
     for rec in records:
         qt = rec.get("query_type", "")
 
         if qt == "kfn":
-            scores["kfn_real_pois"] = {"results": {method: evaluate_kfn(rec, method)}}
+            add_result(accumulator, "kfn_real_pois", method, evaluate_kfn(rec, method))
         elif qt == "aknn":
-            scores["aknn_real_pois"] = {"results": {method: evaluate_aknn(rec, method)}}
+            add_result(accumulator, "aknn_real_pois", method, evaluate_aknn(rec, method))
         elif qt == "range":
-            scores["range_real_pois"] = {"results": {method: evaluate_range(rec, method)}}
+            add_result(accumulator, "range_real_pois", method, evaluate_range(rec, method))
 
         # Every record contributes preprocessing info
-        pp = evaluate_preprocessing(rec, method)
-        if "preprocessing" not in scores:
-            scores["preprocessing"] = {"results": {method: pp}}
-        else:
-            # Average if multiple records
-            existing = scores["preprocessing"]["results"][method]
-            n = len(records)
-            if n > 1:
-                existing["sul_time_s"] = (existing["sul_time_s"] + pp["sul_time_s"]) / 2
-                existing["col_time_s"] = (existing["col_time_s"] + pp["col_time_s"]) / 2
+        if "sul_time" in rec and "col_time" in rec:
+            add_result(accumulator, "preprocessing", method, evaluate_preprocessing(rec, method))
+
+    scores = {}
+    for experiment, methods in accumulator.items():
+        scores[experiment] = {"results": {}}
+        for method_name, metric_records in methods.items():
+            scores[experiment]["results"][method_name] = average_metrics(metric_records)
 
     Path(args.output).parent.mkdir(parents=True, exist_ok=True)
     with open(args.output, "w") as f:

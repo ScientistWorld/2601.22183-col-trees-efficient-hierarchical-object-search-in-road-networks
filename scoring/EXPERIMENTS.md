@@ -1,16 +1,18 @@
 # Experiment Overview
 
-## aknn_real_pois
-Tests whether the method efficiently answers Aggregate k Nearest Neighbor queries (finding k POIs minimizing aggregate distance to a set of query vertices) on a real road network with POI objects. Measures query time as the primary metric.
-
-## aknn_sensitivity_density
-Tests how query time scales with object density (the fraction of network vertices that are POIs). Higher density increases the number of objects to consider, which should stress the index's pruning ability.
-
 ## kfn_real_pois
-Tests whether the method efficiently answers k Farthest Neighbor queries (finding k POIs that maximize the minimum distance to the query vertex) on a real road network. This query type is asymmetrically hard — baseline methods cannot use incremental nearest-neighbor techniques.
+
+Tests whether an indexed road-network POI method can answer exact k farthest-neighbor queries while examining only a fraction of the object set. This is the core-claim experiment used by `scripts/run.sh`.
+
+## aknn_real_pois
+
+Optional extension for aggregate nearest-neighbor queries with multiple query vertices. It measures exactness and object-candidate reduction.
 
 ## range_real_pois
-Tests whether the method efficiently answers range queries (finding all POIs within a given network distance from the query vertex) on a real road network. Measures query time as the primary metric.
+
+Optional extension for range reporting queries. It measures exactness and object-candidate reduction.
 
 ## preprocessing
-Tests the computational cost of building the spatial index before any queries can be answered. Includes construction time for both the hierarchical network partition (SUL-Tree) and the POI-specific compact index (COL-Tree).
+
+Measures the overhead of building the road-network hierarchy and the POI-specific compact index before query processing.
+

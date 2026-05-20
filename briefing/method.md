@@ -13,7 +13,7 @@ The key idea is to use precomputed landmark distances to derive lower and upper 
 
 ### Hierarchical Partitioning
 
-The road network is recursively partitioned into b-way trees (default b = 8). Each node in the tree corresponds to a subgraph of the original network.
+The road network is recursively partitioned into b-way trees (default b = 8). Each node in the tree corresponds to a subgraph of the original network. The paper uses a METIS-style graph partitioner; this reproduction uses a deterministic multi-source BFS partitioner to keep the environment self-contained while preserving graph-aware subgraphs.
 
 - **Internal nodes**: Represent a partition of their parent's subgraph, containing a subset of the vertices and edges.
 - **Leaf nodes**: Represent small, atomic subgraphs (clusters of vertices).
@@ -28,9 +28,7 @@ This is the distance from v to each landmark in the node's landmark set. These p
 
 ### Landmark Selection Strategies
 
-Two landmark selection strategies are used:
-- **Random landmarks**: For AkNN queries, landmarks are selected uniformly at random from the subgraph. This provides good average-case bounds.
-- **Slice landmarks**: For kFN queries, a structured selection is used (e.g., selecting vertices at specific quantiles of the distance distribution). This provides tighter bounds for farthest-neighbor queries.
+The paper evaluates random, slice-based border, and border-minmax landmark policies. The core reproduction uses random local landmarks because the shipped graph lacks geographic coordinates needed for the full slice policy.
 
 ## COL-Tree Construction
 
@@ -75,7 +73,7 @@ The search is a best-first or depth-first branch-and-bound over the tree, guided
 
 Given query vertex q and k:
 1. Traverse the COL-Tree similarly, but use bounds tailored to maximizing the minimum distance.
-2. The slice landmark selection strategy provides tighter bounds for farthest-neighbor queries.
+2. Local landmark selection provides tighter bounds for farthest-neighbor queries; the paper's strongest kFN setting uses slice-based landmarks, while this reproduction uses random local landmarks.
 3. Prune subtrees where even the upper bound is worse than the current best minimum distance.
 4. At leaf nodes, use ODLs to quickly identify promising candidates without computing all distances.
 
@@ -92,7 +90,7 @@ Key parameters affecting performance and memory:
 - **b** (branching factor): Default 8. Higher b increases fanout but may weaken bounds.
 - **λ** (leaf capacity): Default 256. Maximum POIs per leaf node.
 - **m** (landmark count): 2 for AkNN, 4 for kFN. More landmarks give tighter bounds but increase memory.
-- Landmark selection strategy: Random vs. slice, chosen per query type.
+- Landmark selection strategy: random in the core reproduction; the paper also evaluates slice and border-minmax variants.
 
 ## Key Claims
 

@@ -25,6 +25,31 @@ from method.baselines import (
 )
 
 
+def _valid_nearest_topk(graph, candidates, objects, Q, k, agg):
+    """Accept any exact top-k set, including arbitrary choices among ties."""
+    if len(set(candidates)) != min(k, len(objects.objects)):
+        return False
+    d_cache = {qi: graph.dijkstra(qi) for qi in Q}
+
+    def score(obj):
+        vals = [d_cache[qi][obj] for qi in Q]
+        return max(vals) if agg == 'max' else sum(vals)
+
+    all_scores = sorted(score(obj) for obj in objects.objects)
+    threshold = all_scores[min(k, len(all_scores)) - 1]
+    return all(score(obj) <= threshold + 1e-9 for obj in candidates)
+
+
+def _valid_farthest_topk(graph, candidates, objects, q, k):
+    """Accept any exact farthest top-k set, including ties."""
+    if len(set(candidates)) != min(k, len(objects.objects)):
+        return False
+    dists = graph.dijkstra(q)
+    all_scores = sorted((dists[obj] for obj in objects.objects), reverse=True)
+    threshold = all_scores[min(k, len(all_scores)) - 1]
+    return all(dists[obj] >= threshold - 1e-9 for obj in candidates)
+
+
 def resolve_network_path(network_name: str) -> str:
     """Resolve a network file from known workspace locations."""
     candidates = {
@@ -156,18 +181,14 @@ def _run_aknn_experiments(graph, obj_set, col_tree, query_vertices,
         col_times.append(col_time * 1000)
         per_query_candidates.append(col_stats['candidate_objects_retrieved'])
 
-        # Brute force (on small subset for validation)
-        if total < 5:
-            start = time.time()
-            brute_result = aknn_bruteforce(graph, obj_set, Q, k, agg)
-            brute_time = time.time() - start
-            brute_times.append(brute_time * 1000)
+        start = time.time()
+        brute_result = aknn_bruteforce(graph, obj_set, Q, k, agg)
+        brute_time = time.time() - start
+        brute_times.append(brute_time * 1000)
 
-            col_set = set(col_result)
-            brute_set = set(brute_result)
-            if col_set == brute_set:
-                correct += 1
-            total += 1
+        if _valid_nearest_topk(graph, col_result, obj_set, Q, k, agg):
+            correct += 1
+        total += 1
 
     results['queries'] = {
         'col_avg_time_ms': sum(col_times) / len(col_times) if col_times else 0,
@@ -225,33 +246,17 @@ def _run_kfn_experiments(graph, obj_set, sul_tree, col_tree, query_vertices,
         aub_candidate_counts.append(aub_stats['scanned_candidates'])
         aub_exact_lookups.append(aub_stats['exact_distance_lookups'])
 
-        # Brute force
-        if total < 5:
-            start = time.time()
-            brute_result = kfn_bruteforce(graph, obj_set, q, k)
-            brute_time = time.time() - start
-            brute_times.append(brute_time * 1000)
+        start = time.time()
+        brute_result = kfn_bruteforce(graph, obj_set, q, k)
+        brute_time = time.time() - start
+        brute_times.append(brute_time * 1000)
 
-            col_set = set(col_result)
-            brute_set = set(brute_result)
-            if col_set == brute_set:
-                correct += 1
-            aub_set = set(aub_result)
-            if aub_set == brute_set:
-                aub_correct += 1
-            total += 1
-            aub_total += 1
-        elif total == 0:
-            brute_result = kfn_bruteforce(graph, obj_set, q, k)
-            col_set = set(col_result)
-            brute_set = set(brute_result)
-            if col_set == brute_set:
-                correct = 1
-            aub_set = set(aub_result)
-            if aub_set == brute_set:
-                aub_correct = 1
-            total = 1
-            aub_total = 1
+        if _valid_farthest_topk(graph, col_result, obj_set, q, k):
+            correct += 1
+        if _valid_farthest_topk(graph, aub_result, obj_set, q, k):
+            aub_correct += 1
+        total += 1
+        aub_total += 1
 
     results['queries'] = {
         'col_avg_time_ms': sum(col_times) / len(col_times) if col_times else 0,
@@ -328,18 +333,16 @@ def _run_range_experiments(graph, obj_set, col_tree, query_vertices,
         col_times.append(col_time * 1000)
         per_query_candidates.append(col_stats['candidate_objects_retrieved'])
 
-        # Brute force
-        if total < 5:
-            start = time.time()
-            brute_result = range_bruteforce(graph, obj_set, q, radius)
-            brute_time = time.time() - start
-            brute_times.append(brute_time * 1000)
+        start = time.time()
+        brute_result = range_bruteforce(graph, obj_set, q, radius)
+        brute_time = time.time() - start
+        brute_times.append(brute_time * 1000)
 
-            col_set = set(col_result)
-            brute_set = set(brute_result)
-            if col_set == brute_set:
-                correct += 1
-            total += 1
+        col_set = set(col_result)
+        brute_set = set(brute_result)
+        if col_set == brute_set:
+            correct += 1
+        total += 1
 
     results['queries'] = {
         'radius': radius,

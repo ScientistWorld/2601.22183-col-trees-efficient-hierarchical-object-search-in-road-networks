@@ -9,6 +9,7 @@ with precomputed distances (SDL) to all vertices in its subgraph.
 
 import random
 import heapq
+from collections import deque
 from typing import List, Dict, Tuple, Optional, Set
 from data.graph import RoadNetwork
 
@@ -32,10 +33,16 @@ class SULNode:
     """A node in the SUL-Tree representing a subgraph."""
     def __init__(self, node_id: int, level: int,
                  vertex_range: Optional[VertexRange] = None,
+                 vertices: Optional[List[int]] = None,
                  parent: Optional['SULNode'] = None):
         self.node_id = node_id
         self.level = level
         self.vertex_range = vertex_range  # implicit vertex ID range
+        self.vertices = vertices or []
+        self.vertex_set: Set[int] = set(self.vertices)
+        self.vertex_to_sdl_idx: Dict[int, int] = {
+            vertex: idx for idx, vertex in enumerate(self.vertices)
+        }
         self.parent = parent
         self.children: List['SULNode'] = []
         self.is_leaf = False
@@ -55,11 +62,15 @@ class SULNode:
 
     def get_vertices_in_range(self) -> List[int]:
         """Return list of vertex IDs in this node's range."""
+        if self.vertices:
+            return self.vertices[:]
         if self.vertex_range:
             return list(range(self.vertex_range.start, self.vertex_range.end))
         return []
 
     def contains_vertex(self, vid: int) -> bool:
+        if self.vertices:
+            return vid in self.vertex_set
         if self.vertex_range:
             return self.vertex_range.contains(vid)
         return False
@@ -85,6 +96,7 @@ class SULTree:
 
         self.root: Optional[SULNode] = None
         self.node_count = 0
+        self.landmark_distances: Dict[int, List[float]] = {}
 
         # Partition the graph
         self._partition()
@@ -94,14 +106,12 @@ class SULTree:
         n = self.graph.num_vertices
 
         # Use contiguous vertex ID ranges
-        self.root = self._build_node(0, n, level=0, parent=None)
-        self._assign_vertex_ranges(self.root)
+        self.root = self._build_node(list(range(n)), level=0, parent=None)
 
-        # Select root landmarks and compute their SDLs
-        self._select_root_landmarks()
-
-        # Propagate landmarks to all nodes (inherit from parent)
-        self._propagate_landmarks(self.root)
+        # Select local landmarks and compute SDLs for every SUL-Tree node.
+        # The paper's pruning power comes from local, subgraph-specific
+        # landmarks, not from reusing one global landmark set everywhere.
+        self._select_landmarks(self.root)
 
     def _select_root_landmarks(self):
         """Select m landmarks for the root node and compute their SDLs."""
@@ -166,27 +176,89 @@ class SULTree:
         for child in node.children:
             self._propagate_landmarks(child)
 
-    def _build_node(self, start: int, end: int, level: int,
+    def _build_node(self, vertices: List[int], level: int,
                    parent: Optional[SULNode]) -> SULNode:
         """Recursively build SUL-Tree nodes."""
         self.node_count += 1
-        node = SULNode(self.node_count, level, parent=parent)
+        node = SULNode(self.node_count, level, vertices=vertices, parent=parent)
 
-        size = end - start
+        size = len(vertices)
         if size <= self.alpha:
             node.is_leaf = True
-            node.vertex_range = VertexRange(start, end)
+            if vertices:
+                node.vertex_range = VertexRange(min(vertices), max(vertices) + 1)
+                node.sdl_size = len(vertices)
             return node
 
-        # Partition into b subgraphs
-        chunk_size = size // self.b
-        for i in range(self.b):
-            c_start = start + i * chunk_size
-            c_end = start + (i + 1) * chunk_size if i < self.b - 1 else end
-            child = self._build_node(c_start, c_end, level + 1, parent=node)
+        # Partition into b graph-aware subgraphs using a deterministic
+        # multi-source BFS over the induced road-network adjacency. The paper
+        # used METIS, but explicitly allows any partitioner with similar-sized
+        # subgraphs; this keeps the core computation self-contained.
+        for part in self._partition_vertices(vertices):
+            child = self._build_node(part, level + 1, parent=node)
             node.add_child(child)
 
         return node
+
+    def _partition_vertices(self, vertices: List[int]) -> List[List[int]]:
+        n_parts = min(self.b, len(vertices))
+        if n_parts <= 1:
+            return [vertices]
+
+        vertex_set = set(vertices)
+        target = (len(vertices) + n_parts - 1) // n_parts
+
+        # Pick high-degree, well-spaced seeds to make connected chunks.
+        ordered = sorted(
+            vertices,
+            key=lambda v: sum(1 for nb, _ in self.graph.adj[v] if nb in vertex_set),
+            reverse=True,
+        )
+        seeds = []
+        for candidate in ordered:
+            seed_neighbors = {nb for seed in seeds for nb, _ in self.graph.adj[seed]}
+            if not seeds or candidate not in seed_neighbors:
+                seeds.append(candidate)
+            if len(seeds) == n_parts:
+                break
+        for candidate in ordered:
+            if len(seeds) == n_parts:
+                break
+            if candidate not in seeds:
+                seeds.append(candidate)
+
+        parts = [[seed] for seed in seeds]
+        assigned = set(seeds)
+        queues = [deque([seed]) for seed in seeds]
+
+        made_progress = True
+        while len(assigned) < len(vertices) and made_progress:
+            made_progress = False
+            for part_idx, queue in enumerate(queues):
+                if len(parts[part_idx]) >= target and part_idx < n_parts - 1:
+                    continue
+                while queue:
+                    current = queue.popleft()
+                    for neighbor, _ in self.graph.adj[current]:
+                        if neighbor in vertex_set and neighbor not in assigned:
+                            assigned.add(neighbor)
+                            parts[part_idx].append(neighbor)
+                            queue.append(neighbor)
+                            made_progress = True
+                            break
+                    if len(parts[part_idx]) >= target and part_idx < n_parts - 1:
+                        break
+                    if queue:
+                        break
+
+        # Disconnected leftovers are assigned to the smallest current part.
+        for vertex in vertices:
+            if vertex not in assigned:
+                part_idx = min(range(n_parts), key=lambda idx: len(parts[idx]))
+                parts[part_idx].append(vertex)
+                assigned.add(vertex)
+
+        return [sorted(part) for part in parts if part]
 
     def _assign_vertex_ranges(self, node: SULNode):
         """Assign vertex ranges bottom-up."""
@@ -194,9 +266,15 @@ class SULTree:
             node.sdl_size = node.vertex_range.size if node.vertex_range else 0
             return
 
-        # Process children first (bottom-up)
+        # Process children first (bottom-up). Kept for compatibility with
+        # older artifacts; graph-aware nodes store explicit vertex lists.
         for child in node.children:
             self._assign_vertex_ranges(child)
+
+        if node.vertices:
+            node.vertex_range = VertexRange(min(node.vertices), max(node.vertices) + 1)
+            node.sdl_size = len(node.vertices)
+            return
 
         # Then compute this node's range from children
         if node.children:
@@ -330,7 +408,9 @@ class SULTree:
 
         for landmark in node.landmarks:
             # Dijkstra from landmark
-            dist = self.graph.dijkstra(landmark)
+            if landmark not in self.landmark_distances:
+                self.landmark_distances[landmark] = self.graph.dijkstra(landmark)
+            dist = self.landmark_distances[landmark]
             # Extract distances for vertices in this subgraph
             sdl = [dist[v] if v < len(dist) else float('inf') for v in vertices]
             node.sdls.append(sdl)
@@ -433,16 +513,15 @@ class SULTree:
                 return node
             return None
         for child in node.children:
-            if child.vertex_range and child.vertex_range.contains(vertex):
+            if child.contains_vertex(vertex):
                 return self._find_node_containing(child, vertex)
         return None
 
     def get_sdl_dist(self, node: SULNode, landmark: int, vertex: int) -> float:
         """Get distance from landmark to vertex from node's SDL."""
-        if node.is_leaf and node.vertex_range:
-            idx = vertex - node.vertex_range.start
-            if 0 <= idx < node.sdl_size:
-                for li_idx, lm in enumerate(node.landmarks):
-                    if lm == landmark and li_idx < len(node.sdls):
-                        return node.sdls[li_idx][idx]
+        idx = node.vertex_to_sdl_idx.get(vertex)
+        if idx is not None:
+            for li_idx, lm in enumerate(node.landmarks):
+                if lm == landmark and li_idx < len(node.sdls):
+                    return node.sdls[li_idx][idx]
         return float('inf')

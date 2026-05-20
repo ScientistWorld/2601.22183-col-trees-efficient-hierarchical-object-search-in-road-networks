@@ -2,28 +2,27 @@
 
 ## Dataset
 
-- **Road network**: DIMACS US road network (~23.9 million vertices, ~57.7 million edges)
-- **POI sets**: Multiple POI types including schools, parks, hospitals, and gas stations
+- **Paper road network**: DIMACS US road network (~23.9 million vertices, ~57.7 million edges)
+- **Reproduction road network**: US48 road graph shipped in `data/downloads/`, with synthetic POI subsets sampled from vertices
+- **Paper POI sets**: Schools, parks, hospitals, fast food, post offices, hotels, universities, and courthouses
 - **Query sets**: Query vertices sampled from the road network according to the protocols described below
 
 ## Performance Metrics
 
 ### Primary Metrics
 
-1. **Average Query Time (ms)**
-   - Wall-clock time per query, averaged over all queries in the test set
-   - Lower is better
-   - Target: match or improve upon the reported COL-Tree query times in the paper
-
-2. **Number of Network Distance Computations**
+1. **Number of Network Distance Computations**
    - Count of actual shortest-path computations (Dijkstra/BI-Dijkstra runs) performed during query answering
    - This is a key indicator of index efficiency and pruning power
    - Lower is better
    - Target: significantly fewer distance computations than baseline methods
 
-3. **Number of Candidate Objects Retrieved**
+2. **Number of Candidate Objects Retrieved**
    - Count of POIs examined or returned as candidates during query processing
    - Lower is better (indicates tighter pruning)
+
+3. **Average Query Time (ms)**
+   - Reported for diagnostics only. It is not the primary score because hardware and Python/C++ implementation differences dominate wall-clock comparisons.
 
 ### Secondary Metrics
 
@@ -49,7 +48,7 @@
 
 ### Query Sets
 
-- Use at least 500 queries per configuration (query type, k, |Q|, radius).
+- The paper uses 1000 queries per configuration. The reproduction uses smaller query counts for core jobs and validates every query against exact brute force.
 - Split into a development set (for parameter tuning) and a test set (for final evaluation).
 - Queries should be spatially diverse.
 

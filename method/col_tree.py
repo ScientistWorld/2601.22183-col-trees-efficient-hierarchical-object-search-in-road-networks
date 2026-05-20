@@ -64,6 +64,7 @@ class COLTree:
         self.b = b
         self.root: Optional[COLNode] = None
         self.node_count = 0
+        self._landmark_distance_cache: Dict[int, List[float]] = {}
         self._build()
 
     def _build(self):
@@ -82,43 +83,44 @@ class COLTree:
                    parent: Optional[COLNode]) -> COLNode:
         self.node_count += 1
         col_node = COLNode(self.node_count, level, sul_node=sul_node, parent=parent)
-        n_objects = self._count_objects_in_sul_node(sul_node)
+        object_vertices = self._objects_in_sul_node(sul_node)
+        n_objects = len(object_vertices)
 
         if n_objects <= self.lam:
             col_node.is_leaf = True
             col_node.num_objects = n_objects
-            self._build_leaf_odls(col_node, sul_node)
+            self._build_leaf_odls(col_node, sul_node, object_vertices)
         else:
             col_node.is_leaf = False
             for child_sul in sul_node.children:
                 child_col = self._build_node(child_sul, level + 1, col_node)
                 col_node.add_child(child_col)
+            col_node.num_objects = n_objects
+            self._build_internal_bounds(col_node, sul_node, object_vertices)
         return col_node
 
     def _count_objects_in_sul_node(self, sul_node: SULNode) -> int:
+        return len(self._objects_in_sul_node(sul_node))
+
+    def _objects_in_sul_node(self, sul_node: SULNode) -> List[int]:
         vertices = self._get_vertices_in_subtree(sul_node)
         obj_set = self.object_set.obj_set
-        return sum(1 for v in vertices if v in obj_set)
+        return [v for v in vertices if v in obj_set]
 
-    def _build_leaf_odls(self, col_node: COLNode, sul_node: SULNode):
+    def _build_leaf_odls(self, col_node: COLNode, sul_node: SULNode,
+                         object_vertices: List[int]):
         """
         Build sorted ODLs for a COL-Tree leaf node.
         The sul_node may be an internal SUL-Tree node (when few objects).
         We need to collect objects from the subtree.
         """
-        # Collect all vertices in this SUL-Tree node's subtree that are objects
-        all_vertices = self._get_vertices_in_subtree(sul_node)
-        obj_set = self.object_set.obj_set
-        object_vertices = [v for v in all_vertices if v in obj_set]
-
         if not object_vertices:
             return
 
         for li_idx, landmark in enumerate(sul_node.landmarks):
-            # Use root SDLs (all SDLs are stored at root now)
             odl = []
             for obj_v in object_vertices:
-                dist = self._find_object_distance(landmark, obj_v)
+                dist = self._sul_sdl_distance(sul_node, li_idx, obj_v)
                 if dist < float('inf'):
                     odl.append((dist, obj_v))
 
@@ -134,6 +136,23 @@ class COLTree:
                 col_node.min_dist.append(0.0)
                 col_node.max_dist.append(0.0)
 
+    def _build_internal_bounds(self, col_node: COLNode, sul_node: SULNode,
+                               object_vertices: List[int]):
+        """Store min/max landmark-object distances for an internal COL node."""
+        for li_idx, landmark in enumerate(sul_node.landmarks):
+            distances = [
+                self._sul_sdl_distance(sul_node, li_idx, obj_v)
+                for obj_v in object_vertices
+            ]
+            valid = [d for d in distances if d < float('inf')]
+            if valid:
+                col_node.min_dist.append(min(valid))
+                col_node.max_dist.append(max(valid))
+            else:
+                col_node.min_dist.append(0.0)
+                col_node.max_dist.append(0.0)
+            col_node.landmark_to_odl_idx[landmark] = li_idx
+
     def _get_vertices_in_subtree(self, sul_node: SULNode) -> List[int]:
         """Get all vertices in a SUL-Tree node's subtree."""
         if sul_node.is_leaf:
@@ -144,17 +163,17 @@ class COLTree:
                 vertices.extend(self._get_vertices_in_subtree(child))
             return vertices
 
-    def _find_object_distance(self, landmark: int, object_vertex: int) -> float:
-        """Find distance from landmark to object_vertex using root SDLs."""
-        sul_root = self.sul_tree.root
-        for li_idx, lm in enumerate(sul_root.landmarks):
-            if lm == landmark and li_idx < len(sul_root.sdls):
-                sdl = sul_root.sdls[li_idx]
-                if 0 <= object_vertex < len(sdl):
-                    return sdl[object_vertex]
-        dist = self.graph.dijkstra(landmark)
-        if object_vertex < len(dist):
-            return dist[object_vertex]
+    def _sul_sdl_distance(self, sul_node: SULNode, landmark_idx: int,
+                          vertex: int) -> float:
+        """Distance from a SUL node's local landmark to a vertex in its range."""
+        if landmark_idx >= len(sul_node.sdls):
+            return float('inf')
+        idx = sul_node.vertex_to_sdl_idx.get(vertex)
+        if idx is None:
+            return float('inf')
+        sdl = sul_node.sdls[landmark_idx]
+        if 0 <= idx < len(sdl):
+            return sdl[idx]
         return float('inf')
 
     def compute_lb(self, q: int, node: COLNode, Q: List[int] = None,
@@ -176,9 +195,9 @@ class COLTree:
             for qi in Q:
                 lb_values = []
                 for li_idx, landmark in enumerate(landmarks):
-                    if node.sul_node and li_idx < len(node.sul_node.max_dist):
-                        M_plus = node.sul_node.max_dist[li_idx]
-                        M_minus = node.sul_node.min_dist[li_idx]
+                    if li_idx < len(node.max_dist) and li_idx < len(node.min_dist):
+                        M_plus = node.max_dist[li_idx]
+                        M_minus = node.min_dist[li_idx]
                     else:
                         continue
                     d_li_qi = self._get_root_landmark_dist(landmark, qi)
@@ -198,9 +217,9 @@ class COLTree:
             # Single query vertex - just compute max LB
             lb_values = []
             for li_idx, landmark in enumerate(landmarks):
-                if node.sul_node and li_idx < len(node.sul_node.max_dist):
-                    M_plus = node.sul_node.max_dist[li_idx]
-                    M_minus = node.sul_node.min_dist[li_idx]
+                if li_idx < len(node.max_dist) and li_idx < len(node.min_dist):
+                    M_plus = node.max_dist[li_idx]
+                    M_minus = node.min_dist[li_idx]
                 else:
                     continue
                 d_li_q = self._get_root_landmark_dist(landmark, q)
@@ -279,19 +298,27 @@ class COLTree:
 
     def _get_root_landmark_dist(self, landmark: int, target: int) -> Optional[float]:
         """
-        Get distance from ANY landmark to target using precomputed SDLs.
-        Uses root's SDLs (which cover all vertices) for root landmarks.
-        Falls back to Dijkstra for non-root landmarks.
+        Get distance from any local landmark to a query target.
+
+        Root landmark distances are already materialized over the whole graph.
+        For non-root landmarks this reproducer computes and caches the exact
+        landmark SSSP lazily. The paper avoids many of these lookups using
+        root/LCA lower/upper-bound substitution; exact cached values preserve
+        admissibility while keeping the query algorithm easy to audit.
         """
-        # Root landmarks: use root's SDL
         for li_idx, lm in enumerate(self.sul_tree.root.landmarks):
             if lm == landmark:
                 if li_idx < len(self.sul_tree.root.sdls):
                     sdl = self.sul_tree.root.sdls[li_idx]
                     if 0 <= target < len(sdl):
                         return sdl[target]
-        # Fallback: compute with Dijkstra for non-root landmarks
-        dist = self.graph.dijkstra(landmark)
+        if hasattr(self.sul_tree, 'landmark_distances') and landmark in self.sul_tree.landmark_distances:
+            dist = self.sul_tree.landmark_distances[landmark]
+            if target < len(dist):
+                return dist[target]
+        if landmark not in self._landmark_distance_cache:
+            self._landmark_distance_cache[landmark] = self.graph.dijkstra(landmark)
+        dist = self._landmark_distance_cache[landmark]
         if target < len(dist):
             return dist[target]
         return None
@@ -303,6 +330,10 @@ class COLTree:
             return sum(bounds)
         else:
             return max(bounds) if bounds else 0.0
+
+    def _next_tie(self) -> int:
+        self._tie_counter = getattr(self, '_tie_counter', 0) + 1
+        return self._tie_counter
 
     # =====================================================================
     # AkNN Query Algorithm
@@ -324,6 +355,7 @@ class COLTree:
         AkNN with max aggregate. Implements Algorithm 1 from the paper.
         """
         self._reset_query_state(self.root)
+        self._tie_counter = 0
 
         dijkstra_cache = {}
         for qi in Q:
@@ -335,8 +367,7 @@ class COLTree:
         D_k = float('inf')
         stats = {'candidate_objects_retrieved': 0, 'exact_distance_lookups': 0}
 
-        pq = [(0.0, 0, self.root, 'node')]
-        tie = 1
+        pq = [(0.0, self._next_tie(), self.root, 'node')]
 
         while pq:
             lb, _, item, itype = heapq.heappop(pq)
@@ -350,21 +381,18 @@ class COLTree:
                     if not node.seen:
                         self._init_leaf_node_aknn(node, Q, 'max')
                         node.seen = True
-                        # Retrieve objects from ODL (only once per node visit)
-                        self._retrieve_objects_odl_aknn(node, Q, 'max', result_objs,
-                                                        result_dists, D_k, pq, tie)
+                    self._retrieve_objects_odl_aknn(node, Q, 'max', result_objs,
+                                                    result_dists, D_k, pq, 0)
 
                     # Compute LB for remaining objects in ODL
                     node_lb = self._compute_leaf_lb_remaining(node, Q, 'max')
                     # Only push if there's still work to do (LB < inf and < D_k)
                     if node_lb < float('inf') and node_lb < D_k:
-                        heapq.heappush(pq, (node_lb, tie, node, 'node'))
-                        tie += 1
+                        heapq.heappush(pq, (node_lb, self._next_tie(), node, 'node'))
                 else:
                     for child in node.children:
                         clb = self.compute_lb(Q[0], child, Q, 'max')
-                        heapq.heappush(pq, (clb, tie, child, 'node'))
-                        tie += 1
+                        heapq.heappush(pq, (clb, self._next_tie(), child, 'node'))
             else:
                 obj = item
                 stats['candidate_objects_retrieved'] += 1
@@ -387,6 +415,7 @@ class COLTree:
     def _aknn_sum(self, Q: List[int], k: int, return_stats: bool = False) -> List[int]:
         """AkNN with sum aggregate."""
         self._reset_query_state(self.root)
+        self._tie_counter = 0
         dijkstra_cache = {}
         for qi in Q:
             if qi not in dijkstra_cache:
@@ -396,8 +425,7 @@ class COLTree:
         result_dists = []
         D_k = float('inf')
         stats = {'candidate_objects_retrieved': 0, 'exact_distance_lookups': 0}
-        pq = [(0.0, 0, self.root, 'node')]
-        tie = 1
+        pq = [(0.0, self._next_tie(), self.root, 'node')]
 
         while pq:
             lb, _, item, itype = heapq.heappop(pq)
@@ -411,18 +439,16 @@ class COLTree:
                     if not node.seen:
                         self._init_leaf_node_aknn(node, Q, 'sum')
                         node.seen = True
-                        self._retrieve_objects_odl_aknn(node, Q, 'sum', result_objs,
-                                                        result_dists, D_k, pq, tie)
+                    self._retrieve_objects_odl_aknn(node, Q, 'sum', result_objs,
+                                                    result_dists, D_k, pq, 0)
 
                     node_lb = self._compute_leaf_lb_remaining(node, Q, 'sum')
-                    if node_lb < float('inf'):
-                        heapq.heappush(pq, (node_lb, tie, node, 'node'))
-                        tie += 1
+                    if node_lb < float('inf') and node_lb < D_k:
+                        heapq.heappush(pq, (node_lb, self._next_tie(), node, 'node'))
                 else:
                     for child in node.children:
                         clb = self.compute_lb(Q[0], child, Q, 'sum')
-                        heapq.heappush(pq, (clb, tie, child, 'node'))
-                        tie += 1
+                        heapq.heappush(pq, (clb, self._next_tie(), child, 'node'))
             else:
                 obj = item
                 stats['candidate_objects_retrieved'] += 1
@@ -520,11 +546,10 @@ class COLTree:
     def _retrieve_objects_odl_aknn(self, node: COLNode, Q: List[int], agg: str,
                                      result_objs: List, result_dists: List,
                                      D_k: float, pq: List, tie: int):
-        """Retrieve objects from ODL (Line 24-29 of Algorithm 1).
+        """Retrieve the next ODL object by aggregate lower bound.
 
-        LP and RP point to the NEXT positions to explore on each side.
-        After initialization (LP=x*, RP=x*), we first retrieve the object
-        at position x*, then expand outward.
+        The same leaf is reinserted with the lower bound of the next object,
+        matching Algorithm 1's incremental candidate retrieval.
         """
         if not hasattr(node, 'best_odl') or not node.best_odl:
             return
@@ -533,62 +558,35 @@ class COLTree:
         distances = node.best_distances
         C = node.best_C
 
-        # First: retrieve object at starting position (LP=RP=x*)
-        start_idx = node.RP  # LP == RP == x*
-        d_start, obj = odl[start_idx]
-        if agg == 'max':
-            obj_lb = max(abs(c - d_start) for c in C)
+        lb_left = float('inf')
+        if node.LP >= 0:
+            d_lp = distances[node.LP]
+            lb_left = max(abs(c - d_lp) for c in C) if agg == 'max' else sum(abs(c - d_lp) for c in C)
+
+        lb_right = float('inf')
+        if node.RP < len(odl):
+            d_rp = distances[node.RP]
+            lb_right = max(abs(c - d_rp) for c in C) if agg == 'max' else sum(abs(c - d_rp) for c in C)
+
+        if min(lb_left, lb_right) >= D_k:
+            return
+
+        if node.LP == node.RP and node.LP >= 0:
+            pos = node.LP
+            node.LP -= 1
+            node.RP += 1
+        elif lb_left <= lb_right and node.LP >= 0:
+            pos = node.LP
+            node.LP -= 1
+        elif node.RP < len(odl):
+            pos = node.RP
+            node.RP += 1
         else:
-            obj_lb = sum(abs(c - d_start) for c in C)
-        heapq.heappush(pq, (obj_lb, tie, obj, 'obj'))
-        tie += 1
+            return
 
-        # Set pointers to next positions to explore
-        node.LP = start_idx - 1  # next left position
-        node.RP = start_idx + 1  # next right position
-
-        while True:
-            # Compute lower bounds for left and right expansion
-            lb_left = float('inf')
-            if node.LP >= 0:
-                d_lp = distances[node.LP]
-                if agg == 'max':
-                    lb_left = max(abs(c - d_lp) for c in C)
-                else:
-                    lb_left = sum(abs(c - d_lp) for c in C)
-
-            lb_right = float('inf')
-            if node.RP < len(odl):
-                d_rp = distances[node.RP]
-                if agg == 'max':
-                    lb_right = max(abs(c - d_rp) for c in C)
-                else:
-                    lb_right = sum(abs(c - d_rp) for c in C)
-
-            min_lb = min(lb_left, lb_right)
-            if min_lb >= D_k:
-                break
-
-            # Retrieve next object from the side with smaller LB
-            # Use < instead of <= to prefer left when tied (avoids duplicates at x*)
-            if lb_left < lb_right and node.LP >= 0:
-                d_retrieved = distances[node.LP]
-                obj = odl[node.LP][1]
-                node.LP -= 1
-            elif node.RP < len(odl):
-                d_retrieved = distances[node.RP]
-                obj = odl[node.RP][1]
-                node.RP += 1
-            else:
-                break
-
-            # Push object to PQ with LB
-            if agg == 'max':
-                obj_lb = max(abs(c - d_retrieved) for c in C)
-            else:
-                obj_lb = sum(abs(c - d_retrieved) for c in C)
-            heapq.heappush(pq, (obj_lb, tie, obj, 'obj'))
-            tie += 1
+        d_retrieved, obj = odl[pos]
+        obj_lb = max(abs(c - d_retrieved) for c in C) if agg == 'max' else sum(abs(c - d_retrieved) for c in C)
+        heapq.heappush(pq, (obj_lb, self._next_tie(), obj, 'obj'))
 
     def _compute_leaf_lb_remaining(self, node: COLNode, Q: List[int], agg: str) -> float:
         """Compute LB for remaining (unprocessed) objects in ODL."""
@@ -604,16 +602,16 @@ class COLTree:
         distances = node.best_distances
 
         lb_left = float('inf')
-        if node.LP > 0:
-            d_lp = distances[node.LP - 1]
+        if node.LP >= 0:
+            d_lp = distances[node.LP]
             if agg == 'max':
                 lb_left = max(abs(c - d_lp) for c in C)
             else:
                 lb_left = sum(abs(c - d_lp) for c in C)
 
         lb_right = float('inf')
-        if node.RP < len(odl) - 1:
-            d_rp = distances[node.RP + 1]
+        if node.RP < len(odl):
+            d_rp = distances[node.RP]
             if agg == 'max':
                 lb_right = max(abs(c - d_rp) for c in C)
             else:
@@ -646,6 +644,7 @@ class COLTree:
         k Farthest Neighbor query (Algorithm 2 from paper).
         """
         self._reset_query_state(self.root)
+        self._tie_counter = 0
         self._kfn_q = q  # Store for use in helper methods
         self._kfn_k = k
         result_objs = []  # min-heap: (dist, obj)
@@ -662,8 +661,7 @@ class COLTree:
 
         # Max-heap for traversal by upper bound
         pq = []
-        heapq.heappush(pq, (-self.compute_ub(q, self.root), 0, self.root, 'node'))
-        tie = 1
+        heapq.heappush(pq, (-self.compute_ub(q, self.root), self._next_tie(), self.root, 'node'))
 
         while pq:
             neg_ub, _, item, itype = heapq.heappop(pq)
@@ -682,7 +680,7 @@ class COLTree:
                         self._init_leaf_node_kfn(node, q)
                         node.seen = True
                         self._retrieve_objects_odl_kfn(node, d_q, result_objs,
-                                                        D_k, pq, tie,
+                                                        D_k, pq, 0,
                                                         stats)
                         D_k = result_objs[0][0] if len(result_objs) >= k else 0.0
 
@@ -690,14 +688,12 @@ class COLTree:
                     # Re-add if: haven't found k results, OR (node has more objects AND ub >= D_k)
                     more_objects = node.RP >= 0
                     if len(result_objs) < k or (more_objects and node_ub >= D_k):
-                        heapq.heappush(pq, (-node_ub, tie, node, 'node'))
-                        tie += 1
+                        heapq.heappush(pq, (-node_ub, self._next_tie(), node, 'node'))
                 else:
                     for child in node.children:
                         cub = self.compute_ub(q, child)
                         if len(result_objs) < k or cub >= D_k:
-                            heapq.heappush(pq, (-cub, tie, child, 'node'))
-                            tie += 1
+                            heapq.heappush(pq, (-cub, self._next_tie(), child, 'node'))
             else:
                 obj = item
                 dist = d_q[obj]

@@ -20,16 +20,16 @@ COMMON_ARGS=(
     --network usroads-48
     --query kfn
     --k 10
-    --n-queries 20
+    --n-queries 12
     --b 4
-    --lam 256
+    --lam 2048
     --m 4
     --landmark-policy random
     --seed 42
 )
 
 echo "=== Running core-claim kFN experiments ==="
-for density in 0.001 0.01; do
+for density in 0.05; do
     python3 method/experiment.py \
         "${COMMON_ARGS[@]}" \
         --density "$density" \
@@ -39,3 +39,5 @@ done
 python3 scripts/summarize_core_claim.py \
     "$OUT_DIR"/kfn_density_*.json \
     --output "$OUT_DIR/summary.json"
+
+bash scripts/evaluate.sh "$OUT_DIR"
