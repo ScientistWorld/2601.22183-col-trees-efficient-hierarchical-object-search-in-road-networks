@@ -70,4 +70,4 @@
 - `python3 validate.py --compare` passed in the job; regenerated scores show exact kFN, AkNN, and range results with nontrivial candidate pruning.
 
 ## Stop Justification
-- Reached `secondary_claims`: the post-audit method runs on the shipped benchmark, main/train/test evaluators pass, and the core plus secondary query families show exactness with candidate pruning.
+- Completed at milestone `secondary_claims`.
