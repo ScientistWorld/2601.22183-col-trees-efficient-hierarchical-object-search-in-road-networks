@@ -10,7 +10,7 @@ This reproduction packages the same COL/SUL algorithmic family on the available 
 
 ---
 
-# Problem Definition: Hierarchical POI Search in Road Networks
+# Problem Definition: Efficient POI Search in Road Networks
 
 ## Domain
 
@@ -61,12 +61,12 @@ All POIs within network distance r from q.
 
 - **Scale**: Real-world road networks can have tens of millions of vertices and edges (e.g., the DIMACS network with ~24M vertices, ~58M edges), making repeated shortest-path computations costly.
 - **Multi-objective nature**: AkNN involves finding a set of k POIs jointly, not independently, which is combinatorially harder than finding a single nearest neighbor.
-- **Query diversity**: Different query types (AkNN, kFN, Range) require different algorithmic strategies.
+- **Query diversity**: Different query types (AkNN, kFN, Range) stress different parts of a search system.
 - **Dynamic POI sets**: The POI set P may change between queries (different POI types), requiring the index to support multiple object sets efficiently.
 
 ## Scope
 
-This reproduction targets the three query types above on static road networks with static POI sets, evaluated on the DIMACS US road network with various POI types (schools, parks, hospitals, etc.).
+This environment targets the three query types above on static road networks with static POI sets. The shipped benchmark uses a public US road graph with reproducible vertex-sampled POI sets; the original paper evaluated larger road networks with real POI categories.
 
 ---
 
@@ -174,92 +174,60 @@ Key parameters affecting performance and memory:
 
 ---
 
-# Evaluation Plan: COL-Tree Reproduction
+# Evaluation Plan
 
 ## Dataset
 
-- **Paper road network**: DIMACS US road network (~23.9 million vertices, ~57.7 million edges)
-- **Reproduction road network**: US48 road graph shipped in `data/downloads/`, with synthetic POI subsets sampled from vertices
-- **Paper POI sets**: Schools, parks, hospitals, fast food, post offices, hotels, universities, and courthouses
-- **Query sets**: Query vertices sampled from the road network according to the protocols described below
+- **Original paper setting**: large US road networks with real POI categories such as schools, parks, hospitals, hotels, and public services.
+- **Shipped benchmark setting**: a public US48 road graph under `data/downloads/`, with reproducible POI subsets sampled from graph vertices.
+- **Query vertices**: sampled from the road network and stored in method output artifacts.
 
-## Performance Metrics
+## Metrics
 
-### Primary Metrics
+### Correctness
 
-1. **Number of Network Distance Computations**
-   - Count of actual shortest-path computations (Dijkstra/BI-Dijkstra runs) performed during query answering
-   - This is a key indicator of index efficiency and pruning power
-   - Lower is better
-   - Target: significantly fewer distance computations than baseline methods
+Returned results are checked against exact brute-force answers on the shipped graph. Top-k ties at the kth boundary may be returned in any order or subset.
 
-2. **Number of Candidate Objects Retrieved**
-   - Count of POIs examined or returned as candidates during query processing
-   - Lower is better (indicates tighter pruning)
+- `accuracy`: fraction of evaluated queries that return an exact valid answer. Higher is better.
 
-3. **Average Query Time (ms)**
-   - Reported for diagnostics only. It is not the primary score because hardware and Python/C++ implementation differences dominate wall-clock comparisons.
+### Candidate Efficiency
 
-### Secondary Metrics
+These metrics measure how much work a submitted method leaves for exact verification.
 
-4. **Index Construction Time**
-   - Time to build the spatial index (preprocessing)
-   - Reported for both tree structures
+- `candidates_ratio`: average fraction of POIs examined as candidates. Lower is better.
+- `candidate_p90_ratio`: 90th-percentile candidate fraction, used to catch methods that only improve easy queries. Lower is better.
+- `candidate_max_ratio`: worst per-query candidate fraction. Lower is better.
+- `lookup_reduction_vs_brute`: exact-distance lookup reduction relative to checking every POI. Higher is better.
 
-5. **Index Storage Size (MB/GB)**
-   - Memory or disk footprint of the preprocessed index structures
-   - Lower is better
+### Preprocessing Diagnostics
 
-6. **Recall / Result Correctness**
-   - For each query, verify that returned results match the exact optimum (verified by brute force on a manageable subgraph)
-   - Must be 100% for all queries
+Build-time fields are reported for context but have zero score weight because wall-clock timing depends on hardware and implementation language.
 
-## Evaluation Protocol
+- `sul_time_s`
+- `col_time_s`
 
-### Query Generation
+## Protocol
 
-- **AkNN queries**: Generate query sets Q of size |Q| ∈ {1, 2, 4, 8, 16} and k ∈ {1, 5, 10}. Sample query vertices uniformly at random from the road network.
-- **kFN queries**: Single-vertex queries (|Q| = 1) with k ∈ {1, 5, 10}.
-- **Range queries**: Single-vertex queries with radius r sampled from a distribution covering small, medium, and large ranges.
+1. Build any method-specific preprocessing structures before answering queries.
+2. Run AkNN, kFN, and range-query configurations on the shipped graph and POI sets.
+3. Write JSON result artifacts containing query type, number of objects, correctness counts, candidate counts, and exact lookup counts.
+4. Run `scripts/evaluate.sh <results_path>` to convert artifacts into `scoring/scores.json`.
+5. Optional train/test scoring uses `scripts/evaluate_train.sh` and `scripts/evaluate_test.sh`, which score deterministic slices of the same output artifacts.
 
-### Query Sets
+## Experiment Targets
 
-- The paper uses 1000 queries per configuration. The reproduction uses smaller query counts for core jobs and validates every query against exact brute force.
-- Split into a development set (for parameter tuning) and a test set (for final evaluation).
-- Queries should be spatially diverse.
+| Experiment | Required behavior | Efficiency target |
+|---|---|---|
+| `kfn_real_pois` | Exact k farthest-neighbor results | Reduce exact lookup and candidate fractions versus brute force |
+| `aknn_real_pois` | Exact aggregate nearest-neighbor results | Examine only a fraction of the object set |
+| `range_real_pois` | Exact set of in-range objects | Examine only a fraction of the object set |
+| `preprocessing` | Report index/preprocessing overhead | Diagnostic only, zero score weight |
 
-### Baseline Methods
+## Correctness Rules
 
-Evaluate the following baseline methods alongside the proposed method:
-
-1. **IER-PHL**: Incremental Euclidean Restriction with Pruned Highway Labeling. Uses Euclidean distance as a heuristic to guide network expansion.
-2. **NVD-PHL**: Network Voronoi Diagram approach with concurrent expansion.
-3. **AUB-PHL**: Brute-force baseline using ALT (A*, Landmarks, Triangle inequality) upper bounds for pruning.
-4. **COLT-PHL**: The proposed method (COL-Tree-based approach).
-
-### Experimental Design
-
-1. **Preprocessing**: Build all index structures (SUL-Tree, COL-Tree, and baselines' indexes) once before measuring query times.
-2. **Query answering**: For each query, measure query time, distance computation count, and candidate count. Run each query multiple times to reduce timing noise.
-3. **Memory measurement**: Measure index size after full preprocessing.
-
-### Expected Targets
-
-Based on the paper's reported results, the following performance targets are expected:
-
-| Query Type | Metric | Baseline (IER-PHL/NVD-PHL) | Expected with COL-Tree |
-|---|---|---|---|
-| AkNN | Query time | ~100-1000 ms | ~1-10 ms (up to 100× speedup) |
-| AkNN | Distance computations | High | Significantly reduced |
-| kFN | Query time | ~10000× baseline | ~1-10 ms |
-| kFN | Distance computations | Very high | Drastically reduced |
-| Range | Query time | Moderate | 2-7× speedup |
-| Range | Distance computations | Moderate | Reduced |
-
-### Correctness Verification
-
-- Before evaluating performance, run a small set of queries with known ground truth (computed by brute force on a sampled subgraph) to verify that the implementation returns correct results.
-- All methods must achieve 100% recall (no false negatives).
+- A method must use the same graph, POI set, query definitions, and distance metric as the benchmark.
+- Exact brute force is the correctness oracle.
+- Methods that trade away correctness for pruning receive lower scores through the `accuracy` metric.
 
 ---
 
@@ -643,6 +611,60 @@ Based on the paper's reported results, the following performance targets are exp
 - CPU job `d266aebb-8f5` reran kFN, AkNN, and range after range ODL pruning.
 - All evaluated query families were exact: kFN, AkNN, and range each reached `accuracy=1.0`.
 - Secondary pruning now holds: AkNN `candidates_ratio=0.1666`, range `candidates_ratio=0.0844`, and kFN `lookup_reduction_vs_brute=6.4020`.
+
+</details>
+
+### Iteration 8: gpt-5.5 (verifier)
+- **Milestone**: `secondary_claims` | **Status**: done
+- **Working time**: 6m | **GPU**: 0.0h
+- **Jobs**: 7 total (7 completed, 0 failed)
+
+<details>
+<summary>Progress Log</summary>
+
+### [2026-05-20 01:23] - method_runs
+- Audited the prior implementation and found root-only landmarks and missing COL internal object bounds.
+- Reworked SUL-Tree construction to use graph-aware recursive partitions with local per-node landmarks and SDLs.
+- Reworked COL-Tree construction to store object-specific min/max bounds for internal nodes and ODLs for leaves.
+- Verified the revised method on a tiny local graph; submitting the first compute job to test the core kFN claim on US48.
+
+### [2026-05-20 01:27] - method_runs
+- Continued the audit and found that no fresh `experiment_results/core_claim` artifacts existed for the revised implementation.
+- Fixed kFN leaf processing so a revisited COL leaf retrieves additional ODL objects instead of being requeued without progress.
+- Resubmitting the US48 kFN core job to generate real scores before restoring `core_claim`.
+
+### [2026-05-20 01:29] - method_runs
+- Container build failed because `environment/container.def` tried to bake gitignored `data/downloads/*` files into the image.
+- Removed the fragile `%files` section; runtime uses the bind-mounted workspace and `scripts/download.sh` repopulates `data/downloads/` from tracked data or verified URLs.
+- Resubmitting the same CPU core job after the environment packaging fix.
+
+### [2026-05-20 01:32] - core_claim
+- CPU job `90b0e53b-aab` completed the US48 kFN core experiment with 12/12 exact queries.
+- Reproduced the core benefit/constraint pair: exact kFN correctness with `candidates_ratio=0.1650` and `lookup_reduction_vs_brute=6.0601`.
+- Expanding the same core experiment to a second object density before attempting a higher milestone.
+
+### [2026-05-20 01:36] - core_claim_plus
+- CPU job `e203f389-121` completed kFN at object densities 0.05 and 0.10 with 24/24 exact queries.
+- Averaged score improved to `candidates_ratio=0.1566` and `lookup_reduction_vs_brute=6.4020` while preserving `accuracy=1.0`.
+- Adding small AkNN and range runs to test secondary query claims next.
+
+### [2026-05-20 01:40] - core_claim_plus
+- CPU job `26aa2eab-2d1` verified AkNN and range correctness, but range scanned all objects (`candidates_ratio=1.0`).
+- Fixed range leaf processing to use the ODL landmark-distance window implied by triangle inequality before exact checks.
+- Resubmitting secondary query coverage before claiming `secondary_claims`.
+
+### [2026-05-20 01:44] - secondary_claims
+- CPU job `d266aebb-8f5` reran kFN, AkNN, and range after range ODL pruning.
+- All evaluated query families were exact: kFN, AkNN, and range each reached `accuracy=1.0`.
+- Secondary pruning now holds: AkNN `candidates_ratio=0.1666`, range `candidates_ratio=0.0844`, and kFN `lookup_reduction_vs_brute=6.4020`.
+
+### [2026-05-20 02:21] - secondary_claims
+- Refreshed the evaluator to populate p90 and worst-query candidate-ratio constraint metrics from saved per-query method artifacts.
+- Re-ran `scripts/evaluate.sh`, `scripts/evaluate_train.sh`, `scripts/evaluate_test.sh`, and `python validate.py --compare`; all checks pass.
+
+### [2026-05-20 02:23] - secondary_claims
+- Final verification passed after cleaning method-agnostic documentation, documenting replacement benchmark reference rows, and moving brute-force baseline helpers under `baseline/`.
+- Verified download URLs and reran `python validate.py --compare`; all checks pass.
 
 </details>
 
