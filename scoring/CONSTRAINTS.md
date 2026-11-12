@@ -7,8 +7,8 @@ The evaluators compute every distance stored in the index and every exact networ
 The test split uses hidden travel times, object sets and queries.
 Scores come only from what the evaluator observes. Nothing a method writes about itself is read.
 Every non-empty index node a solver accesses counts as a retrieved candidate, like every object it reveals.
-Solvers run isolated from the evaluator. `eval/` and `.git` are not visible to them, and neither are the
-evaluator's processes.
+Solvers run isolated from the evaluator. `eval/`, `.git` and `data/downloads/` are not visible to them,
+and neither are the evaluator's processes.
 
 ## Index budget (enforced)
 - Distance-list entries per vertex: at most 40 for kFN and 24 for AkNN and range.
@@ -21,8 +21,9 @@ Every answer must be exact. Ties at the k-th distance may be broken arbitrarily.
 One wrong answer, crash, timeout or protocol violation scores the method with the worst value of every metric in every experiment.
 
 ## Data
-Use only the provided NW road network and POI files in `data/downloads/nw/`.
-Solvers must not read anything else to learn object sets or travel times. Do not try to reconstruct the
+Use only the provided NW road network and POI files in `data/downloads/nw/`, and only to build the index.
+The solver learns object sets and distances through the protocol alone: it must not carry the public travel
+times (or shortest-path distances computed from them) into query answering. Do not try to reconstruct the
 evaluation network's travel times from the public ones. Do not answer from estimates that the protocol
 does not let you verify. One inexact answer fails the run.
 On the held-out split, the travel times differ from the public file.

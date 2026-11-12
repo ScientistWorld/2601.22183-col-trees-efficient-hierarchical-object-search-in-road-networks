@@ -4,13 +4,22 @@ A submitted solver is a process that talks JSON lines with the evaluator over
 stdin/stdout.  This module wraps the protocol; solvers must not print anything
 else to stdout (use stderr for logs).
 
-Free requests (not counted):
+Requests:
   nodes(ids)              per-node summaries for the current query's object set
   peek(node, pos, idx)    distances stored at given ranks of an object distance list
   bisect(node, pos, x)    rank of value x in an object distance list
-Counted requests:
   get(node, pos, lo, hi)  reveal the objects at ranks [lo, hi) (+ their records)
   dist(qi, vertices)      exact network distances from query vertex qi
+What is counted per query:
+  candidates  every object revealed by get, passed to dist or returned, plus
+              every non-root index node holding at least one of the query's
+              objects that any request touches (once per node; empty nodes
+              and the root are free)
+  calls       every distinct (query vertex, vertex) pair passed to dist
+
+While a solver runs, eval/, .git and data/downloads/ are empty directories:
+a solver cannot read the evaluator or the raw public data (travel times,
+coordinates, POI files); it carries what it needs in its own files.
 """
 
 from __future__ import annotations

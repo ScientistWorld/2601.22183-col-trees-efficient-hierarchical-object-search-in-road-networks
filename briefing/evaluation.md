@@ -48,8 +48,10 @@ nodes at most 32 landmarks, and a structure at most 200,000 nodes.
 
 The solver speaks JSON lines on stdin/stdout. `data/oracle_client.py` wraps the protocol. The solver
 runs with the workspace root as its working directory, in its own user, mount and pid namespaces. There,
-`eval/` and `.git` are empty and `/proc` shows only the solver's processes. Everything else in the
-workspace (its code, `data/`, its structure files) is readable as usual.
+`eval/`, `.git` and `data/downloads/` are empty and `/proc` shows only the solver's processes. The raw
+public data (travel times, coordinates, POI files) is therefore available to index construction, which
+runs before evaluation, but not to the solver while it answers. Everything else in the workspace (its
+code, the `data/*.py` modules, its structure files) is readable as usual.
 
 1. The evaluator sends `{"type":"hello","task":...,"n_vertices":...,"structure":path}` and the solver replies `{"type":"ready"}`.
 2. The evaluator sends `{"type":"landmarks","records":{v: record(v)}}` for every landmark vertex, and the solver replies `{"type":"ok"}`.

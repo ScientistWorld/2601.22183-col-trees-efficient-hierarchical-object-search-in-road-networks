@@ -678,19 +678,24 @@ class QueryView:
 # ---------------------------------------------------------------------------
 # A solver runs while this evaluator holds the evaluation network in memory.
 # It is started in fresh user, mount and pid namespaces in which the
-# evaluator's directory (eval/) and the repository history (.git) are empty
+# evaluator's directory (eval/), the repository history (.git) and the raw
+# public data (data/downloads/: travel times, coordinates, POI files) are empty
 # tmpfs mounts, locked by a second, nested user namespace, and /proc only shows
 # the solver's own processes.  It therefore cannot read the evaluator source,
-# its seed or its memory; it still reads the rest of the workspace (its own
-# code, data/, its structure files).  Where namespaces are unavailable the
-# solver runs unisolated and the evaluator says so in its log.
+# its seed or its memory, and cannot run its own shortest-path searches on the
+# public travel times while it answers; it still reads the rest of the
+# workspace (its own code, the data/ modules, its structure files).  Where
+# namespaces are unavailable the solver runs unisolated and the evaluator says
+# so in its log.
 
 _ISOLATION = None
 _PROBE = (
     "import os, sys\n"
     "ws = sys.argv[1]\n"
+    "ok = os.path.isdir(os.path.join(ws, 'data'))\n"
+    "for hidden in sys.argv[2:]:\n"
+    "    ok = ok and os.path.isdir(hidden) and not os.listdir(hidden)\n"
     "hidden = os.path.join(ws, 'eval')\n"
-    "ok = os.path.isdir(hidden) and not os.listdir(hidden) and os.path.isdir(os.path.join(ws, 'data'))\n"
     "for pid in (p for p in os.listdir('/proc') if p.isdigit()):\n"
     "    try:\n"
     "        if os.listdir('/proc/%s/root%s' % (pid, hidden)):\n"
@@ -701,11 +706,53 @@ _PROBE = (
 )
 
 
+def hidden_paths():
+    """Directories replaced by empty mounts in the solver's namespace."""
+    out = []
+    for path in (os.path.join(WORKSPACE, "eval"), os.path.join(WORKSPACE, ".git"),
+                 os.path.join(WORKSPACE, "data", "downloads"), data_dir()):
+        path = os.path.realpath(path)
+        if not os.path.isdir(path) or path == "/":
+            continue
+        if any(path == p or path.startswith(p + os.sep) for p in out):
+            continue
+        out.append(path)
+    return out
+
+
 def isolation():
     """(command prefix, description) used to start every solver."""
     global _ISOLATION
     if _ISOLATION is not None:
         return _ISOLATION
+    _ISOLATION = ([], "none (namespaces unavailable)")
+    if not SANDBOX:
+        _ISOLATION = ([], "none (disabled)")
+        return _ISOLATION
+    if not (shutil.which("unshare") and shutil.which("mount")):
+        return _ISOLATION
+    hide = hidden_paths()
+    shown = ", ".join(os.path.relpath(p, WORKSPACE) for p in hide)
+    mounts = " && ".join(f"mount -t tmpfs -o size=64k,mode=0755 none {shlex.quote(p)}" for p in hide)
+    nested = ' && exec unshare --user --map-root-user --mount -- "$@"'
+    modes = [
+        (["--pid", "--fork", "--kill-child", "--mount-proc"], mounts + nested,
+         f"user+mount+pid namespaces ({shown} hidden, private /proc)"),
+        ([], mounts + " && mount -t tmpfs -o size=64k,mode=0755 none /proc" + nested,
+         f"user+mount namespaces ({shown} hidden, /proc hidden)"),
+    ]
+    for extra, script, desc in modes:
+        prefix = ["unshare", "--user", "--map-root-user", "--mount", *extra, "--",
+                  "/bin/sh", "-c", script, "isolated-solver"]
+        try:
+            res = subprocess.run(prefix + [sys.executable or "python3", "-c", _PROBE, WORKSPACE] + hide,
+                                 cwd=WORKSPACE, stdin=subprocess.DEVNULL, capture_output=True, timeout=120)
+            if res.returncode == 0 and res.stdout.strip() == b"isolated":
+                _ISOLATION = (prefix, desc)
+                break
+        except Exception:
+            continue
+    return _ISOLATION
     _ISOLATION = ([], "none (namespaces unavailable)")
     if not SANDBOX:
         _ISOLATION = ([], "none (disabled)")
