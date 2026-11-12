@@ -5,4 +5,4 @@ action: submit
 gpus: 0
 test: false
 milestone: secondary_claims
-notes: "Hardening job: build reference/baselines, score test/train/paper with isolated solvers (eval/, .git, data/downloads hidden) and node-charged candidates; run variants (seeds, bounds, lambda, flat, no local landmarks) and shortcut probes (incl. copied-graph gamble, unisolated secret read) through the hidden test"
+notes: "Hardening job (resumable): rescore reference with region-restricted evaluator engine and check identity vs previous engine; probe groups (variants, shortcuts, seeds) through hidden test; train/paper scores; summary"
