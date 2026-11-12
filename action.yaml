@@ -1,4 +1,2 @@
-action: submit
-gpus: 0
-test: false
-notes: "Bundled scoring audit: three reference seeds, stronger landmarks, faster exact BFS, brute force, and ten artifact/workload/comparison shortcuts plus negative controls; restore gym files after every run."
+action: done
+notes: "Audit complete: 18 runs; stronger pruning beats seed spread, but shortcuts can outrank the reference. Report and evidence committed as 559a84b."
