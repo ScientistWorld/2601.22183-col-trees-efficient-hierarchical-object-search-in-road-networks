@@ -1,86 +1,34 @@
 #!/bin/bash
-# Run a baseline method from the paper.
+# Build the baseline submissions into experiment_results/<method>/:
 #
-# Baselines are simple reference methods the paper compares against.
-# Implement this only if applicable, i.e., the paper has baselines.
-# You do not need to implement all baselines to begin —
-# just enough to validate that the evaluation pipeline works
-# and provide a reference point.
+#   alt_filter  reveals every object, bounds each one with 16 random ALT
+#               landmarks and verifies candidates in bound order (the paper's
+#               AUB-PHL competitor for kFN, the landmark multi-step filter
+#               for AkNN / range).
+#   bruteforce  reveals every object and computes every exact distance.
 #
-# This script runs the brute-force baseline for AkNN, kFN, and range queries.
-# Usage:
-#   bash scripts/baseline.sh
+# Both use a single root node holding every vertex (no hierarchy).
 
-set -e
+set -euo pipefail
 
 cd /home/user
 
-echo "=== Running brute-force baselines ==="
+OUT="${EXPERIMENT_RESULTS:-/home/user/experiment_results}"
 
-# AkNN baseline (brute force)
-echo "AkNN brute force..."
-python3 -c "
-import time, json
-from data.loader import load_network
-from data.graph import ObjectSet
-from baseline.bruteforce import aknn_bruteforce
+echo "=== alt_filter (16 ALT landmarks) ==="
+mkdir -p "$OUT/alt_filter"
+python3 baseline/build.py --out "$OUT/alt_filter/alt.json" --landmarks 16 --seed 1
+cat > "$OUT/alt_filter/submission.json" <<'EOF'
+{"command": ["python3", "baseline/solver.py", "--mode", "alt_filter"],
+ "structures": {"kfn": "alt.json", "aknn": "alt.json", "range": "alt.json"}}
+EOF
 
-G = load_network('data/downloads/road-usroads-48.mtx')
-obj_set = ObjectSet.uniform_random(G, 0.001, seed=42)
+echo "=== bruteforce ==="
+mkdir -p "$OUT/bruteforce"
+python3 baseline/build.py --out "$OUT/bruteforce/root.json" --landmarks 1 --seed 1
+cat > "$OUT/bruteforce/submission.json" <<'EOF'
+{"command": ["python3", "baseline/solver.py", "--mode", "bruteforce"],
+ "structures": {"kfn": "root.json", "aknn": "root.json", "range": "root.json"}}
+EOF
 
-import random
-random.seed(42)
-qv = random.sample(range(G.num_vertices), 40)
-
-Q = qv[0:4]
-t0 = time.time()
-res = aknn_bruteforce(G, obj_set, Q, k=10, agg='max')
-t1 = time.time()
-print(f'AkNN BF: {len(res)} results in {(t1-t0)*1000:.0f}ms')
-" 2>&1
-
-# kFN baseline (brute force)
-echo "kFN brute force..."
-python3 -c "
-import time
-from data.loader import load_network
-from data.graph import ObjectSet
-from baseline.bruteforce import kfn_bruteforce
-
-G = load_network('data/downloads/road-usroads-48.mtx')
-obj_set = ObjectSet.uniform_random(G, 0.001, seed=42)
-
-import random
-random.seed(42)
-qv = random.sample(range(G.num_vertices), 1)
-
-q = qv[0]
-t0 = time.time()
-res = kfn_bruteforce(G, obj_set, q, k=10)
-t1 = time.time()
-print(f'kFN BF: {len(res)} results in {(t1-t0)*1000:.0f}ms')
-" 2>&1
-
-# Range baseline (brute force)
-echo "Range brute force..."
-python3 -c "
-import time
-from data.loader import load_network
-from data.graph import ObjectSet
-from baseline.bruteforce import range_bruteforce
-
-G = load_network('data/downloads/road-usroads-48.mtx')
-obj_set = ObjectSet.uniform_random(G, 0.001, seed=42)
-
-import random
-random.seed(42)
-qv = random.sample(range(G.num_vertices), 1)
-
-q = qv[0]
-t0 = time.time()
-res = range_bruteforce(G, obj_set, q, 10.0)
-t1 = time.time()
-print(f'Range BF: {len(res)} results in {(t1-t0)*1000:.0f}ms')
-" 2>&1
-
-echo "=== Baseline runs complete ==="
+echo "=== baseline submissions ready ==="

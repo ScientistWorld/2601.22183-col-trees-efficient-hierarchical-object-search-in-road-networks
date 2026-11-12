@@ -15,14 +15,11 @@ Given:
 - An integer k ≥ 1
 - An aggregate function agg ∈ {sum, max}
 
-Return a set S ⊆ P of k POIs that minimizes:
-  agg( d(q, p) for q ∈ Q )
+Score every POI p by g(p) = agg( d(q, p) for q ∈ Q ) and return the k POIs with the smallest g(p).
+Ties at the k-th value may be broken arbitrarily.
 
-over all subsets S of size k from P.
-
-Informally: find the k POIs that are collectively closest to the query set Q according to the given aggregate.
-
-For `sum`, the objective is to minimize the total distance from all query vertices to the k POIs. For `max`, the objective is to minimize the maximum distance from any query vertex to its farthest POI in the set.
+For `sum`, g(p) is the total distance from all query vertices to p (e.g. a meeting point minimising total travel).
+For `max`, g(p) is the distance from the farthest query vertex to p (minimising the latest arrival).
 
 ### 2. k Farthest Neighbors (kFN)
 
@@ -54,4 +51,4 @@ All POIs within network distance r from q.
 
 ## Scope
 
-This environment targets the three query types above on static road networks with static POI sets. The shipped benchmark uses a public US road graph with reproducible vertex-sampled POI sets; the original paper evaluated larger road networks with real POI categories.
+This environment targets the three query types above. The road network is the paper's own dataset (North-West US subset of the DIMACS travel-time network, 1.09M vertices) with its real OpenStreetMap POI categories. The object set changes with every query. Exact network distances are only available from the evaluator, which counts them; see `briefing/evaluation.md`.

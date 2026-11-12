@@ -1,40 +1,32 @@
 #!/bin/bash
-# End-to-end run of the evaluator-owned-distance protocol on the paper's NW
-# road network (data/downloads/nw, prepared by scripts/download.sh).
-#
-#   1. build a SUL-Tree structure (method) and a root-only ALT structure (baseline)
-#   2. write submission.json for each into experiment_results/protocol_v2/<name>/
-#   3. score both with the held-out test evaluator (eval/test/evaluate.py)
-#
-# Output goes to experiment_results/protocol_v2/ only; scoring/ is not touched
-# until the new pipeline has been verified end to end.
+# Full pipeline: build method + baseline submissions, then score them with the
+# main (paper setting), train and held-out test evaluators.
 
-set -euo pipefail
+set -uo pipefail
 
 cd /home/user
 
-ROOT=/home/user/experiment_results/protocol_v2
-mkdir -p "$ROOT/colt" "$ROOT/alt_filter"
-
 python3 -c "import numpy, scipy; print('numpy', numpy.__version__, 'scipy', scipy.__version__)"
 
-echo "=== build: SUL-Tree (b=8, m=2, alpha=1024, 16 root landmarks) ==="
-time python3 method/build.py --out "$ROOT/colt/sul.json" --b 8 --m 2 --alpha 1024 \
-    --root-landmarks 16 --policy random --seed 1
-cat > "$ROOT/colt/submission.json" <<'EOF'
-{"command": ["python3", "method/solver.py", "--lam", "256", "--bounds", "paper"],
- "structures": {"kfn": "sul.json", "aknn": "sul.json", "range": "sul.json"}}
-EOF
+# Only method directories may live directly under experiment_results/.
+set -e
+time bash scripts/method.sh
+time bash scripts/baseline.sh
+set +e
 
-echo "=== build: root-only ALT structure (16 landmarks) ==="
-time python3 baseline/build.py --out "$ROOT/alt_filter/alt.json" --landmarks 16 --seed 1
-cat > "$ROOT/alt_filter/submission.json" <<'EOF'
-{"command": ["python3", "baseline/solver.py", "--mode", "alt_filter"],
- "structures": {"kfn": "alt.json", "aknn": "alt.json", "range": "alt.json"}}
-EOF
+status=0
+for step in evaluate evaluate_train evaluate_test; do
+    echo "=== $step ==="
+    if ! time bash "scripts/$step.sh"; then
+        echo "!!! $step failed" >&2
+        status=1
+    fi
+done
 
-echo "=== test evaluator ==="
-time python3 eval/test/evaluate.py --root "$ROOT" \
-    --output "$ROOT/scores_test.json" --details "$ROOT/details_test.json"
+for f in scores scores_train scores_test; do
+    echo "=== scoring/$f.json ==="
+    cat "scoring/$f.json" 2>/dev/null || echo "(missing)"
+done
 
-cat "$ROOT/scores_test.json"
+python3 validate.py --compare --post-design || status=1
+exit $status

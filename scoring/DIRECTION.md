@@ -1,20 +1,22 @@
 # Research Direction
 
 ## Research Problem
-This paper addresses efficient POI search in road networks using aggregate k-nearest neighbors, k-farthest neighbors, and range queries. The challenge is that exact network distance computation (shortest paths) is expensive on large networks, requiring efficient indexing to prune the search space.
+Answer exact POI search queries on a large road network: aggregate k nearest neighbors, k farthest neighbors and range.
+Exact network distances are expensive, and object sets change from query to query.
+A method therefore needs a road-network index that lets it rule objects in or out without evaluating each one.
 
 ## Direction
-Work on exact indexed road-network POI search. Successful submissions should reduce exact-distance verification and candidate retrieval while preserving exact answers for the same AkNN, kFN, and range-query tasks.
+Work on exact, index-based road-network object search under a fixed index budget.
+Successful submissions retrieve fewer individual objects and compute fewer exact distances, while staying exact and within the index size and construction-work caps.
 
 ## Approach Scope
-The scientist may improve:
-- Graph partitioning or covering strategies
-- Distance-bound tightness and admissible pruning rules
-- Candidate ordering and query-control logic
-- Memory/compute tradeoffs in index construction
-- Handling of multiple POI sets or aggregate functions
+The scientist may change:
+- How the road network is organised for the index (hierarchy shape, partitioning)
+- Where index landmarks are placed and how many each node gets, within budget
+- Bound computation, pruning rules and traversal order in the solver
+- Batching and candidate verification strategy
 
 ## Out of Bounds
-- Replacing the indexed-pruning task with a complete distance oracle or full all-pairs table.
-- Precomputing all-pairs shortest paths. The goal is an index that enables fast queries, not brute-force.
-- Using external geographic databases or map APIs. Must work with the provided graph structure.
+- Exceeding the index budget or bypassing the protocol (for example, reading travel times or object sets from outside the protocol)
+- Inexact answers
+- External road networks, map APIs or geographic databases

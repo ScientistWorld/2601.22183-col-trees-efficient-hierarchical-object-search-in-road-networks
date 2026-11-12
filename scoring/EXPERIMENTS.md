@@ -1,17 +1,25 @@
 # Experiment Overview
 
-## kfn_real_pois
+All experiments run on the North-West US road network: 1.09M vertices, travel-time edges, from the 9th DIMACS
+Challenge. Object sets are real OpenStreetMap POI categories mapped to vertices, or uniform random vertex samples.
+The evaluator owns every network distance. A method only sees what it asks for, and the evaluator counts what it asks for.
 
-Tests whether a road-network POI method can answer exact k farthest-neighbor queries while examining only a fraction of the object set.
+## kfn
 
-## aknn_real_pois
+Tests whether exact k farthest-neighbor queries (k=10) can be answered without retrieving and checking most of the
+object set. Brute force has to evaluate every object, because the farthest objects cannot be found by expanding
+outward from the query.
 
-Tests aggregate nearest-neighbor queries with multiple query vertices. It measures exactness and object-candidate reduction.
+## aknn
 
-## range_real_pois
+Tests exact aggregate k nearest-neighbor queries for a group of 8 query vertices, with max and sum aggregates.
+The goal is to examine only a small fraction of the objects and compute few exact distances.
 
-Tests range reporting queries. It measures exactness and object-candidate reduction.
+## range
 
-## preprocessing
+Tests exact range queries: report every object within 2.5% of the network diameter. The goal is to settle
+whole groups of objects as inside or outside the range without examining each one.
 
-Reports preprocessing overhead for diagnostics. These metrics have zero score weight because wall-clock build times are hardware-dependent.
+Every experiment also measures the cost side of the claim. Answers must be exact, and the index must stay
+within a fixed size and construction-work budget. Any method can trade more index for less query work,
+so the budget is what makes the scores comparable.

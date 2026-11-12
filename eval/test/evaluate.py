@@ -550,7 +550,8 @@ class Index:
                 self.sdl[i] = vals
                 self.work += sum(work)
             if self.work > cap:
-                raise Invalid(f"index construction work exceeds {WORK_CAP} settled vertices per vertex")
+                raise Invalid(f"index construction work exceeds {WORK_CAP} settled vertices per vertex "
+                              f"(reached {self.work / self.n:.1f} after node {i + 1} of {len(self.parent)})")
         self.members = None  # free memory; positions are kept in self.pos
 
     def record(self, v, upto_depth=None):

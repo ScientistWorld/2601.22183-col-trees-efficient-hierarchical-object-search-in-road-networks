@@ -1,38 +1,30 @@
 #!/bin/bash
-# Evaluation script — evaluates experiment results and writes scores.json.
-# Metric names match scoring/reference.json experiment keys.
+# Score every method directory under the results root in the paper's own
+# setting (original NW travel times, real POI categories as published) and
+# write scoring/scores.json.
 #
-# Usage: ./evaluate.sh [results_path] [--method-name NAME] [--output FILE]
+# A method directory must contain submission.json (see briefing/evaluation.md).
+#
+# Usage: bash scripts/evaluate.sh [results_root] [--output FILE]
 
-set -e
+set -euo pipefail
 
 cd /home/user
 
-mkdir -p scoring
-
-RESULTS_PATH="${1:-}"
-# This reproduction uses US48 with synthetic POIs and Dijkstra verification,
-# not the paper's original DIMACS/OSM+PHL setting. Keep its score row distinct
-# from the paper-reported `colt_phl` reference row.
-METHOD_NAME="colt_us48_repro"
+RESULTS_ROOT="/home/user/experiment_results"
+if [ $# -gt 0 ] && [[ "$1" != -* ]]; then
+    RESULTS_ROOT="$1"
+    shift
+fi
 OUTPUT_FILE="/home/user/scoring/scores.json"
-
-# Parse optional flags
-shift 2>/dev/null || true
 while [ $# -gt 0 ]; do
     case "$1" in
-        --method-name|-m) METHOD_NAME="$2"; shift 2 ;;
         --output|-o) OUTPUT_FILE="$2"; shift 2 ;;
-        *) shift ;;
+        *) echo "Unknown argument: $1" >&2; exit 2 ;;
     esac
 done
 
-if [ -z "$RESULTS_PATH" ]; then
-    RESULTS_PATH="/home/user/experiment_results"
-fi
-
-python3 /home/user/eval/evaluate.py "$RESULTS_PATH" \
-    --method-name "$METHOD_NAME" \
-    --output "$OUTPUT_FILE"
-
-echo "Evaluation complete. Scores written to $OUTPUT_FILE"
+mkdir -p /home/user/scoring/details
+python3 eval/evaluate.py --root "$RESULTS_ROOT" --output "$OUTPUT_FILE" \
+    --details /home/user/scoring/details/paper.json
+echo "Scores written to $OUTPUT_FILE"

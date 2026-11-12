@@ -32,22 +32,37 @@
 - The regenerated train/test slices also pass validation: kFN train/test candidate ratios are `0.133463`/`0.162392`, AkNN `0.147614`/`0.204693`, and range `0.038000`/`0.040748`.
 - An earlier resubmission did not reach the job stage because the container build attempted to copy `data/downloads/road-usroads-48.mtx`, which is not present in a fresh build checkout. The packaging issue was fixed before job `90b0e53b-aab`.
 
-## In Progress (iteration 11, hardening) — NOT yet wired into scoring
+## Iteration 11 (hardening): benchmark rebuilt on the paper's own data with an evaluator-owned protocol
 
-- Switching the benchmark to the paper's own dataset (Zenodo 10.5281/zenodo.18026780, NW subset: 1.09M vertices, real OSM POI categories) via `scripts/download.sh` (data present under `data/downloads/nw/`).
-- New protocol: the evaluator owns all distances (hidden travel-time perturbation, hidden object sets/queries); a method submits a hierarchical landmark structure + a solver command (`submission.json`). New files: `eval/test/evaluate.py` (rewritten), `data/{nw,oracle_client,structure_io}.py`, `method/{build,solver}.py`, `baseline/{build,solver}.py`.
-- Still TODO: train evaluator (`eval/train/evaluate.py`) and `eval/evaluate.py` on the new protocol, `scripts/evaluate*.sh` wrappers (the old `evaluate_test.sh` is incompatible with the new test evaluator CLI), `scoring/` reference/TARGETS/EXPERIMENTS for the new metrics, `validate.py`, briefing docs.
-- `scripts/run.sh` currently runs the first end-to-end smoke of the new pipeline into `experiment_results/protocol_v2/`. `environment/setup.sh` now installs numpy/scipy.
+Why: the iteration-10 red-team audit (`REDTEAM.md`) showed the old US48 benchmark scored method-written self-reports. Fabricated or failing submissions could outrank the reference, the graph was unit-weight, and the workload was tiny.
+
+- **Data**: the paper's own Zenodo dataset (doi:10.5281/zenodo.18026780), NW subset: 1,089,933 vertices, travel-time edges and the 8 real OSM POI categories (`scripts/download.sh` → `data/downloads/nw/`, md5-verified).
+- **Protocol**: a method is `experiment_results/<name>/submission.json`, naming a solver command and a hierarchical landmark structure per query type.
+  - The evaluator computes the landmark distance lists and all exact distances on its own network, answers the solver's requests over JSON lines, counts revealed objects and distance computations, and checks every answer.
+  - Any failure (invalid or over-budget structure, crash, timeout, a single inexact answer) gives the worst value of every metric.
+- **Settings**:
+  - `eval/evaluate.py` → `scores.json`: the paper setting, with original travel times and real POIs as published.
+  - `eval/train/evaluate.py` → `scores_train.json`: public perturbation and jittered or uniform object sets.
+  - `eval/test/evaluate.py` → `scores_test.json`: hidden perturbation, objects and queries.
+- **Method** (`method/build.py`, `method/solver.py`): SUL-Tree builder (recursive balanced partition, 16 ALT root landmarks plus m local landmarks per node, with Random, Slice, Minmax and Furthest-Border policies) and the COL-Tree query algorithms (Algorithms 1–3) over the evaluator's free node summaries and object distance lists.
+  - `colt` uses the paper's Table 8 per-query parameters.
+  - `colt_default` uses b=8, m=2, Random for every query type.
+- **Baselines** (`baseline/`): `alt_filter` (the paper's AUB-PHL / ALT multi-step filter) and `bruteforce`.
+- **Job `9fc1dbc3-96c`** (held-out split, colt_default config vs alt_filter): everything was exact.
+  - log10 candidate reduction: kFN 1.37, AkNN 1.05, range 1.64 (COLT) vs 0 (alt_filter).
+  - log10 call reduction is about equal for the two methods (kFN 1.94 vs 1.94).
+  - Index: 24 entries per vertex for COLT vs 16 for alt_filter; construction work 140 vs 16 settled vertices per vertex.
+- **Local smoke test** on a 3,000-vertex synthetic grid (`COLT_DATA_DIR` override): all three evaluators and all four submissions run end to end, and every method is exact.
+- **Removed** the superseded US48 pipeline: `method/{col_tree,sul_tree,experiment,graph}.py`, `data/{loader,graph}.py`, the old result artifacts and score files. They remain in git history.
+- `environment/setup.sh` installs numpy and scipy, which the evaluator and builder need at full scale.
+- **Pending**: the first full paper/train/test job. `reference.json` rows for colt, colt_default, alt_filter and bruteforce are preliminary until it finishes.
 
 ## Deviations From Paper
 
-- Paper dataset: DIMACS continental US road network with OSM POIs.
-- Reproduction dataset: US48 road graph with synthetic POI subsets sampled from graph vertices, because the full paper dataset and POI files are not available in this workspace.
-- Paper partitioner: METIS-style graph partitioning.
-- Reproduction partitioner: deterministic multi-source BFS graph partitioning, preserving recursive graph-aware subgraphs without external OS-level dependencies.
-- Paper distance oracle: PHL for exact distance verification.
-- Reproduction distance verification: Dijkstra on the shipped graph. This preserves exactness but changes wall-clock behavior, so scoring emphasizes candidate and lookup reduction.
-- Score identity: reproduced outputs use method name `colt_us48_repro` instead of `colt_phl` to avoid direct paper-number consistency checks against an intentionally different benchmark/resource setting.
+- Network: the paper's NW subset (1.09M vertices) of its own continental-US dataset (24M vertices), so a full-scale run fits in a single-CPU job. Object sets are the same 8 real POI categories for that region, and the uniform densities follow the paper's Table 4.
+- Partitioner: recursive balanced coordinate bisection instead of METIS. The paper allows any partitioner that produces similar-sized subgraphs.
+- Distance oracle: the evaluator answers exact distances with Dijkstra in place of PHL. The scores are the paper's machine-independent heuristic-efficiency metrics (candidates retrieved, network distances computed), not wall-clock time.
+- Train and held-out splits perturb the published travel times so that results cannot be precomputed. The paper setting (`scores.json`) uses the original travel times.
 
 ## What Remains
 

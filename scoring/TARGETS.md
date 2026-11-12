@@ -1,20 +1,32 @@
 # Evaluation Targets
 
-## Primary: kFN Pruning Efficiency
+Three experiments, one per query type: `kfn`, `aknn`, `range`. Every one is
+scored on the same five metrics, in three settings:
 
-Measure how much of the POI set must be retrieved and verified while answering exact k farthest-neighbor queries.
+- `scoring/scores.json`: the paper's own setting (original NW travel times, real POI categories).
+- `scoring/scores_train.json`: the public development split.
+- `scoring/scores_test.json`: the held-out split (hidden travel times, object sets and queries).
 
-- **Metric**: `candidates_ratio` (lower is better)
-- **Metric**: `lookup_reduction_vs_brute` (higher is better)
+## Benefit: avoid touching objects individually (primary)
 
-## Constraint: Correctness
+- **Metric**: `log10_candidate_reduction` (higher is better). The mean over queries of log10((|P|+1)/(objects revealed+1)).
+  A value of 0 means every object was retrieved, as any method that scans the object set does.
 
-Returned query results must be exact. Ties at the kth boundary may be returned in any order or subset.
+## Benefit: avoid exact network-distance computations
 
-- **Metric**: `accuracy` (1.0 = all evaluated queries exact)
+- **Metric**: `log10_call_reduction` (higher is better). The mean over queries of log10((|Q||P|+1)/(distance computations+1)).
 
-## Constraint: Preprocessing
+## Constraint: exact answers
 
-The method must build a reusable graph/POI preprocessing structure rather than answering every query from scratch with all-pairs distances.
+- **Metric**: `exact_answer_rate` (must be 1.0). One wrong answer, crash, timeout or protocol
+  violation scores the method with the worst value of every metric in every experiment.
 
-- **Metric**: `sul_time_s` and `col_time_s` (lower is better, reported as overhead)
+## Constraint: index size
+
+- **Metric**: `index_entries_per_vertex` (lower is better). Hard caps: 40 for kFN, 24 for AkNN and range.
+  These caps equal 16 ALT landmarks plus the paper's tuned hierarchy for that query type.
+  A larger index is rejected, which counts as a failure.
+
+## Constraint: index construction cost
+
+- **Metric**: `sdl_work_per_vertex` (lower is better). Hard cap: 400 settled vertices per vertex.

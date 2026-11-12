@@ -1,119 +1,64 @@
 {
   "experiments": {
-    "kfn_real_pois": {
-      "description": "kFN query: exact results while pruning the search space. Scored on machine-independent metrics: accuracy and candidate reduction ratio.",
-      "notes": "Rows named colt_phl and aub_phl summarize paper-reported reference behavior. The colt_us48_repro row is the fixed shipped-benchmark target from the US48/synthetic-POI replacement setting, refreshed after the post-audit regeneration job on 2026-05-20.",
-      "weight": 0.49,
-      "primary_metric": "candidates_ratio",
+    "kfn": {
+      "description": "Exact k farthest-neighbor search (k=10) over road-network object sets. Benefit: how few objects a method has to retrieve individually and how few exact network distances it computes, relative to evaluating every object. Constraints: every answer exact, index size and index construction work within budget.",
+      "notes": "colt / colt_default / alt_filter / bruteforce rows are produced by this workspace's pipeline in the paper setting (eval/evaluate.py: original NW travel times, real POI categories). PRELIMINARY until the first full paper-setting job: colt_default and alt_filter rows are from the held-out smoke run 9fc1dbc3-96c, colt copies colt_default. colt_phl_paper / aub_phl_paper are read off the paper's log-scale Figure 11c/11d (continental US network, uniform objects at d=0.0001, i.e. ~2.4k objects, the closest object-set size to this benchmark) and are approximate.",
+      "weight": 0.4,
+      "primary_metric": "log10_candidate_reduction",
       "metrics": {
-        "accuracy": {
-          "higher_is_better": true,
-          "coefficient": 1.0,
-          "description": "Exact-match correctness vs brute force."
-        },
-        "candidates_ratio": {
-          "higher_is_better": false,
-          "coefficient": -0.5,
-          "description": "Fraction of objects requiring exact distance verification. Lower = more efficient pruning."
-        },
-        "candidate_p90_ratio": {
-          "higher_is_better": false,
-          "coefficient": -0.25,
-          "description": "90th-percentile fraction of objects retrieved on the slice, penalizing methods that only optimize average-case pruning."
-        },
-        "candidate_max_ratio": {
-          "higher_is_better": false,
-          "coefficient": -0.1,
-          "description": "Worst per-query fraction of objects retrieved on the slice, catching brittle pruning on hard queries."
-        },
-        "lookup_reduction_vs_brute": {
-          "higher_is_better": true,
-          "coefficient": 0.3,
-          "description": "How many fewer distance lookups vs brute force (brute=1.0). Machine-independent speed proxy."
-        }
+        "log10_candidate_reduction": {"higher_is_better": true, "coefficient": 1.0, "description": "Mean over queries of log10((|P|+1)/(objects revealed+1)); 0 = every object retrieved individually."},
+        "log10_call_reduction": {"higher_is_better": true, "coefficient": 0.5, "description": "Mean over queries of log10((|Q||P|+1)/(exact distance computations+1)); 0 = brute force."},
+        "exact_answer_rate": {"higher_is_better": true, "coefficient": 1.0, "description": "Fraction of exact answers (ties at the k-th distance accepted). Any wrong answer, crash or protocol violation scores the method with the worst value of every metric."},
+        "index_entries_per_vertex": {"higher_is_better": false, "coefficient": -0.02, "description": "Landmark distance-list entries per road-network vertex (index size). Capped at 40 for kFN."},
+        "sdl_work_per_vertex": {"higher_is_better": false, "coefficient": -0.002, "description": "Vertices settled while building the landmark distance lists, per vertex (index construction cost). Capped at 400."}
       },
       "results": {
-        "colt_phl": {"type": "proposed", "accuracy": 1.0, "candidates_ratio": 0.01, "lookup_reduction_vs_brute": 100.0},
-        "colt_us48_repro": {"type": "proposed", "accuracy": 1.0, "candidates_ratio": 0.1479275672533164, "candidate_p90_ratio": 0.229903282067544, "candidate_max_ratio": 0.28678452513080704, "lookup_reduction_vs_brute": 6.778398463629724},
-        "aub_phl": {"type": "baseline", "accuracy": 1.0, "candidates_ratio": 0.5, "lookup_reduction_vs_brute": 2.0}
+        "colt": {"type": "proposed", "log10_candidate_reduction": 1.365780828122942, "log10_call_reduction": 1.9350650924557884, "exact_answer_rate": 1.0, "index_entries_per_vertex": 24.0, "sdl_work_per_vertex": 139.71065377413106},
+        "colt_default": {"type": "proposed", "log10_candidate_reduction": 1.365780828122942, "log10_call_reduction": 1.9350650924557884, "exact_answer_rate": 1.0, "index_entries_per_vertex": 24.0, "sdl_work_per_vertex": 139.71065377413106},
+        "alt_filter": {"type": "baseline", "log10_candidate_reduction": 0.0, "log10_call_reduction": 1.9432010512368638, "exact_answer_rate": 1.0, "index_entries_per_vertex": 16.0, "sdl_work_per_vertex": 16.0},
+        "bruteforce": {"type": "baseline", "log10_candidate_reduction": 0.0, "log10_call_reduction": 0.0, "exact_answer_rate": 1.0, "index_entries_per_vertex": 1.0, "sdl_work_per_vertex": 1.0},
+        "colt_phl_paper": {"type": "proposed", "log10_candidate_reduction": 1.38, "log10_call_reduction": 2.27},
+        "aub_phl_paper": {"type": "baseline", "log10_candidate_reduction": 0.0, "log10_call_reduction": 1.5}
       }
     },
-    "aknn_real_pois": {
-      "description": "AkNN query correctness and candidate reduction for multiple query vertices.",
-      "notes": "The colt_phl row summarizes paper-reported reference behavior. The colt_us48_repro row is the fixed shipped-benchmark target from the US48/synthetic-POI replacement setting, refreshed after the post-audit regeneration job on 2026-05-20.",
+    "aknn": {
+      "description": "Exact aggregate k nearest-neighbor search (k=10, |Q|=8 query vertices drawn from a 15% subnetwork, max and sum aggregates). Same benefit and constraint metrics as kfn.",
+      "notes": "Same provenance as kfn (PRELIMINARY rows until the first full paper-setting job). colt_phl_paper is read off the paper's Figure 8b (max aggregate, A=15%, d=0.001, ~24k objects) and is approximate; the paper reports AkNN candidates only at this density.",
+      "weight": 0.35,
+      "primary_metric": "log10_candidate_reduction",
+      "metrics": {
+        "log10_candidate_reduction": {"higher_is_better": true, "coefficient": 1.0, "description": "Mean over queries of log10((|P|+1)/(objects revealed+1)); 0 = every object retrieved individually."},
+        "log10_call_reduction": {"higher_is_better": true, "coefficient": 0.5, "description": "Mean over queries of log10((|Q||P|+1)/(exact distance computations+1)); 0 = brute force."},
+        "exact_answer_rate": {"higher_is_better": true, "coefficient": 1.0, "description": "Fraction of exact answers (ties at the k-th aggregate distance accepted). Any failure scores the method with the worst value of every metric."},
+        "index_entries_per_vertex": {"higher_is_better": false, "coefficient": -0.02, "description": "Landmark distance-list entries per vertex. Capped at 24 for AkNN."},
+        "sdl_work_per_vertex": {"higher_is_better": false, "coefficient": -0.002, "description": "Vertices settled while building the landmark distance lists, per vertex. Capped at 400."}
+      },
+      "results": {
+        "colt": {"type": "proposed", "log10_candidate_reduction": 1.0457434639969276, "log10_call_reduction": 1.5448426698258795, "exact_answer_rate": 1.0, "index_entries_per_vertex": 24.0, "sdl_work_per_vertex": 139.71065377413106},
+        "colt_default": {"type": "proposed", "log10_candidate_reduction": 1.0457434639969276, "log10_call_reduction": 1.5448426698258795, "exact_answer_rate": 1.0, "index_entries_per_vertex": 24.0, "sdl_work_per_vertex": 139.71065377413106},
+        "alt_filter": {"type": "baseline", "log10_candidate_reduction": 0.0, "log10_call_reduction": 1.536191267548607, "exact_answer_rate": 1.0, "index_entries_per_vertex": 16.0, "sdl_work_per_vertex": 16.0},
+        "bruteforce": {"type": "baseline", "log10_candidate_reduction": 0.0, "log10_call_reduction": 0.0, "exact_answer_rate": 1.0, "index_entries_per_vertex": 1.0, "sdl_work_per_vertex": 1.0},
+        "colt_phl_paper": {"type": "proposed", "log10_candidate_reduction": 2.0}
+      }
+    },
+    "range": {
+      "description": "Exact range search (radius 2.5% of the network diameter). Same benefit and constraint metrics as kfn.",
+      "notes": "Same provenance as kfn (PRELIMINARY rows until the first full paper-setting job). colt_phl_paper is read off the paper's Figure 13d (r=2.5% D, d=0.0001, ~2.4k objects) and is approximate.",
       "weight": 0.25,
-      "primary_metric": "candidates_ratio",
+      "primary_metric": "log10_candidate_reduction",
       "metrics": {
-        "accuracy": {
-          "higher_is_better": true,
-          "coefficient": 1.0,
-          "description": "Exact-match correctness vs brute force for AkNN queries."
-        },
-        "candidates_ratio": {
-          "higher_is_better": false,
-          "coefficient": -0.5,
-          "description": "Fraction of objects examined during AkNN query. Lower = more efficient pruning."
-        },
-        "candidate_p90_ratio": {
-          "higher_is_better": false,
-          "coefficient": -0.25,
-          "description": "90th-percentile fraction of objects examined, detecting methods tuned only for easy AkNN queries."
-        },
-        "candidate_max_ratio": {
-          "higher_is_better": false,
-          "coefficient": -0.1,
-          "description": "Worst per-query fraction of objects examined, detecting brittle AkNN pruning."
-        }
+        "log10_candidate_reduction": {"higher_is_better": true, "coefficient": 1.0, "description": "Mean over queries of log10((|P|+1)/(objects revealed+1)); 0 = every object retrieved individually."},
+        "log10_call_reduction": {"higher_is_better": true, "coefficient": 0.5, "description": "Mean over queries of log10((|P|+1)/(exact distance computations+1)); 0 = brute force."},
+        "exact_answer_rate": {"higher_is_better": true, "coefficient": 1.0, "description": "Fraction of queries whose returned set equals the exact in-range set. Any failure scores the method with the worst value of every metric."},
+        "index_entries_per_vertex": {"higher_is_better": false, "coefficient": -0.02, "description": "Landmark distance-list entries per vertex. Capped at 24 for range."},
+        "sdl_work_per_vertex": {"higher_is_better": false, "coefficient": -0.002, "description": "Vertices settled while building the landmark distance lists, per vertex. Capped at 400."}
       },
       "results": {
-        "colt_phl": {"type": "proposed", "accuracy": 1.0, "candidates_ratio": 0.05},
-        "colt_us48_repro": {"type": "proposed", "accuracy": 1.0, "candidates_ratio": 0.1666402410020612, "candidate_p90_ratio": 0.20469319803393055, "candidate_max_ratio": 0.24591723481845568}
-      }
-    },
-    "range_real_pois": {
-      "description": "Range query correctness and candidate reduction.",
-      "notes": "The colt_phl row summarizes paper-reported reference behavior. The colt_us48_repro row is the fixed shipped-benchmark target from the US48/synthetic-POI replacement setting, refreshed after the post-audit regeneration job on 2026-05-20.",
-      "weight": 0.25,
-      "primary_metric": "candidates_ratio",
-      "metrics": {
-        "accuracy": {
-          "higher_is_better": true,
-          "coefficient": 1.0,
-          "description": "Exact-match correctness vs brute force for range queries."
-        },
-        "candidates_ratio": {
-          "higher_is_better": false,
-          "coefficient": -0.5,
-          "description": "Fraction of objects examined during range query. Lower = more efficient pruning."
-        },
-        "candidate_p90_ratio": {
-          "higher_is_better": false,
-          "coefficient": -0.25,
-          "description": "90th-percentile fraction of objects examined, detecting methods tuned only for easy range queries."
-        },
-        "candidate_max_ratio": {
-          "higher_is_better": false,
-          "coefficient": -0.1,
-          "description": "Worst per-query fraction of objects examined, detecting brittle range-query pruning."
-        }
-      },
-      "results": {
-        "colt_phl": {"type": "proposed", "accuracy": 1.0, "candidates_ratio": 0.1},
-        "colt_us48_repro": {"type": "proposed", "accuracy": 1.0, "candidates_ratio": 0.0393742402621426, "candidate_p90_ratio": 0.04867607420326621, "candidate_max_ratio": 0.04946884414143016}
-      }
-    },
-    "preprocessing": {
-      "description": "Preprocessing overhead diagnostics.",
-      "notes": "Timing metrics are retained only as zero-weight diagnostics. The colt_us48_repro row is from the shipped replacement benchmark and should not be read as a paper-reported number.",
-      "weight": 0.01,
-      "primary_metric": "col_time_s",
-      "metrics": {
-        "sul_time_s": {"higher_is_better": false, "coefficient": 0.0, "description": "SUL-Tree build time in seconds, reported for diagnostics only because wall-clock speed is hardware-dependent."},
-        "col_time_s": {"higher_is_better": false, "coefficient": 0.0, "description": "COL-Tree build time in seconds, reported for diagnostics only because wall-clock speed is hardware-dependent."}
-      },
-      "results": {
-        "colt_phl": {"type": "proposed", "sul_time_s": 8.0, "col_time_s": 0.2},
-        "colt_us48_repro": {"type": "proposed", "sul_time_s": 14.007100522518158, "col_time_s": 0.11228591203689575}
+        "colt": {"type": "proposed", "log10_candidate_reduction": 1.6414669720467918, "log10_call_reduction": 2.0958463185099085, "exact_answer_rate": 1.0, "index_entries_per_vertex": 24.0, "sdl_work_per_vertex": 139.71065377413106},
+        "colt_default": {"type": "proposed", "log10_candidate_reduction": 1.6414669720467918, "log10_call_reduction": 2.0958463185099085, "exact_answer_rate": 1.0, "index_entries_per_vertex": 24.0, "sdl_work_per_vertex": 139.71065377413106},
+        "alt_filter": {"type": "baseline", "log10_candidate_reduction": 0.0, "log10_call_reduction": 2.047949733136746, "exact_answer_rate": 1.0, "index_entries_per_vertex": 16.0, "sdl_work_per_vertex": 16.0},
+        "bruteforce": {"type": "baseline", "log10_candidate_reduction": 0.0, "log10_call_reduction": 0.0, "exact_answer_rate": 1.0, "index_entries_per_vertex": 1.0, "sdl_work_per_vertex": 1.0},
+        "colt_phl_paper": {"type": "proposed", "log10_candidate_reduction": 1.42}
       }
     }
   }

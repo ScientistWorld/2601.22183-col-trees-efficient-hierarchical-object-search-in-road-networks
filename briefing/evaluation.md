@@ -1,56 +1,86 @@
 # Evaluation Plan
 
-## Dataset
+## Data
 
-- **Original paper setting**: large US road networks with real POI categories such as schools, parks, hospitals, hotels, and public services.
-- **Shipped benchmark setting**: a public US48 road graph under `data/downloads/`, with reproducible POI subsets sampled from graph vertices.
-- **Query vertices**: sampled from the road network and stored in method output artifacts.
+- **Road network**: the paper's own public dataset (Zenodo doi:10.5281/zenodo.18026780). This benchmark uses
+  its North-West US subset of the 9th DIMACS Challenge travel-time network: 1,089,933 vertices and
+  1,272,922 undirected edges, with per-vertex coordinates. `scripts/download.sh` puts it in `data/downloads/nw/`.
+- **Objects**: 8 real OpenStreetMap POI categories mapped to vertices (`data/downloads/nw/pois/`, between
+  50 and 5,099 objects each), plus uniform random vertex samples with density d = |P|/|V|.
 
-## Metrics
+## Settings
 
-### Correctness
+| File | Evaluator | Travel times | Object sets | Queries |
+|---|---|---|---|---|
+| `scoring/scores.json` | `eval/evaluate.py` (paper setting) | original | real POI categories as published, plus uniform d=0.001 (d=0.01 for range) | public seed |
+| `scoring/scores_train.json` | `eval/train/evaluate.py` | public perturbation of the original | jittered real POIs or uniform samples, a fresh set per query | public seed |
+| `scoring/scores_test.json` | `eval/test/evaluate.py` | hidden perturbation | hidden draws | hidden |
 
-Returned results are checked against exact brute-force answers on the shipped graph. Top-k ties at the kth boundary may be returned in any order or subset.
+Query defaults follow the paper (Table 4). kFN uses k=10. AkNN uses k=10, |Q|=8 vertices from a connected
+subnetwork holding 15% of the vertices, and alternates max and sum. Range uses r = 2.5% of the network diameter.
 
-- `accuracy`: fraction of evaluated queries that return an exact valid answer. Higher is better.
+## Submission format
 
-### Candidate Efficiency
+A method is a directory `experiment_results/<name>/` containing `submission.json`:
 
-These metrics measure how much work a submitted method leaves for exact verification.
+```json
+{"command": ["python3", "path/to/solver.py", "..."],
+ "structures": {"kfn": "a.json", "aknn": "b.json", "range": "c.json"}}
+```
 
-- `candidates_ratio`: average fraction of POIs examined as candidates. Lower is better.
-- `candidate_p90_ratio`: 90th-percentile candidate fraction, used to catch methods that only improve easy queries. Lower is better.
-- `candidate_max_ratio`: worst per-query candidate fraction. Lower is better.
-- `lookup_reduction_vs_brute`: exact-distance lookup reduction relative to checking every POI. Higher is better.
+The command runs with the workspace root as its working directory. Each structure (format
+`hier-landmark-v1`, see `data/structure_io.py`) is a rooted tree of nodes:
 
-### Preprocessing Diagnostics
+- `parent`: list of node parents. Node 0 is the root and has parent -1.
+- `landmarks`: list of landmark vertices per node. Each node's landmarks must lie inside that node's vertex set.
+- `leaf_of`: the leaf node of every vertex. A node's vertex set is the union of the leaves below it.
 
-Build-time fields are reported for context but have zero score weight because wall-clock timing depends on hardware and implementation language.
+For every node n and landmark l of n, the evaluator computes d(l, v) for all v in the node's vertex set,
+using exact distances in the full evaluation network. **Index size** is the total number of these entries.
+**Construction work** is the number of vertices a shortest-path search from each landmark settles before
+it covers that node's vertex set.
 
-- `sul_time_s`: legacy field name for first-stage preprocessing time.
-- `col_time_s`: legacy field name for object-index preprocessing time.
-
-These fields are retained for compatibility with the score schema. They are not optimization targets.
+Budget: at most 40 entries per vertex for kFN and 24 for AkNN and range, at most 400 settled vertices per
+vertex, leaves of at least 128 vertices, at most 32 landmarks per node, and at most 200,000 nodes.
 
 ## Protocol
 
-1. Build any method-specific preprocessing structures before answering queries.
-2. Run AkNN, kFN, and range-query configurations on the shipped graph and POI sets.
-3. Write JSON result artifacts containing query type, number of objects, correctness counts, candidate counts, and exact lookup counts.
-4. Run `scripts/evaluate.sh <results_path>` to convert artifacts into `scoring/scores.json`.
-5. Optional train/test scoring uses `scripts/evaluate_train.sh` and `scripts/evaluate_test.sh`, which score deterministic slices of the same output artifacts.
+The solver speaks JSON lines on stdin/stdout. `data/oracle_client.py` wraps the protocol.
 
-## Experiment Targets
+1. The evaluator sends `{"type":"hello","task":...,"n_vertices":...,"structure":path}` and the solver replies `{"type":"ready"}`.
+2. The evaluator sends `{"type":"landmarks","records":{v: record(v)}}` for every landmark vertex, and the solver replies `{"type":"ok"}`.
+   `record(v)` is the list of d(l, v) for every landmark l on the root-to-leaf path of v, in path and landmark order.
+3. Per query, the evaluator sends `{"type":"query","kind":..., "q":[...], "q_records":[...], "n_objects":|P|, "root":summary(0), "k"/"agg"/"radius"}`.
+   The solver may then send requests, either singly or as `{"op":"batch","reqs":[...]}`:
+   - `nodes(ids)` (free): per-node summary `[count, mins, maxs]`. These are the element-wise min and max of the
+     record prefix (the landmarks of the node and its ancestors) over the query's objects inside that node.
+   - `peek(node,pos,idx)` and `bisect(node,pos,x)` (free): read the sorted list of `record[pos]` values
+     over the node's objects (an object distance list) without learning which objects they belong to.
+   - `get(node,pos,lo,hi)` (counted): reveal the objects at ranks [lo, hi) of that list, with their records.
+   - `dist(qi, vertices)` (counted): exact network distances from query vertex `qi`.
+   - `answer(result)`: object ids. A range answer is the full in-range set. kFN and AkNN answers are exactly k objects.
+4. `{"type":"bye"}` ends the session.
 
-| Experiment | Required behavior | Efficiency target |
-|---|---|---|
-| `kfn_real_pois` | Exact k farthest-neighbor results | Reduce exact lookup and candidate fractions versus brute force |
-| `aknn_real_pois` | Exact aggregate nearest-neighbor results | Examine only a fraction of the object set |
-| `range_real_pois` | Exact set of in-range objects | Examine only a fraction of the object set |
-| `preprocessing` | Report index/preprocessing overhead | Diagnostic only, zero score weight |
+## Metrics (per experiment `kfn`, `aknn`, `range`)
 
-## Correctness Rules
+- `log10_candidate_reduction` (primary, higher is better): mean of log10((|P|+1)/(objects revealed+1)).
+  An object counts as revealed if it is returned by `get`, passed to `dist`, or included in the answer.
+- `log10_call_reduction` (higher is better): mean of log10((|Q||P|+1)/(distinct (query vertex, vertex) `dist` pairs+1)).
+- `exact_answer_rate` (constraint, must be 1.0): every answer is checked against the evaluator's own Dijkstra.
+  Ties at the k-th distance are accepted.
+- `index_entries_per_vertex` and `sdl_work_per_vertex` (constraints, lower is better): index size and construction cost.
 
-- A method must use the same graph, POI set, query definitions, and distance metric as the benchmark.
-- Exact brute force is the correctness oracle.
-- Methods that trade away correctness for pruning receive lower scores through the `accuracy` metric.
+A method that fails anything gets the worst value of every metric in every experiment. Failures include an
+invalid or over-budget structure, a crash, a timeout (2 h per task, 15 min idle), a protocol error, or a single
+inexact answer.
+
+## How to run
+
+```bash
+bash scripts/method.sh && bash scripts/baseline.sh   # build submissions
+bash scripts/evaluate.sh          # paper setting -> scoring/scores.json
+bash scripts/evaluate_train.sh    # public split  -> scoring/scores_train.json
+bash scripts/evaluate_test.sh     # held-out      -> scoring/scores_test.json
+```
+
+Each evaluator scores every directory under `experiment_results/`. Only method directories may be placed there.
