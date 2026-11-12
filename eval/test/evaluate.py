@@ -225,11 +225,8 @@ def hidden_weights(n, eu, ev, ew, xs, ys, seed):
 class Engine:
     """Exact shortest paths on the hidden network."""
 
-    FILTER_LANDMARKS = 8
-
     def __init__(self, n, eu, ev, ww):
         self.n = n
-        self._frows = None
         if HAVE_SCIPY:
             u = np.frombuffer(eu, dtype=np.int64)
             v = np.frombuffer(ev, dtype=np.int64)
@@ -268,69 +265,21 @@ class Engine:
                     heapq.heappush(heap, (nd, v))
         return dist
 
-    def _filter(self):
-        """Exact distances from a few spread-out vertices (farthest-first).
-        Used only to bound the region a distance-limited search can reach."""
-        if self._frows is None:
-            r0 = sp_dijkstra(self.csr, directed=True, indices=[0])[0]
-            far = int(np.argmax(np.where(np.isfinite(r0), r0, -1.0)))
-            rows, cover = [], None
-            for _ in range(self.FILTER_LANDMARKS):
-                row = sp_dijkstra(self.csr, directed=True, indices=[far])[0]
-                rows.append(row)
-                cover = row.copy() if cover is None else np.minimum(cover, row)
-                far = int(np.argmax(np.where(np.isfinite(cover), cover, -1.0)))
-            fr = np.stack(rows)
-            order = np.argsort(fr[0], kind="stable")
-            self._frows = (fr, order, fr[0][order])
-        return self._frows
-
-    def region(self, sources, limit):
-        """Sorted ids of every vertex v that may satisfy d(s, v) <= limit for
-        some source s: by the triangle inequality |d(f, v) - d(f, s)| <= d(s, v)
-        for every filter vertex f."""
-        fr, order, first = self._filter()
-        src = fr[:, sources]
-        lo = src.min(axis=1) - limit
-        hi = src.max(axis=1) + limit
-        a = int(np.searchsorted(first, lo[0], side="left"))
-        b = int(np.searchsorted(first, hi[0], side="right"))
-        cand = order[a:b]
-        if fr.shape[0] > 1 and cand.size:
-            sub = fr[1:, cand]
-            cand = cand[((sub >= lo[1:, None]) & (sub <= hi[1:, None])).all(axis=0)]
-        return np.sort(cand)
-
     def restricted(self, sources, members, members_np):
         """Distances from every source to every member vertex (exact), plus the
         number of vertices a Dijkstra search restricted to the member set
         settles (paper Section 8: SDL construction work)."""
         if HAVE_SCIPY:
-            src_np = np.asarray(sources, dtype=np.int64)
-            pos = np.searchsorted(members_np, src_np)
+            pos = np.searchsorted(members_np, np.asarray(sources, dtype=np.int64))
             sub = self.csr[members_np][:, members_np]
             dsub = np.atleast_2d(sp_dijkstra(sub, directed=True, indices=pos))
             finite = dsub[np.isfinite(dsub)]
             limit = float(finite.max()) + 1.0 if finite.size else 1.0
             while True:
-                if limit == np.inf:
-                    rows = self.sssp_many(sources, limit)
-                    vals = np.stack([r[members_np] for r in rows])
+                rows = self.sssp_many(sources, limit)
+                vals = np.stack([r[members_np] for r in rows])
+                if np.isfinite(vals).all() or limit == np.inf:
                     break
-                # The search from each source is run on the subgraph induced by
-                # region(): it holds every vertex within `limit` of a source and
-                # every shortest path to it, so distances <= limit and the
-                # settled-vertex counts below equal those of the full network.
-                reg = self.region(src_np, limit)
-                mpos = np.searchsorted(reg, members_np)
-                if mpos.size and int(mpos.max()) < reg.size and np.array_equal(reg[mpos], members_np):
-                    rsub = self.csr[reg][:, reg]
-                    drows = np.atleast_2d(sp_dijkstra(rsub, directed=True,
-                                                      indices=np.searchsorted(reg, src_np), limit=limit))
-                    vals = drows[:, mpos]
-                    if np.isfinite(vals).all():
-                        rows = list(drows)
-                        break
                 limit = limit * 2.0 if limit < 1e15 else np.inf
             out, work = [], []
             for r, vrow in zip(rows, vals):
