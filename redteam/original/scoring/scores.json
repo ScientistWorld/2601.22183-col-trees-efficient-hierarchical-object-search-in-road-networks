@@ -1,0 +1,41 @@
+{
+  "aknn_real_pois": {
+    "results": {
+      "colt_us48_repro": {
+        "accuracy": 1.0,
+        "candidate_max_ratio": 0.24591723481845568,
+        "candidate_p90_ratio": 0.20469319803393055,
+        "candidates_ratio": 0.1666402410020612
+      }
+    }
+  },
+  "preprocessing": {
+    "results": {
+      "colt_us48_repro": {
+        "col_time_s": 0.11228591203689575,
+        "sul_time_s": 14.007100522518158
+      }
+    }
+  },
+  "kfn_real_pois": {
+    "results": {
+      "colt_us48_repro": {
+        "accuracy": 1.0,
+        "candidate_max_ratio": 0.28678452513080704,
+        "candidate_p90_ratio": 0.229903282067544,
+        "candidates_ratio": 0.1479275672533164,
+        "lookup_reduction_vs_brute": 6.778398463629724
+      }
+    }
+  },
+  "range_real_pois": {
+    "results": {
+      "colt_us48_repro": {
+        "accuracy": 1.0,
+        "candidate_max_ratio": 0.04946884414143016,
+        "candidate_p90_ratio": 0.04867607420326621,
+        "candidates_ratio": 0.0393742402621426
+      }
+    }
+  }
+}
