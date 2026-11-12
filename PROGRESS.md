@@ -32,6 +32,13 @@
 - The regenerated train/test slices also pass validation: kFN train/test candidate ratios are `0.133463`/`0.162392`, AkNN `0.147614`/`0.204693`, and range `0.038000`/`0.040748`.
 - An earlier resubmission did not reach the job stage because the container build attempted to copy `data/downloads/road-usroads-48.mtx`, which is not present in a fresh build checkout. The packaging issue was fixed before job `90b0e53b-aab`.
 
+## In Progress (iteration 11, hardening) — NOT yet wired into scoring
+
+- Switching the benchmark to the paper's own dataset (Zenodo 10.5281/zenodo.18026780, NW subset: 1.09M vertices, real OSM POI categories) via `scripts/download.sh` (data present under `data/downloads/nw/`).
+- New protocol: the evaluator owns all distances (hidden travel-time perturbation, hidden object sets/queries); a method submits a hierarchical landmark structure + a solver command (`submission.json`). New files: `eval/test/evaluate.py` (rewritten), `data/{nw,oracle_client,structure_io}.py`, `method/{build,solver}.py`, `baseline/{build,solver}.py`.
+- Still TODO: train evaluator (`eval/train/evaluate.py`) and `eval/evaluate.py` on the new protocol, `scripts/evaluate*.sh` wrappers (the old `evaluate_test.sh` is incompatible with the new test evaluator CLI), `scoring/` reference/TARGETS/EXPERIMENTS for the new metrics, `validate.py`, briefing docs.
+- `scripts/run.sh` currently runs the first end-to-end smoke of the new pipeline into `experiment_results/protocol_v2/`. `environment/setup.sh` now installs numpy/scipy.
+
 ## Deviations From Paper
 
 - Paper dataset: DIMACS continental US road network with OSM POIs.

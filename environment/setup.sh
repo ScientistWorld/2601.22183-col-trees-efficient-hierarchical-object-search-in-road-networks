@@ -16,5 +16,6 @@
 
 set -e
 
-# No additional pip packages needed — uses only Python standard library.
-# Required packages (heapq, bisect, random, json, time, argparse) are all stdlib.
+# numpy/scipy: sparse Dijkstra on the 1.09M-vertex NW road network (the
+# evaluator and SUL-Tree builder fall back to pure Python only for tiny graphs).
+uv pip install --system numpy scipy

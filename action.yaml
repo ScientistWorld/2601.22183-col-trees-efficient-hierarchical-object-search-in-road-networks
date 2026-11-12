@@ -1,8 +1,8 @@
 # Once you set action to 'submit' or 'done', STOP immediately.
 # Do NOT sleep, poll, or wait for jobs. The system reads this file
 # only after your turn ends.
-action: pending
+action: submit
 gpus: 0
 test: false
 milestone: secondary_claims
-notes: ""
+notes: "CPU job: first end-to-end run of the new evaluator-owned-distance protocol on the paper's NW road network + real POIs. Builds a SUL-Tree structure (b=8, m=2, alpha=1024, 16 root landmarks) and a root-only ALT baseline, then scores both with the rewritten eval/test/evaluate.py into experiment_results/protocol_v2/. scoring/ is untouched; train evaluator, wrappers and docs are not yet migrated to the new protocol."
