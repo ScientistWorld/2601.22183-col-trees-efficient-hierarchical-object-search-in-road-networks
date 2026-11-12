@@ -5,4 +5,4 @@ action: submit
 gpus: 0
 test: false
 milestone: secondary_claims
-notes: "Hardening job (resumable): rescore reference with region-restricted evaluator engine and check identity vs previous engine; probe groups (variants, shortcuts, seeds) through hidden test; train/paper scores; summary"
+notes: "Hardening job (resumable, priority order): probe groups alt+colt through hidden test, train and paper reference scores, seed reruns, unisolated secret probe, train variants, summary"
