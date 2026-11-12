@@ -1,0 +1,8 @@
+{
+  "train_exit": 1,
+  "test_exit": 1,
+  "scores_written": false,
+  "on_disk_methods": [
+    "shortcut_nulls"
+  ]
+}

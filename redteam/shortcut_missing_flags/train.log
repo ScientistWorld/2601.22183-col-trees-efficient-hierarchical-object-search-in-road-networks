@@ -1,0 +1,15 @@
+Found methods: shortcut_missing_flags
+Traceback (most recent call last):
+  File "/home/user/eval/train/evaluate.py", line 209, in <module>
+    main()
+  File "/home/user/eval/train/evaluate.py", line 189, in main
+    metrics = query_metrics(by_type.get(qt, []), include_lookup_reduction=(qt == "kfn"))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/user/eval/train/evaluate.py", line 99, in query_metrics
+    raise ValueError("Result artifact must include per-query correctness flags")
+ValueError: Result artifact must include per-query correctness flags
+Traceback (most recent call last):
+  File "<stdin>", line 90, in <module>
+  File "/usr/local/lib/python3.11/subprocess.py", line 571, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['python3', '/home/user/eval/train/evaluate.py', '/home/user/experiment_results/shortcut_missing_flags', '--method-name', 'shortcut_missing_flags', '--output', '/tmp/tmp9d696kqf/shortcut_missing_flags.json']' returned non-zero exit status 1.

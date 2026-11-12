@@ -1,0 +1,43 @@
+Found methods: reference_seed44
+{
+  "aknn_real_pois": {
+    "results": {
+      "reference_seed44": {
+        "accuracy": 1.0,
+        "candidates_ratio": 0.18566671951799588,
+        "candidate_p90_ratio": 0.18566671951799588,
+        "candidate_max_ratio": 0.18566671951799588
+      }
+    }
+  },
+  "kfn_real_pois": {
+    "results": {
+      "reference_seed44": {
+        "accuracy": 1.0,
+        "candidates_ratio": 0.2155277205221711,
+        "candidate_p90_ratio": 0.35684160456635483,
+        "candidate_max_ratio": 0.37712065958458857,
+        "lookup_reduction_vs_brute": 5.873131426150633
+      }
+    }
+  },
+  "range_real_pois": {
+    "results": {
+      "reference_seed44": {
+        "accuracy": 1.0,
+        "candidates_ratio": 0.04291527931927488,
+        "candidate_p90_ratio": 0.045917234818455686,
+        "candidate_max_ratio": 0.046456318376407166
+      }
+    }
+  },
+  "preprocessing": {
+    "results": {
+      "reference_seed44": {
+        "sul_time_s": 12.98474133014679,
+        "col_time_s": 0.08891606330871582
+      }
+    }
+  }
+}
+Test-slice evaluation complete. Scores written to /home/user/scoring/scores_test.json

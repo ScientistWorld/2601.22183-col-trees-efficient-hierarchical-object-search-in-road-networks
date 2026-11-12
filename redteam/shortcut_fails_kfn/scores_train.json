@@ -1,0 +1,41 @@
+{
+  "aknn_real_pois": {
+    "results": {
+      "shortcut_fails_kfn": {
+        "accuracy": 1.0,
+        "candidates_ratio": 0.1476137624861265,
+        "candidate_p90_ratio": 0.22625654035198983,
+        "candidate_max_ratio": 0.24591723481845568
+      }
+    }
+  },
+  "kfn_real_pois": {
+    "results": {
+      "shortcut_fails_kfn": {
+        "accuracy": 0.0,
+        "candidates_ratio": 0.00011891549072459174,
+        "candidate_p90_ratio": 0.00015855398763278897,
+        "candidate_max_ratio": 0.00015855398763278897,
+        "lookup_reduction_vs_brute": 9460.5
+      }
+    }
+  },
+  "range_real_pois": {
+    "results": {
+      "shortcut_fails_kfn": {
+        "accuracy": 1.0,
+        "candidates_ratio": 0.038000105702658424,
+        "candidate_p90_ratio": 0.04655145076898684,
+        "candidate_max_ratio": 0.04867607420326621
+      }
+    }
+  },
+  "preprocessing": {
+    "results": {
+      "shortcut_fails_kfn": {
+        "sul_time_s": 14.705546021461487,
+        "col_time_s": 0.12068259716033936
+      }
+    }
+  }
+}

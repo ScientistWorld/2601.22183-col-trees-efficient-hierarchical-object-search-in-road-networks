@@ -1,0 +1,43 @@
+Found methods: weaker_bruteforce
+{
+  "aknn_real_pois": {
+    "results": {
+      "weaker_bruteforce": {
+        "accuracy": 1.0,
+        "candidates_ratio": 1.0,
+        "candidate_p90_ratio": 1.0,
+        "candidate_max_ratio": 1.0
+      }
+    }
+  },
+  "kfn_real_pois": {
+    "results": {
+      "weaker_bruteforce": {
+        "accuracy": 1.0,
+        "candidates_ratio": 1.0,
+        "candidate_p90_ratio": 1.0,
+        "candidate_max_ratio": 1.0,
+        "lookup_reduction_vs_brute": 1.0
+      }
+    }
+  },
+  "range_real_pois": {
+    "results": {
+      "weaker_bruteforce": {
+        "accuracy": 1.0,
+        "candidates_ratio": 1.0,
+        "candidate_p90_ratio": 1.0,
+        "candidate_max_ratio": 1.0
+      }
+    }
+  },
+  "preprocessing": {
+    "results": {
+      "weaker_bruteforce": {
+        "sul_time_s": 0.0,
+        "col_time_s": 0.0
+      }
+    }
+  }
+}
+Test-slice evaluation complete. Scores written to /home/user/scoring/scores_test.json

@@ -1,0 +1,22 @@
+Found methods: shortcut_nulls
+Traceback (most recent call last):
+  File "/home/user/eval/train/evaluate.py", line 209, in <module>
+    main()
+  File "/home/user/eval/train/evaluate.py", line 189, in main
+    metrics = query_metrics(by_type.get(qt, []), include_lookup_reduction=(qt == "kfn"))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/user/eval/train/evaluate.py", line 94, in query_metrics
+    correctness = sliced_numeric_values(
+                  ^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/user/eval/train/evaluate.py", line 65, in sliced_numeric_values
+    return [float(v) for v in split_list(values, SLICE_PARITY)]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/user/eval/train/evaluate.py", line 65, in <listcomp>
+    return [float(v) for v in split_list(values, SLICE_PARITY)]
+            ^^^^^^^^
+TypeError: float() argument must be a string or a real number, not 'NoneType'
+Traceback (most recent call last):
+  File "<stdin>", line 90, in <module>
+  File "/usr/local/lib/python3.11/subprocess.py", line 571, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['python3', '/home/user/eval/train/evaluate.py', '/home/user/experiment_results/shortcut_nulls', '--method-name', 'shortcut_nulls', '--output', '/tmp/tmpe4q2mc1x/shortcut_nulls.json']' returned non-zero exit status 1.

@@ -1,0 +1,43 @@
+Found methods: shortcut_impossible_values
+{
+  "aknn_real_pois": {
+    "results": {
+      "shortcut_impossible_values": {
+        "accuracy": 2.0,
+        "candidates_ratio": -1.0,
+        "candidate_p90_ratio": -1.0,
+        "candidate_max_ratio": -1.0
+      }
+    }
+  },
+  "kfn_real_pois": {
+    "results": {
+      "shortcut_impossible_values": {
+        "accuracy": 2.0,
+        "candidates_ratio": -1.0,
+        "candidate_p90_ratio": -1.0,
+        "candidate_max_ratio": -1.0,
+        "lookup_reduction_vs_brute": 6307000.0
+      }
+    }
+  },
+  "range_real_pois": {
+    "results": {
+      "shortcut_impossible_values": {
+        "accuracy": 2.0,
+        "candidates_ratio": -1.0,
+        "candidate_p90_ratio": -1.0,
+        "candidate_max_ratio": -1.0
+      }
+    }
+  },
+  "preprocessing": {
+    "results": {
+      "shortcut_impossible_values": {
+        "sul_time_s": -1.0,
+        "col_time_s": 0.0
+      }
+    }
+  }
+}
+Train-slice evaluation complete. Scores written to /home/user/scoring/scores_train.json

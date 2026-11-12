@@ -1,0 +1,43 @@
+Found methods: reference_seed44
+{
+  "aknn_real_pois": {
+    "results": {
+      "reference_seed44": {
+        "accuracy": 1.0,
+        "candidates_ratio": 0.29705089583003014,
+        "candidate_p90_ratio": 0.39351514190581893,
+        "candidate_max_ratio": 0.4176312034247661
+      }
+    }
+  },
+  "kfn_real_pois": {
+    "results": {
+      "reference_seed44": {
+        "accuracy": 1.0,
+        "candidates_ratio": 0.1792320701865652,
+        "candidate_p90_ratio": 0.33142540034881884,
+        "candidate_max_ratio": 0.37553511970826065,
+        "lookup_reduction_vs_brute": 9.925696072307831
+      }
+    }
+  },
+  "range_real_pois": {
+    "results": {
+      "reference_seed44": {
+        "accuracy": 1.0,
+        "candidates_ratio": 0.04048411817557211,
+        "candidate_p90_ratio": 0.04563183764071667,
+        "candidate_max_ratio": 0.04629776438877438
+      }
+    }
+  },
+  "preprocessing": {
+    "results": {
+      "reference_seed44": {
+        "sul_time_s": 12.58843982219696,
+        "col_time_s": 0.11683166027069092
+      }
+    }
+  }
+}
+Train-slice evaluation complete. Scores written to /home/user/scoring/scores_train.json

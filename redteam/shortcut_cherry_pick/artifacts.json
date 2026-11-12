@@ -1,0 +1,315 @@
+[
+  {
+    "network": "usroads-48",
+    "query_type": "aknn",
+    "k": 10,
+    "density": 0.05,
+    "seed": 42,
+    "n_objects": 6307,
+    "n_query_vertices": 2,
+    "sul_time": 14.812471628189087,
+    "col_time": 0.08956098556518555,
+    "queries": {
+      "col_avg_time_ms": 664.6461486816406,
+      "brute_avg_time_ms": 664.9760405222574,
+      "correct": 2,
+      "total": 2,
+      "accuracy": 1,
+      "individual_times": [
+        651.9086360931396,
+        651.9086360931396
+      ],
+      "individual_candidates": [
+        311,
+        311
+      ],
+      "individual_correct": [
+        1,
+        1
+      ],
+      "per_query": [
+        {
+          "query_vertices": [
+            36048,
+            32098,
+            29256,
+            18289
+          ],
+          "result": [
+            25313,
+            32321,
+            29389,
+            31266,
+            21873,
+            22431,
+            29272,
+            26895,
+            24688,
+            34003
+          ],
+          "candidates": 311
+        },
+        {
+          "query_vertices": [
+            36048,
+            32098,
+            29256,
+            18289
+          ],
+          "result": [
+            25313,
+            32321,
+            29389,
+            31266,
+            21873,
+            22431,
+            29272,
+            26895,
+            24688,
+            34003
+          ],
+          "candidates": 311
+        }
+      ],
+      "col_candidate_objects_avg": 1051.0
+    },
+    "agg": "max",
+    "Q_size": 4
+  },
+  {
+    "network": "usroads-48",
+    "query_type": "kfn",
+    "k": 10,
+    "density": 0.05,
+    "seed": 42,
+    "n_objects": 6307,
+    "n_query_vertices": 2,
+    "sul_time": 14.683620691299438,
+    "col_time": 0.10114645957946777,
+    "queries": {
+      "col_avg_time_ms": 171.2245543797811,
+      "aub_avg_time_ms": 182.2072664896647,
+      "brute_avg_time_ms": 174.47423934936523,
+      "correct": 2,
+      "total": 2,
+      "accuracy": 1,
+      "individual_times": [
+        168.318510055542,
+        168.318510055542
+      ],
+      "aub_individual_times": [
+        180.4037094116211,
+        180.4037094116211
+      ],
+      "aub_correct": 12,
+      "aub_total": 12,
+      "aub_accuracy": 1.0,
+      "speedup_over_aub": 1.0641421561858682,
+      "col_candidate_objects_avg": 981.5,
+      "col_exact_lookups_avg": 981.5,
+      "individual_candidates": [
+        286,
+        286
+      ],
+      "individual_exact_lookups": [
+        286,
+        286
+      ],
+      "individual_correct": [
+        1,
+        1
+      ],
+      "per_query": [
+        {
+          "query_vertex": 96530,
+          "result": [
+            35018,
+            33544,
+            32271,
+            26062,
+            25928,
+            26144,
+            33422,
+            25265,
+            26680,
+            27884
+          ],
+          "candidates": 286,
+          "exact_lookups": 286
+        },
+        {
+          "query_vertex": 96530,
+          "result": [
+            35018,
+            33544,
+            32271,
+            26062,
+            25928,
+            26144,
+            33422,
+            25265,
+            26680,
+            27884
+          ],
+          "candidates": 286,
+          "exact_lookups": 286
+        }
+      ],
+      "aub_candidate_objects_avg": 398.3333333333333,
+      "aub_exact_lookups_avg": 398.3333333333333
+    }
+  },
+  {
+    "network": "usroads-48",
+    "query_type": "kfn",
+    "k": 10,
+    "density": 0.1,
+    "seed": 42,
+    "n_objects": 12614,
+    "n_query_vertices": 2,
+    "sul_time": 14.598620414733887,
+    "col_time": 0.15180420875549316,
+    "queries": {
+      "col_avg_time_ms": 155.10833263397217,
+      "aub_avg_time_ms": 172.41007089614868,
+      "brute_avg_time_ms": 155.5113991101583,
+      "correct": 2,
+      "total": 2,
+      "accuracy": 1,
+      "individual_times": [
+        155.73430061340332,
+        155.73430061340332
+      ],
+      "aub_individual_times": [
+        178.4207820892334,
+        178.4207820892334
+      ],
+      "aub_correct": 12,
+      "aub_total": 12,
+      "aub_accuracy": 1.0,
+      "speedup_over_aub": 1.1115461559567241,
+      "col_candidate_objects_avg": 1768.9166666666667,
+      "col_exact_lookups_avg": 1768.9166666666667,
+      "individual_candidates": [
+        550,
+        550
+      ],
+      "individual_exact_lookups": [
+        550,
+        550
+      ],
+      "individual_correct": [
+        1,
+        1
+      ],
+      "per_query": [
+        {
+          "query_vertex": 96530,
+          "result": [
+            35018,
+            33468,
+            33544,
+            33347,
+            32271,
+            28992,
+            31941,
+            26062,
+            25928,
+            26144
+          ],
+          "candidates": 550,
+          "exact_lookups": 550
+        },
+        {
+          "query_vertex": 96530,
+          "result": [
+            35018,
+            33468,
+            33544,
+            33347,
+            32271,
+            28992,
+            31941,
+            26062,
+            25928,
+            26144
+          ],
+          "candidates": 550,
+          "exact_lookups": 550
+        }
+      ],
+      "aub_candidate_objects_avg": 379.5833333333333,
+      "aub_exact_lookups_avg": 379.5833333333333
+    }
+  },
+  {
+    "network": "usroads-48",
+    "query_type": "range",
+    "k": 10,
+    "density": 0.05,
+    "seed": 42,
+    "n_objects": 6307,
+    "n_query_vertices": 2,
+    "sul_time": 13.830125093460083,
+    "col_time": 0.09145903587341309,
+    "queries": {
+      "radius": 12.24,
+      "diameter_approx": 1224.0,
+      "col_avg_time_ms": 156.6445827484131,
+      "brute_avg_time_ms": 156.82593981424967,
+      "correct": 2,
+      "total": 2,
+      "accuracy": 1,
+      "individual_times": [
+        150.62308311462402,
+        150.62308311462402
+      ],
+      "individual_candidates": [
+        172,
+        172
+      ],
+      "individual_correct": [
+        1,
+        1
+      ],
+      "per_query": [
+        {
+          "query_vertex": 32098,
+          "result": [
+            32129,
+            32098,
+            31499,
+            32044,
+            32536,
+            32819,
+            31635,
+            34099,
+            33720,
+            32701,
+            31135
+          ],
+          "candidates": 172
+        },
+        {
+          "query_vertex": 32098,
+          "result": [
+            32129,
+            32098,
+            31499,
+            32044,
+            32536,
+            32819,
+            31635,
+            34099,
+            33720,
+            32701,
+            31135
+          ],
+          "candidates": 172
+        }
+      ],
+      "col_candidate_objects_avg": 248.33333333333334
+    },
+    "radius_pct": 1
+  }
+]

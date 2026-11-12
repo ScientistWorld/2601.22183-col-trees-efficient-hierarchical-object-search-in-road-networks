@@ -1,0 +1,43 @@
+Found methods: shortcut_fails_kfn
+{
+  "aknn_real_pois": {
+    "results": {
+      "shortcut_fails_kfn": {
+        "accuracy": 1.0,
+        "candidates_ratio": 0.20469319803393055,
+        "candidate_p90_ratio": 0.20469319803393055,
+        "candidate_max_ratio": 0.20469319803393055
+      }
+    }
+  },
+  "kfn_real_pois": {
+    "results": {
+      "shortcut_fails_kfn": {
+        "accuracy": 0.0,
+        "candidates_ratio": 0.00011891549072459174,
+        "candidate_p90_ratio": 0.00015855398763278897,
+        "candidate_max_ratio": 0.00015855398763278897,
+        "lookup_reduction_vs_brute": 9460.5
+      }
+    }
+  },
+  "range_real_pois": {
+    "results": {
+      "shortcut_fails_kfn": {
+        "accuracy": 1.0,
+        "candidates_ratio": 0.040748374821626764,
+        "candidate_p90_ratio": 0.04759790708736325,
+        "candidate_max_ratio": 0.04946884414143016
+      }
+    }
+  },
+  "preprocessing": {
+    "results": {
+      "shortcut_fails_kfn": {
+        "sul_time_s": 14.25687289237976,
+        "col_time_s": 0.09630274772644043
+      }
+    }
+  }
+}
+Test-slice evaluation complete. Scores written to /home/user/scoring/scores_test.json

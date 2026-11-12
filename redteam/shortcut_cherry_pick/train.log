@@ -1,0 +1,43 @@
+Found methods: shortcut_cherry_pick
+{
+  "aknn_real_pois": {
+    "results": {
+      "shortcut_cherry_pick": {
+        "accuracy": 1.0,
+        "candidates_ratio": 0.04931029015379737,
+        "candidate_p90_ratio": 0.04931029015379737,
+        "candidate_max_ratio": 0.04931029015379737
+      }
+    }
+  },
+  "kfn_real_pois": {
+    "results": {
+      "shortcut_cherry_pick": {
+        "accuracy": 1.0,
+        "candidates_ratio": 0.0444743935309973,
+        "candidate_p90_ratio": 0.045172031076581576,
+        "candidate_max_ratio": 0.045346440462977644,
+        "lookup_reduction_vs_brute": 22.4934965034965
+      }
+    }
+  },
+  "range_real_pois": {
+    "results": {
+      "shortcut_cherry_pick": {
+        "accuracy": 1.0,
+        "candidates_ratio": 0.027271285872839703,
+        "candidate_p90_ratio": 0.027271285872839703,
+        "candidate_max_ratio": 0.027271285872839703
+      }
+    }
+  },
+  "preprocessing": {
+    "results": {
+      "shortcut_cherry_pick": {
+        "sul_time_s": 14.705546021461487,
+        "col_time_s": 0.12068259716033936
+      }
+    }
+  }
+}
+Train-slice evaluation complete. Scores written to /home/user/scoring/scores_train.json

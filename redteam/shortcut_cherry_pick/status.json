@@ -1,0 +1,8 @@
+{
+  "train_exit": 0,
+  "test_exit": 0,
+  "scores_written": true,
+  "on_disk_methods": [
+    "shortcut_cherry_pick"
+  ]
+}

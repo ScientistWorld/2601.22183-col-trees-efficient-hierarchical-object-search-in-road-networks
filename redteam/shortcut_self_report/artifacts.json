@@ -1,0 +1,278 @@
+[
+  {
+    "query_type": "aknn",
+    "network": "usroads-48",
+    "density": 0.05,
+    "seed": 42,
+    "k": 10,
+    "n_objects": 6307,
+    "sul_time": 0,
+    "col_time": 0,
+    "queries": {
+      "individual_correct": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "individual_candidates": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "individual_exact_lookups": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "per_query": [
+        {
+          "result": []
+        },
+        {
+          "result": []
+        },
+        {
+          "result": []
+        },
+        {
+          "result": []
+        },
+        {
+          "result": []
+        },
+        {
+          "result": []
+        },
+        {
+          "result": []
+        },
+        {
+          "result": []
+        },
+        {
+          "result": []
+        },
+        {
+          "result": []
+        },
+        {
+          "result": []
+        },
+        {
+          "result": []
+        }
+      ]
+    }
+  },
+  {
+    "query_type": "kfn",
+    "network": "usroads-48",
+    "density": 0.05,
+    "seed": 42,
+    "k": 10,
+    "n_objects": 6307,
+    "sul_time": 0,
+    "col_time": 0,
+    "queries": {
+      "individual_correct": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "individual_candidates": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "individual_exact_lookups": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "per_query": [
+        {
+          "result": []
+        },
+        {
+          "result": []
+        },
+        {
+          "result": []
+        },
+        {
+          "result": []
+        },
+        {
+          "result": []
+        },
+        {
+          "result": []
+        },
+        {
+          "result": []
+        },
+        {
+          "result": []
+        },
+        {
+          "result": []
+        },
+        {
+          "result": []
+        },
+        {
+          "result": []
+        },
+        {
+          "result": []
+        }
+      ]
+    }
+  },
+  {
+    "query_type": "range",
+    "network": "usroads-48",
+    "density": 0.05,
+    "seed": 42,
+    "k": 10,
+    "n_objects": 6307,
+    "sul_time": 0,
+    "col_time": 0,
+    "queries": {
+      "individual_correct": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "individual_candidates": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "individual_exact_lookups": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "per_query": [
+        {
+          "result": []
+        },
+        {
+          "result": []
+        },
+        {
+          "result": []
+        },
+        {
+          "result": []
+        },
+        {
+          "result": []
+        },
+        {
+          "result": []
+        },
+        {
+          "result": []
+        },
+        {
+          "result": []
+        },
+        {
+          "result": []
+        },
+        {
+          "result": []
+        },
+        {
+          "result": []
+        },
+        {
+          "result": []
+        }
+      ]
+    }
+  }
+]

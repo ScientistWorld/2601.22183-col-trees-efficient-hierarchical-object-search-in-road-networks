@@ -1,0 +1,40 @@
+{
+  "aknn_real_pois": {
+    "results": {
+      "shortcut_cached_answers": {
+        "accuracy": 1.0,
+        "candidates_ratio": 0.0,
+        "candidate_p90_ratio": 0.0,
+        "candidate_max_ratio": 0.0
+      }
+    }
+  },
+  "kfn_real_pois": {
+    "results": {
+      "shortcut_cached_answers": {
+        "accuracy": 1.0,
+        "candidates_ratio": 0.0,
+        "candidate_p90_ratio": 0.0,
+        "candidate_max_ratio": 0.0
+      }
+    }
+  },
+  "range_real_pois": {
+    "results": {
+      "shortcut_cached_answers": {
+        "accuracy": 1.0,
+        "candidates_ratio": 0.0,
+        "candidate_p90_ratio": 0.0,
+        "candidate_max_ratio": 0.0
+      }
+    }
+  },
+  "preprocessing": {
+    "results": {
+      "shortcut_cached_answers": {
+        "sul_time_s": 0.0,
+        "col_time_s": 0.0
+      }
+    }
+  }
+}
