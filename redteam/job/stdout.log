@@ -1,0 +1,96 @@
+[hive] This stdout log is managed by Hive.
+[hive] job_id: 3385384f
+[hive] host: node
+[hive] node_id: f045a528ad37641f1f30ca8858bb26529d748be7a5642b6a04a3df51
+[hive] user: nexus/user (remote)
+[hive] resource: gpu-cpu-test
+[hive] gpus: 0
+[hive] cpus: 1
+[hive] workdir: /home/user
+[hive] timeout_sec: 21600
+[hive] started_at: 2026-11-12 13:34:56 EST
+[hive] command: apptainer exec --containall --cleanenv --env HF_HOME=/home/user/shared/hf_cache --env TRANSFORMERS_CACHE=/home/user/shared/hf_cache --env HF_DATASETS_CACHE=/home/user/shared/hf_cache/datasets --env TORCH_HOME=/home/user/shared/hf_cache/torch --bind /home/user/scratch/AgentWorkspaces/workspaces/2601.22183:/home/user --overlay /home/user/scratch/AgentWorkspaces/workspaces/2601.22183/environment/overlay.img:ro --bind /home/user/scratch/AgentWorkspaces/shared/datasets:/home/user/shared/datasets:ro --bind /home/user/scratch/AgentWorkspaces/shared/models:/home/user/shared/models:ro --bind /home/user/scratch/AgentWorkspaces/shared/hf_cache:/home/user/shared/hf_cache /home/user/scratch/AgentWorkspaces/workspaces/2601.22183/environment/container.sif bash -c 'cd /home/user && bash /home/user/scripts/run.sh'
+Running audit variant: reference_seed42
+Running audit variant: reference_seed43
+Running audit variant: reference_seed44
+Running audit variant: stronger_landmarks
+Running audit variant: shortcut_faster_bfs
+Running audit variant: weaker_bruteforce
+Running audit variant: shortcut_self_report
+Running audit variant: shortcut_denominator
+Running audit variant: shortcut_cherry_pick
+Running audit variant: shortcut_cached_answers
+Running audit variant: shortcut_replace_baseline
+Running audit variant: shortcut_zero_lookups
+Running audit variant: shortcut_fails_kfn
+Running audit variant: shortcut_impossible_values
+Running audit variant: shortcut_discovery
+Running audit variant: shortcut_empty
+Running audit variant: shortcut_nulls
+Running audit variant: shortcut_missing_flags
+{
+  "reference_seed42": {
+    "pairwise_rank_delta": 0,
+    "honest_cohort_rank_delta": 0.0
+  },
+  "reference_seed43": {
+    "pairwise_rank_delta": -1.127,
+    "honest_cohort_rank_delta": -0.31217482827336274
+  },
+  "reference_seed44": {
+    "pairwise_rank_delta": -0.7769999999999999,
+    "honest_cohort_rank_delta": -0.1941639993223769
+  },
+  "shortcut_cached_answers": {
+    "pairwise_rank_delta": 1.683,
+    "honest_cohort_rank_delta": 0.4968328654199878
+  },
+  "shortcut_cherry_pick": {
+    "pairwise_rank_delta": 1.977,
+    "honest_cohort_rank_delta": 0.8436107960878909
+  },
+  "shortcut_denominator": {
+    "pairwise_rank_delta": 1.977,
+    "honest_cohort_rank_delta": 310.7364811980223
+  },
+  "shortcut_discovery": {
+    "pairwise_rank_delta": 0,
+    "honest_cohort_rank_delta": 0.0
+  },
+  "shortcut_empty": {
+    "pairwise_rank_delta": -3.663,
+    "honest_cohort_rank_delta": -2.373900960738178
+  },
+  "shortcut_fails_kfn": {
+    "pairwise_rank_delta": 0.14700000000000002,
+    "honest_cohort_rank_delta": 327.3271686358114
+  },
+  "shortcut_faster_bfs": {
+    "pairwise_rank_delta": 0,
+    "honest_cohort_rank_delta": 0.0
+  },
+  "shortcut_impossible_values": {
+    "pairwise_rank_delta": 3.9569999999999994,
+    "honest_cohort_rank_delta": 218218.72250878927
+  },
+  "shortcut_replace_baseline": {
+    "pairwise_rank_delta": 0.425,
+    "honest_cohort_rank_delta": 0.027735889729860803
+  },
+  "shortcut_self_report": {
+    "pairwise_rank_delta": 1.977,
+    "honest_cohort_rank_delta": 218.40194766235226
+  },
+  "shortcut_zero_lookups": {
+    "pairwise_rank_delta": 0,
+    "honest_cohort_rank_delta": 0.0
+  },
+  "stronger_landmarks": {
+    "pairwise_rank_delta": 1.977,
+    "honest_cohort_rank_delta": 0.4716117060542922
+  },
+  "weaker_bruteforce": {
+    "pairwise_rank_delta": -1.977,
+    "honest_cohort_rank_delta": -2.649852692671682
+  }
+}

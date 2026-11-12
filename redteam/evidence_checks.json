@@ -1,0 +1,11 @@
+{
+  "variant_count": 18,
+  "test_outputs_written": 16,
+  "negative_controls_without_test_output": 2,
+  "reference_scored_metrics_exact_match": true,
+  "stronger_dominates_all_three_seeds_on_every_efficiency_metric": true,
+  "exhaustive_correct_queries": 33,
+  "exhaustive_query_seconds": 5.973234866076382,
+  "report_links_checked": 28,
+  "checks": "passed"
+}

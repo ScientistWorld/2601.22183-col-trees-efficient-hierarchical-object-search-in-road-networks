@@ -1,0 +1,31 @@
+{
+  "starting_commit": "6549ceb",
+  "tracked_gym_paths_checked": [
+    "method",
+    "baseline",
+    "experiment_results",
+    "scoring",
+    "scripts",
+    "eval",
+    "data",
+    "environment"
+  ],
+  "changed_tracked_gym_files": [],
+  "original_run_script_sha256": "a1668215c91d5be043fdc121798854fbbaca9420e5c8959465940ac11d626bf7",
+  "restored_run_script_sha256": "a1668215c91d5be043fdc121798854fbbaca9420e5c8959465940ac11d626bf7",
+  "preexisting_dirty_paths_preserved": [
+    "README.md",
+    "manifest.json",
+    "trajectory/session.json",
+    "trajectory/turn_0001_raw.jsonl",
+    "trajectory/turn_0002_raw.jsonl",
+    "trajectory/turn_0003_raw.jsonl",
+    "trajectory/turn_0004_raw.jsonl",
+    "trajectory/turn_0005_raw.jsonl",
+    "trajectory/turn_0006_raw.jsonl",
+    "trajectory/turn_0007_raw.jsonl",
+    "trajectory/turn_0008_raw.jsonl",
+    ".git-shims/"
+  ],
+  "required_completion_signal_exception": "action.yaml"
+}

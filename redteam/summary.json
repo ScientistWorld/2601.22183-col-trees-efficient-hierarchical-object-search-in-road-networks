@@ -1,5 +1,5 @@
 {
-  "ranking_note": "The future attempt population is unknown. pairwise_rank_delta uses population SD over [shipped reference, this attempt], with reference rank 0. honest_cohort_rank_delta uses one fixed SD across the shipped reference and the three reference seeds, stronger landmarks, faster BFS, and brute force. Both use absolute coefficients, declared better direction, experiment weights, and skip absent metrics. Scores are not sums in native metric units.",
+  "ranking_note": "The future attempt population is unknown. pairwise_rank_delta uses population SD over [shipped reference, this attempt], with reference rank 0. honest_cohort_rank_delta uses one fixed SD across the shipped reference and the three reference seeds, stronger landmarks, faster BFS, and brute force. It is reported only for that cohort; applying its zero accuracy variance to incorrect shortcuts would silently discard their correctness penalties. Both use absolute coefficients, declared better direction, experiment weights, and skip absent metrics. Scores are not sums in native metric units.",
   "shipped_reference": {
     "aknn_real_pois": {
       "accuracy": 1.0,
@@ -199,7 +199,7 @@
         "range_real_pois.candidate_p90_ratio": 0.125,
         "range_real_pois.candidate_max_ratio": 0.05
       },
-      "honest_cohort_rank_delta": 0.4968328654199878,
+      "honest_cohort_rank_delta": null,
       "status": {
         "train_exit": 0,
         "test_exit": 0,
@@ -248,7 +248,7 @@
         "range_real_pois.candidate_p90_ratio": 0.125,
         "range_real_pois.candidate_max_ratio": 0.05
       },
-      "honest_cohort_rank_delta": 0.8436107960878909,
+      "honest_cohort_rank_delta": null,
       "status": {
         "train_exit": 0,
         "test_exit": 0,
@@ -297,7 +297,7 @@
         "range_real_pois.candidate_p90_ratio": 0.125,
         "range_real_pois.candidate_max_ratio": 0.05
       },
-      "honest_cohort_rank_delta": 310.7364811980223,
+      "honest_cohort_rank_delta": null,
       "status": {
         "train_exit": 0,
         "test_exit": 0,
@@ -335,7 +335,7 @@
       },
       "pairwise_rank_delta": 0,
       "pairwise_terms": {},
-      "honest_cohort_rank_delta": 0.0,
+      "honest_cohort_rank_delta": null,
       "status": {
         "train_exit": 0,
         "test_exit": 0,
@@ -386,7 +386,7 @@
         "range_real_pois.candidate_p90_ratio": -0.125,
         "range_real_pois.candidate_max_ratio": -0.05
       },
-      "honest_cohort_rank_delta": -2.373900960738178,
+      "honest_cohort_rank_delta": null,
       "status": {
         "train_exit": 0,
         "test_exit": 0,
@@ -430,7 +430,7 @@
         "kfn_real_pois.candidate_max_ratio": 0.098,
         "kfn_real_pois.lookup_reduction_vs_brute": 0.294
       },
-      "honest_cohort_rank_delta": 327.3271686358114,
+      "honest_cohort_rank_delta": null,
       "status": {
         "train_exit": 0,
         "test_exit": 0,
@@ -520,7 +520,7 @@
         "range_real_pois.candidate_p90_ratio": 0.125,
         "range_real_pois.candidate_max_ratio": 0.05
       },
-      "honest_cohort_rank_delta": 218218.72250878927,
+      "honest_cohort_rank_delta": null,
       "status": {
         "train_exit": 0,
         "test_exit": 0,
@@ -562,7 +562,7 @@
         "range_real_pois.candidate_p90_ratio": 0.125,
         "range_real_pois.candidate_max_ratio": 0.05
       },
-      "honest_cohort_rank_delta": 0.027735889729860803,
+      "honest_cohort_rank_delta": null,
       "status": {
         "train_exit": 0,
         "test_exit": 0,
@@ -611,7 +611,7 @@
         "range_real_pois.candidate_p90_ratio": 0.125,
         "range_real_pois.candidate_max_ratio": 0.05
       },
-      "honest_cohort_rank_delta": 218.40194766235226,
+      "honest_cohort_rank_delta": null,
       "status": {
         "train_exit": 0,
         "test_exit": 0,
@@ -648,7 +648,7 @@
       },
       "pairwise_rank_delta": 0,
       "pairwise_terms": {},
-      "honest_cohort_rank_delta": 0.0,
+      "honest_cohort_rank_delta": null,
       "status": {
         "train_exit": 0,
         "test_exit": 0,
@@ -1123,7 +1123,7 @@
         "density": 0.05,
         "n_queries": 3,
         "query_time_ms": 572.213578649098,
-        "brute_time_ms": 664.9760405222574,
+        "brute_time_ms": null,
         "aub_time_ms": null,
         "candidate_avg": 6307,
         "exact_avg": 6307,
@@ -1135,11 +1135,11 @@
         "density": 0.05,
         "n_queries": 12,
         "query_time_ms": 141.3736492516667,
-        "brute_time_ms": 174.47423934936523,
-        "aub_time_ms": 182.2072664896647,
+        "brute_time_ms": null,
+        "aub_time_ms": null,
         "candidate_avg": 6307,
         "exact_avg": 6307,
-        "aub_exact_avg": 398.3333333333333,
+        "aub_exact_avg": null,
         "build_seconds": 0
       },
       {
@@ -1147,11 +1147,11 @@
         "density": 0.1,
         "n_queries": 12,
         "query_time_ms": 143.2256374221955,
-        "brute_time_ms": 155.5113991101583,
-        "aub_time_ms": 172.41007089614868,
+        "brute_time_ms": null,
+        "aub_time_ms": null,
         "candidate_avg": 12614,
         "exact_avg": 12614,
-        "aub_exact_avg": 379.5833333333333,
+        "aub_exact_avg": null,
         "build_seconds": 0
       },
       {
@@ -1159,7 +1159,7 @@
         "density": 0.05,
         "n_queries": 6,
         "query_time_ms": 140.23378167379028,
-        "brute_time_ms": 156.82593981424967,
+        "brute_time_ms": null,
         "aub_time_ms": null,
         "candidate_avg": 6307,
         "exact_avg": 6307,

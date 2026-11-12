@@ -55,12 +55,14 @@ summary = {'ranking_note': 'The future attempt population is unknown. pairwise_r
     'population SD over [shipped reference, this attempt], with reference rank 0. '
     'honest_cohort_rank_delta uses one fixed SD across the shipped reference and '
     'the three reference seeds, stronger landmarks, faster BFS, and brute force. '
+    'It is reported only for that cohort; applying its zero accuracy variance '
+    'to incorrect shortcuts would silently discard their correctness penalties. '
     'Both use absolute coefficients, declared better direction, experiment weights, '
     'and skip absent metrics. Scores are not sums in native metric units.',
     'shipped_reference': reference, 'attempts': {}}
 for name, candidate in sorted(attempts.items()):
     pair_score, terms = rank(candidate, scales_for([reference, candidate]))
-    score, honest_terms = rank(candidate, honest_scales)
+    score = rank(candidate, honest_scales)[0] if name in honest_names else None
     summary['attempts'][name] = {'metrics': candidate, 'pairwise_rank_delta': pair_score,
         'pairwise_terms': terms, 'honest_cohort_rank_delta': score,
         'status': json.loads((BASE/name/'status.json').read_text())}
@@ -84,14 +86,18 @@ for name in honest_names:
     if not source.exists():
         continue
     records = json.loads(source.read_text())
+    # Exhaustive artifacts reuse the workload manifest. Its extra baseline
+    # diagnostics belong to the reference run, so do not present them as
+    # measurements taken during the exhaustive run.
+    measured_baselines = name != 'weaker_bruteforce'
     summary['timings'][name] = [{'query_type': r['query_type'], 'density': r['density'],
         'n_queries': len(r['queries']['individual_correct']),
         'query_time_ms': r['queries']['col_avg_time_ms'],
-        'brute_time_ms': r['queries'].get('brute_avg_time_ms'),
-        'aub_time_ms': r['queries'].get('aub_avg_time_ms'),
+        'brute_time_ms': r['queries'].get('brute_avg_time_ms') if measured_baselines else None,
+        'aub_time_ms': r['queries'].get('aub_avg_time_ms') if measured_baselines else None,
         'candidate_avg': r['queries']['col_candidate_objects_avg'],
         'exact_avg': r['queries'].get('col_exact_lookups_avg'),
-        'aub_exact_avg': r['queries'].get('aub_exact_lookups_avg'),
+        'aub_exact_avg': r['queries'].get('aub_exact_lookups_avg') if measured_baselines else None,
         'build_seconds': r['sul_time']+r['col_time']} for r in records]
 
 for name in ['shortcut_nulls', 'shortcut_missing_flags']:
