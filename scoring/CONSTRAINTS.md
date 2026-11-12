@@ -6,10 +6,13 @@ a solver command and one index structure file per query type (see `briefing/eval
 The evaluators compute every distance stored in the index and every exact network distance themselves, on their own copy of the network.
 The test split uses hidden travel times, object sets and queries.
 Scores come only from what the evaluator observes. Nothing a method writes about itself is read.
+Every non-empty index node a solver accesses counts as a retrieved candidate, like every object it reveals.
+Solvers run isolated from the evaluator. `eval/` and `.git` are not visible to them, and neither are the
+evaluator's processes.
 
 ## Index budget (enforced)
 - Distance-list entries per vertex: at most 40 for kFN and 24 for AkNN and range.
-- Index construction work: at most 400 settled vertices per vertex.
+- Index construction work: at most 3,000 settled vertices per vertex for kFN and 600 for AkNN and range.
 - Leaves need at least 128 vertices, nodes may have at most 32 landmarks, and there may be at most 200,000 nodes.
 Larger indexes are rejected, which counts as a failure.
 
@@ -19,7 +22,9 @@ One wrong answer, crash, timeout or protocol violation scores the method with th
 
 ## Data
 Use only the provided NW road network and POI files in `data/downloads/nw/`.
-Solvers must not read anything else to learn object sets or travel times.
+Solvers must not read anything else to learn object sets or travel times. Do not try to reconstruct the
+evaluation network's travel times from the public ones. Do not answer from estimates that the protocol
+does not let you verify. One inexact answer fails the run.
 On the held-out split, the travel times differ from the public file.
 
 ## Compliance Checklist

@@ -19,8 +19,10 @@ The evaluator owns all distances.  For a submitted index structure it
 computes the landmark distance lists on the evaluation network, answers the
 solver's requests and measures, per query:
   - exact distance computations requested (`dist`),
-  - objects revealed from the index (`get` + any object touched by `dist` or
-    returned),
+  - candidates retrieved from the index: objects revealed (`get` + any object
+    touched by `dist` or returned) plus every non-root index node holding at
+    least one of the query's objects that the solver accessed (`nodes`,
+    `peek`, `bisect` or `get`); empty nodes and the root are free,
   - whether the returned answer is exact (checked against its own Dijkstra).
 Nothing a method writes about itself is read.  A method that fails anything
 (invalid structure, index over budget, crash, protocol error, timeout, a
@@ -42,6 +44,8 @@ import json
 import math
 import os
 import select
+import shlex
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -107,7 +111,10 @@ SETTINGS = {
 # configuration for each query type: 16 ALT root landmarks plus m local
 # landmarks on every level of a b-ary hierarchy with leaves of <= 1024 vertices).
 INDEX_CAP = {"kfn": 40.0, "aknn": 24.0, "range": 24.0}
-WORK_CAP = 400.0          # settled vertices (restricted Dijkstra) per vertex
+# Index construction work: vertices settled per vertex (Dijkstra from every
+# landmark until its node is covered); the paper's kFN configuration (b=4, m=4)
+# builds about four times as many distance lists as the AkNN/range one.
+WORK_CAP = {"kfn": 3000.0, "aknn": 600.0, "range": 600.0}
 MIN_LEAF = 128            # minimum number of vertices in a leaf node
 MAX_LANDMARKS_PER_NODE = 32
 MAX_NODES = 200000
@@ -115,6 +122,7 @@ TASK_TIMEOUT = 7200.0     # seconds per (method, task)
 IDLE_TIMEOUT = 900.0      # seconds without a protocol message
 MAX_PAIRS_PER_QUERY = 5_000_000
 EXPERIMENTS = {"kfn": "kfn", "aknn": "aknn", "range": "range"}
+SANDBOX = True            # isolate solvers from the evaluator (see isolation())
 
 # ---------------------------------------------------------------------------
 MASK = (1 << 64) - 1
@@ -564,7 +572,7 @@ class Index:
         self.landmark_vertices = sorted({v for lm in self.landmarks for v in lm})
 
     def compute(self, engine):
-        cap = WORK_CAP * self.n
+        cap = max(WORK_CAP.values()) * self.n
         for i in range(len(self.parent)):
             lms = self.landmarks[i]
             if not lms:
@@ -584,7 +592,7 @@ class Index:
                 self.sdl[i] = vals
                 self.work += sum(work)
             if self.work > cap:
-                raise Invalid(f"index construction work exceeds {WORK_CAP} settled vertices per vertex "
+                raise Invalid(f"index construction work exceeds {max(WORK_CAP.values())} settled vertices per vertex "
                               f"(reached {self.work / self.n:.1f} after node {i + 1} of {len(self.parent)})")
         self.members = None  # free memory; positions are kept in self.pos
 
@@ -666,6 +674,70 @@ class QueryView:
 
 
 # ---------------------------------------------------------------------------
+# Solver isolation
+# ---------------------------------------------------------------------------
+# A solver runs while this evaluator holds the evaluation network in memory.
+# It is started in fresh user, mount and pid namespaces in which the
+# evaluator's directory (eval/) and the repository history (.git) are empty
+# tmpfs mounts, locked by a second, nested user namespace, and /proc only shows
+# the solver's own processes.  It therefore cannot read the evaluator source,
+# its seed or its memory; it still reads the rest of the workspace (its own
+# code, data/, its structure files).  Where namespaces are unavailable the
+# solver runs unisolated and the evaluator says so in its log.
+
+_ISOLATION = None
+_PROBE = (
+    "import os, sys\n"
+    "ws = sys.argv[1]\n"
+    "hidden = os.path.join(ws, 'eval')\n"
+    "ok = os.path.isdir(hidden) and not os.listdir(hidden) and os.path.isdir(os.path.join(ws, 'data'))\n"
+    "for pid in (p for p in os.listdir('/proc') if p.isdigit()):\n"
+    "    try:\n"
+    "        if os.listdir('/proc/%s/root%s' % (pid, hidden)):\n"
+    "            ok = False\n"
+    "    except OSError:\n"
+    "        pass\n"
+    "print('isolated' if ok else 'visible')\n"
+)
+
+
+def isolation():
+    """(command prefix, description) used to start every solver."""
+    global _ISOLATION
+    if _ISOLATION is not None:
+        return _ISOLATION
+    _ISOLATION = ([], "none (namespaces unavailable)")
+    if not SANDBOX:
+        _ISOLATION = ([], "none (disabled)")
+        return _ISOLATION
+    if not (shutil.which("unshare") and shutil.which("mount")):
+        return _ISOLATION
+    hide = [os.path.join(WORKSPACE, "eval")]
+    if os.path.isdir(os.path.join(WORKSPACE, ".git")):
+        hide.append(os.path.join(WORKSPACE, ".git"))
+    mounts = " && ".join(f"mount -t tmpfs -o size=64k,mode=0755 none {shlex.quote(p)}" for p in hide)
+    nested = ' && exec unshare --user --map-root-user --mount -- "$@"'
+    modes = [
+        (["--pid", "--fork", "--kill-child", "--mount-proc"], mounts + nested,
+         "user+mount+pid namespaces (eval/ and .git hidden, private /proc)"),
+        ([], mounts + " && mount -t tmpfs -o size=64k,mode=0755 none /proc" + nested,
+         "user+mount namespaces (eval/ and .git hidden, /proc hidden)"),
+    ]
+    for extra, script, desc in modes:
+        prefix = ["unshare", "--user", "--map-root-user", "--mount", *extra, "--",
+                  "/bin/sh", "-c", script, "isolated-solver"]
+        try:
+            res = subprocess.run(prefix + [sys.executable or "python3", "-c", _PROBE, WORKSPACE],
+                                 cwd=WORKSPACE, stdin=subprocess.DEVNULL, capture_output=True, timeout=120)
+            if res.returncode == 0 and res.stdout.strip() == b"isolated":
+                _ISOLATION = (prefix, desc)
+                break
+        except Exception:
+            continue
+    return _ISOLATION
+
+
+# ---------------------------------------------------------------------------
 # Running a submitted solver
 # ---------------------------------------------------------------------------
 
@@ -692,7 +764,7 @@ class LineChannel:
                     return json.loads(line)
                 except Exception:
                     raise Invalid("solver sent malformed JSON")
-            remaining = min(deadline, time.time() + IDLE_TIMEOUT) - time.time()
+            remaining = deadline - time.time()
             if remaining <= 0:
                 raise Invalid("solver timed out")
             ready, _, _ = select.select([self.fd], [], [], remaining)
@@ -713,12 +785,13 @@ class Session:
         self.method, self.task, self.index = method, task, index
         self.log = open(log_path, "ab")
         try:
-            self.proc = subprocess.Popen(command, cwd=WORKSPACE, stdin=subprocess.PIPE,
+            self.proc = subprocess.Popen(isolation()[0] + list(command), cwd=WORKSPACE,
+                                         stdin=subprocess.PIPE,
                                          stdout=subprocess.PIPE, stderr=self.log)
         except Exception as exc:
             raise Invalid(f"cannot start solver: {exc}")
         self.chan = LineChannel(self.proc)
-        self.deadline = time.time() + TASK_TIMEOUT
+        self.spent = 0.0          # seconds this solver has spent answering (its own budget)
         try:
             self.chan.send({"type": "hello", "protocol": 1, "task": task, "n_vertices": index.n,
                             "structure": structure_path})
@@ -732,8 +805,15 @@ class Session:
             self.kill()
             raise
 
+    def recv(self):
+        start = time.time()
+        try:
+            return self.chan.recv(start + min(IDLE_TIMEOUT, TASK_TIMEOUT - self.spent))
+        finally:
+            self.spent += time.time() - start
+
     def _reply_type(self):
-        msg = self.chan.recv(self.deadline)
+        msg = self.recv()
         return msg.get("type") if isinstance(msg, dict) else None
 
     def close(self):
@@ -769,8 +849,9 @@ class Session:
         self.chan.send(msg)
         pairs = set()
         touched = set()
+        opened = set()
         while True:
-            req = self.chan.recv(self.deadline)
+            req = self.recv()
             if not isinstance(req, dict):
                 raise Invalid("request must be an object")
             if req.get("op") == "answer":
@@ -781,19 +862,22 @@ class Session:
                 for x in result:
                     if x in object_set:
                         touched.add(x)
-                return result, len(pairs), len(touched)
+                work = {"calls": len(pairs), "cands": len(touched) + len(opened),
+                        "objects": len(touched), "nodes": len(opened),
+                        "obj_calls": sum(1 for _, v in pairs if v in object_set)}
+                return result, work
             if req.get("op") == "batch":
                 reqs = req.get("reqs")
                 if not isinstance(reqs, list):
                     raise Invalid("batch needs reqs")
-                res = [self.handle(r, view, qs, rows, object_set, pairs, touched) for r in reqs]
+                res = [self.handle(r, view, qs, rows, object_set, pairs, touched, opened) for r in reqs]
                 self.chan.send({"res": res})
             else:
-                self.chan.send(self.handle(req, view, qs, rows, object_set, pairs, touched))
+                self.chan.send(self.handle(req, view, qs, rows, object_set, pairs, touched, opened))
             if len(pairs) > MAX_PAIRS_PER_QUERY:
                 raise Invalid("too many distance requests")
 
-    def handle(self, req, view, qs, rows, object_set, pairs, touched):
+    def handle(self, req, view, qs, rows, object_set, pairs, touched, opened):
         if not isinstance(req, dict):
             raise Invalid("request must be an object")
         op = req.get("op")
@@ -802,11 +886,16 @@ class Session:
             ids = req.get("ids")
             if not isinstance(ids, list) or not all(is_int(i) and 0 <= i < k for i in ids):
                 raise Invalid("nodes: bad ids")
+            for i in ids:
+                if i and i in view.by_node:
+                    opened.add(i)
             return {"nodes": [view.summary(i) for i in ids]}
         if op in ("peek", "bisect", "get"):
             node, pos = req.get("node"), req.get("pos")
             if not (is_int(node) and 0 <= node < k and is_int(pos)):
                 raise Invalid(f"{op}: bad node/pos")
+            if node and node in view.by_node:
+                opened.add(node)
             objs, vals = view.odl(node, pos)
             if op == "peek":
                 idx = req.get("idx")
@@ -884,7 +973,7 @@ class Truth:
 def worst_metrics(task):
     return {"exact_answer_rate": 0.0, "log10_call_reduction": 0.0,
             "log10_candidate_reduction": 0.0,
-            "index_entries_per_vertex": INDEX_CAP[task], "sdl_work_per_vertex": WORK_CAP}
+            "index_entries_per_vertex": INDEX_CAP[task], "sdl_work_per_vertex": WORK_CAP[task]}
 
 
 def task_metrics(rows, entries, work, n):
@@ -968,48 +1057,59 @@ def main():
 
     methods = discover(roots)
     log(f"methods: {[m for m, _ in methods]}")
+    log(f"solver isolation: {isolation()[1]}")
     status = {m: None for m, _ in methods}
     plans = {}
-    indexes = {}
     for name, path in methods:
         try:
             cmd, structs = load_submission(path)
-            plan = {}
             for task, spath in structs.items():
                 if not os.path.isfile(spath):
                     raise Invalid(f"structure file missing for {task}")
-                digest = file_digest(spath)
-                if digest not in indexes:
-                    try:
-                        idx = Index(spath, n)
-                        idx.compute(engine)
-                        indexes[digest] = idx
-                    except Invalid as exc:
-                        indexes[digest] = exc
-                        raise
-                idx = indexes[digest]
-                if isinstance(idx, Invalid):
-                    raise idx
-                if idx.entries > INDEX_CAP[task] * n:
-                    raise Invalid(f"{task} index has {idx.entries / n:.2f} entries per vertex "
-                                  f"(cap {INDEX_CAP[task]})")
-                plan[task] = (idx, spath)
-            plans[name] = (cmd, plan)
-            log(f"{name}: index ready ({', '.join(f'{t}={p.entries / n:.1f}/v' for t, (p, _) in plan.items())})")
+            plans[name] = (cmd, {task: (file_digest(spath), spath) for task, spath in structs.items()})
         except Invalid as exc:
             status[name] = f"invalid: {exc}"
             log(f"{name}: FAILED ({exc})")
 
+    # Index structures are computed on first use and freed after the last task
+    # that needs them (several structures of 40 entries per vertex do not fit
+    # in memory at once).
+    indexes = {}
+    stats = {name: {} for name in plans}
+
+    def index_for(digest, spath):
+        if digest not in indexes:
+            try:
+                idx = Index(spath, n)
+                idx.compute(engine)
+                indexes[digest] = idx
+            except Invalid as exc:
+                indexes[digest] = exc
+        idx = indexes[digest]
+        if isinstance(idx, Invalid):
+            raise idx
+        return idx
+
     results = {name: {task: [] for task in TASKS} for name, _ in methods}
     logdir = tempfile.mkdtemp(prefix=f"colt_eval_{SPLIT}_")
-    for task, specs in workload.queries.items():
+    task_order = list(workload.queries)
+    for ti, (task, specs) in enumerate(workload.queries.items()):
         sessions = {}
         for name in plans:
             if status[name] is not None:
                 continue
             cmd, plan = plans[name]
-            idx, spath = plan[task]
+            digest, spath = plan[task]
             try:
+                idx = index_for(digest, spath)
+                if idx.entries > INDEX_CAP[task] * n:
+                    raise Invalid(f"{task} index has {idx.entries / n:.2f} entries per vertex "
+                                  f"(cap {INDEX_CAP[task]})")
+                if idx.work > WORK_CAP[task] * n:
+                    raise Invalid(f"{task} index construction work is {idx.work / n:.1f} settled vertices "
+                                  f"per vertex (cap {WORK_CAP[task]})")
+                stats[name][task] = (idx.entries, idx.work)
+                log(f"{name}: {task} index ready ({idx.entries / n:.1f} entries/v, {idx.work / n:.1f} work/v)")
                 sessions[name] = Session(name, task, idx, spath, cmd,
                                          os.path.join(logdir, f"{name.replace('/', '_')}.log"))
             except Invalid as exc:
@@ -1025,7 +1125,7 @@ def main():
             for name in list(sessions):
                 sess = sessions[name]
                 try:
-                    result, calls, cands = sess.run_query(spec, objects, object_set, rows)
+                    result, work = sess.run_query(spec, objects, object_set, rows)
                 except Invalid as exc:
                     status[name] = f"{task} query {qn}: {exc}"
                     log(f"{name}: FAILED ({status[name]})")
@@ -1033,9 +1133,10 @@ def main():
                     del sessions[name]
                     continue
                 ok = truth.check(result)
-                results[name][task].append({"set": spec["set"], "n_objects": len(objects),
-                                            "q_size": len(spec["q"]), "calls": calls,
-                                            "cands": cands, "correct": bool(ok)})
+                row = {"set": spec["set"], "n_objects": len(objects), "q_size": len(spec["q"])}
+                row.update(work)
+                row["correct"] = bool(ok)
+                results[name][task].append(row)
                 if not ok and status[name] is None:
                     status[name] = f"{task} query {qn}: inexact answer"
                     log(f"{name}: FAILED ({status[name]})")
@@ -1045,6 +1146,9 @@ def main():
                 log(f"{task}: {qn + 1}/{len(specs)} queries")
         for sess in sessions.values():
             sess.close()
+        later = {plans[m][1][t][0] for m in plans if status[m] is None for t in task_order[ti + 1:]}
+        for digest in [d for d in indexes if d not in later]:
+            del indexes[digest]
 
     scores = {EXPERIMENTS[t]: {"results": {}} for t in TASKS}
     for name, _ in methods:
@@ -1052,8 +1156,8 @@ def main():
             if status[name] is not None:
                 metrics = worst_metrics(task)
             else:
-                idx = plans[name][1][task][0]
-                metrics = task_metrics(results[name][task], idx.entries, idx.work, n)
+                entries, work = stats[name][task]
+                metrics = task_metrics(results[name][task], entries, work, n)
             scores[EXPERIMENTS[task]]["results"][name] = metrics
     os.makedirs(os.path.dirname(os.path.abspath(args.output)), exist_ok=True)
     with open(args.output, "w") as handle:
@@ -1061,7 +1165,8 @@ def main():
         handle.write("\n")
     if args.details:
         with open(args.details, "w") as handle:
-            json.dump({"split": SPLIT, "status": status, "per_query": results}, handle)
+            json.dump({"split": SPLIT, "isolation": isolation()[1], "status": status,
+                       "per_query": results}, handle)
     for name, _ in methods:
         log(f"{name}: {'ok' if status[name] is None else 'FAILED - ' + status[name]}")
     log(f"scores written to {args.output} (solver logs: {logdir})")

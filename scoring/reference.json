@@ -6,19 +6,75 @@
       "weight": 0.4,
       "primary_metric": "log10_candidate_reduction",
       "metrics": {
-        "log10_candidate_reduction": {"higher_is_better": true, "coefficient": 1.0, "description": "Mean over queries of log10((|P|+1)/(objects revealed+1)); 0 = every object retrieved individually."},
-        "log10_call_reduction": {"higher_is_better": true, "coefficient": 0.5, "description": "Mean over queries of log10((|Q||P|+1)/(exact distance computations+1)); 0 = brute force."},
-        "exact_answer_rate": {"higher_is_better": true, "coefficient": 1.0, "description": "Fraction of exact answers (ties at the k-th distance accepted). Any wrong answer, crash or protocol violation scores the method with the worst value of every metric."},
-        "index_entries_per_vertex": {"higher_is_better": false, "coefficient": -0.02, "description": "Landmark distance-list entries per road-network vertex (index size). Capped at 40 for kFN."},
-        "sdl_work_per_vertex": {"higher_is_better": false, "coefficient": -0.002, "description": "Vertices settled while building the landmark distance lists, per vertex (index construction cost). Capped at 400."}
+        "log10_candidate_reduction": {
+          "higher_is_better": true,
+          "coefficient": 1.0,
+          "description": "Mean over queries of log10((|P|+1)/(candidates+1)), floored at 0. Candidates = objects revealed individually + non-empty index nodes accessed; 0 = every object retrieved individually."
+        },
+        "log10_call_reduction": {
+          "higher_is_better": true,
+          "coefficient": 0.5,
+          "description": "Mean over queries of log10((|Q||P|+1)/(exact distance computations+1)); 0 = brute force."
+        },
+        "exact_answer_rate": {
+          "higher_is_better": true,
+          "coefficient": 1.0,
+          "description": "Fraction of exact answers (ties at the k-th distance accepted). Any wrong answer, crash or protocol violation scores the method with the worst value of every metric."
+        },
+        "index_entries_per_vertex": {
+          "higher_is_better": false,
+          "coefficient": -0.02,
+          "description": "Landmark distance-list entries per road-network vertex (index size). Capped at 40 for kFN."
+        },
+        "sdl_work_per_vertex": {
+          "higher_is_better": false,
+          "coefficient": -0.002,
+          "description": "Vertices settled while building the landmark distance lists, per vertex (index construction cost). Capped at 3000 for kfn."
+        }
       },
       "results": {
-        "colt": {"type": "proposed", "log10_candidate_reduction": 1.365780828122942, "log10_call_reduction": 1.9350650924557884, "exact_answer_rate": 1.0, "index_entries_per_vertex": 24.0, "sdl_work_per_vertex": 139.71065377413106},
-        "colt_default": {"type": "proposed", "log10_candidate_reduction": 1.365780828122942, "log10_call_reduction": 1.9350650924557884, "exact_answer_rate": 1.0, "index_entries_per_vertex": 24.0, "sdl_work_per_vertex": 139.71065377413106},
-        "alt_filter": {"type": "baseline", "log10_candidate_reduction": 0.0, "log10_call_reduction": 1.9432010512368638, "exact_answer_rate": 1.0, "index_entries_per_vertex": 16.0, "sdl_work_per_vertex": 16.0},
-        "bruteforce": {"type": "baseline", "log10_candidate_reduction": 0.0, "log10_call_reduction": 0.0, "exact_answer_rate": 1.0, "index_entries_per_vertex": 1.0, "sdl_work_per_vertex": 1.0},
-        "colt_phl_paper": {"type": "proposed", "log10_candidate_reduction": 1.38, "log10_call_reduction": 2.27},
-        "aub_phl_paper": {"type": "baseline", "log10_candidate_reduction": 0.0, "log10_call_reduction": 1.5}
+        "colt": {
+          "type": "proposed",
+          "log10_candidate_reduction": 1.365780828122942,
+          "log10_call_reduction": 1.9350650924557884,
+          "exact_answer_rate": 1.0,
+          "index_entries_per_vertex": 24.0,
+          "sdl_work_per_vertex": 139.71065377413106
+        },
+        "colt_default": {
+          "type": "proposed",
+          "log10_candidate_reduction": 1.365780828122942,
+          "log10_call_reduction": 1.9350650924557884,
+          "exact_answer_rate": 1.0,
+          "index_entries_per_vertex": 24.0,
+          "sdl_work_per_vertex": 139.71065377413106
+        },
+        "alt_filter": {
+          "type": "baseline",
+          "log10_candidate_reduction": 0.0,
+          "log10_call_reduction": 1.9432010512368638,
+          "exact_answer_rate": 1.0,
+          "index_entries_per_vertex": 16.0,
+          "sdl_work_per_vertex": 16.0
+        },
+        "bruteforce": {
+          "type": "baseline",
+          "log10_candidate_reduction": 0.0,
+          "log10_call_reduction": 0.0,
+          "exact_answer_rate": 1.0,
+          "index_entries_per_vertex": 1.0,
+          "sdl_work_per_vertex": 1.0
+        },
+        "_paper_colt_phl": {
+          "type": "proposed",
+          "log10_candidate_reduction": 1.38,
+          "log10_call_reduction": 2.27
+        },
+        "_paper_aub_phl": {
+          "type": "baseline",
+          "log10_candidate_reduction": 0.0,
+          "log10_call_reduction": 1.5
+        }
       }
     },
     "aknn": {
@@ -27,18 +83,69 @@
       "weight": 0.35,
       "primary_metric": "log10_candidate_reduction",
       "metrics": {
-        "log10_candidate_reduction": {"higher_is_better": true, "coefficient": 1.0, "description": "Mean over queries of log10((|P|+1)/(objects revealed+1)); 0 = every object retrieved individually."},
-        "log10_call_reduction": {"higher_is_better": true, "coefficient": 0.5, "description": "Mean over queries of log10((|Q||P|+1)/(exact distance computations+1)); 0 = brute force."},
-        "exact_answer_rate": {"higher_is_better": true, "coefficient": 1.0, "description": "Fraction of exact answers (ties at the k-th aggregate distance accepted). Any failure scores the method with the worst value of every metric."},
-        "index_entries_per_vertex": {"higher_is_better": false, "coefficient": -0.02, "description": "Landmark distance-list entries per vertex. Capped at 24 for AkNN."},
-        "sdl_work_per_vertex": {"higher_is_better": false, "coefficient": -0.002, "description": "Vertices settled while building the landmark distance lists, per vertex. Capped at 400."}
+        "log10_candidate_reduction": {
+          "higher_is_better": true,
+          "coefficient": 1.0,
+          "description": "Mean over queries of log10((|P|+1)/(candidates+1)), floored at 0. Candidates = objects revealed individually + non-empty index nodes accessed; 0 = every object retrieved individually."
+        },
+        "log10_call_reduction": {
+          "higher_is_better": true,
+          "coefficient": 0.5,
+          "description": "Mean over queries of log10((|Q||P|+1)/(exact distance computations+1)); 0 = brute force."
+        },
+        "exact_answer_rate": {
+          "higher_is_better": true,
+          "coefficient": 1.0,
+          "description": "Fraction of exact answers (ties at the k-th aggregate distance accepted). Any failure scores the method with the worst value of every metric."
+        },
+        "index_entries_per_vertex": {
+          "higher_is_better": false,
+          "coefficient": -0.02,
+          "description": "Landmark distance-list entries per vertex. Capped at 24 for AkNN."
+        },
+        "sdl_work_per_vertex": {
+          "higher_is_better": false,
+          "coefficient": -0.002,
+          "description": "Vertices settled while building the landmark distance lists, per vertex (index construction cost). Capped at 600 for aknn."
+        }
       },
       "results": {
-        "colt": {"type": "proposed", "log10_candidate_reduction": 1.0457434639969276, "log10_call_reduction": 1.5448426698258795, "exact_answer_rate": 1.0, "index_entries_per_vertex": 24.0, "sdl_work_per_vertex": 139.71065377413106},
-        "colt_default": {"type": "proposed", "log10_candidate_reduction": 1.0457434639969276, "log10_call_reduction": 1.5448426698258795, "exact_answer_rate": 1.0, "index_entries_per_vertex": 24.0, "sdl_work_per_vertex": 139.71065377413106},
-        "alt_filter": {"type": "baseline", "log10_candidate_reduction": 0.0, "log10_call_reduction": 1.536191267548607, "exact_answer_rate": 1.0, "index_entries_per_vertex": 16.0, "sdl_work_per_vertex": 16.0},
-        "bruteforce": {"type": "baseline", "log10_candidate_reduction": 0.0, "log10_call_reduction": 0.0, "exact_answer_rate": 1.0, "index_entries_per_vertex": 1.0, "sdl_work_per_vertex": 1.0},
-        "colt_phl_paper": {"type": "proposed", "log10_candidate_reduction": 2.0}
+        "colt": {
+          "type": "proposed",
+          "log10_candidate_reduction": 1.0457434639969276,
+          "log10_call_reduction": 1.5448426698258795,
+          "exact_answer_rate": 1.0,
+          "index_entries_per_vertex": 24.0,
+          "sdl_work_per_vertex": 139.71065377413106
+        },
+        "colt_default": {
+          "type": "proposed",
+          "log10_candidate_reduction": 1.0457434639969276,
+          "log10_call_reduction": 1.5448426698258795,
+          "exact_answer_rate": 1.0,
+          "index_entries_per_vertex": 24.0,
+          "sdl_work_per_vertex": 139.71065377413106
+        },
+        "alt_filter": {
+          "type": "baseline",
+          "log10_candidate_reduction": 0.0,
+          "log10_call_reduction": 1.536191267548607,
+          "exact_answer_rate": 1.0,
+          "index_entries_per_vertex": 16.0,
+          "sdl_work_per_vertex": 16.0
+        },
+        "bruteforce": {
+          "type": "baseline",
+          "log10_candidate_reduction": 0.0,
+          "log10_call_reduction": 0.0,
+          "exact_answer_rate": 1.0,
+          "index_entries_per_vertex": 1.0,
+          "sdl_work_per_vertex": 1.0
+        },
+        "_paper_colt_phl": {
+          "type": "proposed",
+          "log10_candidate_reduction": 2.0
+        }
       }
     },
     "range": {
@@ -47,18 +154,69 @@
       "weight": 0.25,
       "primary_metric": "log10_candidate_reduction",
       "metrics": {
-        "log10_candidate_reduction": {"higher_is_better": true, "coefficient": 1.0, "description": "Mean over queries of log10((|P|+1)/(objects revealed+1)); 0 = every object retrieved individually."},
-        "log10_call_reduction": {"higher_is_better": true, "coefficient": 0.5, "description": "Mean over queries of log10((|P|+1)/(exact distance computations+1)); 0 = brute force."},
-        "exact_answer_rate": {"higher_is_better": true, "coefficient": 1.0, "description": "Fraction of queries whose returned set equals the exact in-range set. Any failure scores the method with the worst value of every metric."},
-        "index_entries_per_vertex": {"higher_is_better": false, "coefficient": -0.02, "description": "Landmark distance-list entries per vertex. Capped at 24 for range."},
-        "sdl_work_per_vertex": {"higher_is_better": false, "coefficient": -0.002, "description": "Vertices settled while building the landmark distance lists, per vertex. Capped at 400."}
+        "log10_candidate_reduction": {
+          "higher_is_better": true,
+          "coefficient": 1.0,
+          "description": "Mean over queries of log10((|P|+1)/(candidates+1)), floored at 0. Candidates = objects revealed individually + non-empty index nodes accessed; 0 = every object retrieved individually."
+        },
+        "log10_call_reduction": {
+          "higher_is_better": true,
+          "coefficient": 0.5,
+          "description": "Mean over queries of log10((|P|+1)/(exact distance computations+1)); 0 = brute force."
+        },
+        "exact_answer_rate": {
+          "higher_is_better": true,
+          "coefficient": 1.0,
+          "description": "Fraction of queries whose returned set equals the exact in-range set. Any failure scores the method with the worst value of every metric."
+        },
+        "index_entries_per_vertex": {
+          "higher_is_better": false,
+          "coefficient": -0.02,
+          "description": "Landmark distance-list entries per vertex. Capped at 24 for range."
+        },
+        "sdl_work_per_vertex": {
+          "higher_is_better": false,
+          "coefficient": -0.002,
+          "description": "Vertices settled while building the landmark distance lists, per vertex (index construction cost). Capped at 600 for range."
+        }
       },
       "results": {
-        "colt": {"type": "proposed", "log10_candidate_reduction": 1.6414669720467918, "log10_call_reduction": 2.0958463185099085, "exact_answer_rate": 1.0, "index_entries_per_vertex": 24.0, "sdl_work_per_vertex": 139.71065377413106},
-        "colt_default": {"type": "proposed", "log10_candidate_reduction": 1.6414669720467918, "log10_call_reduction": 2.0958463185099085, "exact_answer_rate": 1.0, "index_entries_per_vertex": 24.0, "sdl_work_per_vertex": 139.71065377413106},
-        "alt_filter": {"type": "baseline", "log10_candidate_reduction": 0.0, "log10_call_reduction": 2.047949733136746, "exact_answer_rate": 1.0, "index_entries_per_vertex": 16.0, "sdl_work_per_vertex": 16.0},
-        "bruteforce": {"type": "baseline", "log10_candidate_reduction": 0.0, "log10_call_reduction": 0.0, "exact_answer_rate": 1.0, "index_entries_per_vertex": 1.0, "sdl_work_per_vertex": 1.0},
-        "colt_phl_paper": {"type": "proposed", "log10_candidate_reduction": 1.42}
+        "colt": {
+          "type": "proposed",
+          "log10_candidate_reduction": 1.6414669720467918,
+          "log10_call_reduction": 2.0958463185099085,
+          "exact_answer_rate": 1.0,
+          "index_entries_per_vertex": 24.0,
+          "sdl_work_per_vertex": 139.71065377413106
+        },
+        "colt_default": {
+          "type": "proposed",
+          "log10_candidate_reduction": 1.6414669720467918,
+          "log10_call_reduction": 2.0958463185099085,
+          "exact_answer_rate": 1.0,
+          "index_entries_per_vertex": 24.0,
+          "sdl_work_per_vertex": 139.71065377413106
+        },
+        "alt_filter": {
+          "type": "baseline",
+          "log10_candidate_reduction": 0.0,
+          "log10_call_reduction": 2.047949733136746,
+          "exact_answer_rate": 1.0,
+          "index_entries_per_vertex": 16.0,
+          "sdl_work_per_vertex": 16.0
+        },
+        "bruteforce": {
+          "type": "baseline",
+          "log10_candidate_reduction": 0.0,
+          "log10_call_reduction": 0.0,
+          "exact_answer_rate": 1.0,
+          "index_entries_per_vertex": 1.0,
+          "sdl_work_per_vertex": 1.0
+        },
+        "_paper_colt_phl": {
+          "type": "proposed",
+          "log10_candidate_reduction": 1.42
+        }
       }
     }
   }

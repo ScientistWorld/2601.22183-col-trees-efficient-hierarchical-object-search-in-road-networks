@@ -9,7 +9,9 @@ scored on the same five metrics, in three settings:
 
 ## Benefit: avoid touching objects individually (primary)
 
-- **Metric**: `log10_candidate_reduction` (higher is better). The mean over queries of log10((|P|+1)/(objects revealed+1)).
+- **Metric**: `log10_candidate_reduction` (higher is better). The mean over queries of log10((|P|+1)/(candidates+1)).
+  Candidates are the objects revealed individually plus the non-empty index nodes the method accessed, so
+  descending the index is not free.
   A value of 0 means every object was retrieved, as any method that scans the object set does.
 
 ## Benefit: avoid exact network-distance computations
@@ -29,4 +31,5 @@ scored on the same five metrics, in three settings:
 
 ## Constraint: index construction cost
 
-- **Metric**: `sdl_work_per_vertex` (lower is better). Hard cap: 400 settled vertices per vertex.
+- **Metric**: `sdl_work_per_vertex` (lower is better). Hard caps: 3,000 settled vertices per vertex for kFN and
+  600 for AkNN and range.

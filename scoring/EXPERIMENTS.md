@@ -20,6 +20,10 @@ The goal is to examine only a small fraction of the objects and compute few exac
 Tests exact range queries: report every object within 2.5% of the network diameter. The goal is to settle
 whole groups of objects as inside or outside the range without examining each one.
 
+In every experiment the work counted is what a method takes out of its index: the objects it examines
+individually, and the index nodes holding objects that it opens. The exact distances it asks for are
+counted as well.
+
 Every experiment also measures the cost side of the claim. Answers must be exact, and the index must stay
 within a fixed size and construction-work budget. Any method can trade more index for less query work,
 so the budget is what makes the scores comparable.
