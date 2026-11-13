@@ -55,7 +55,17 @@ Why: the iteration-10 red-team audit (`REDTEAM.md`) showed the old US48 benchmar
 - **Local smoke test** on a 3,000-vertex synthetic grid (`COLT_DATA_DIR` override): all three evaluators and all four submissions run end to end, and every method is exact.
 - **Removed** the superseded US48 pipeline: `method/{col_tree,sul_tree,experiment,graph}.py`, `data/{loader,graph}.py`, the old result artifacts and score files. They remain in git history.
 - `environment/setup.sh` installs numpy and scipy, which the evaluator and builder need at full scale.
-- **Pending**: the first full paper/train/test job. `reference.json` rows for colt, colt_default, alt_filter and bruteforce are preliminary until it finishes.
+- **Hardening (later in iteration 11)**: solvers run in user/mount/pid namespaces with `eval/`, `.git` and
+  `data/downloads/` hidden; non-empty index nodes a solver opens count as candidates; per-task
+  construction-work caps (3,000 / 600 / 600). Probes, variants and results are in `HARDENING.md` and
+  `hardening/results/`.
+- **Final jobs** (`aa2d48d7-a1a` reference test scores; `82d200b3-495` probes, train, paper setting):
+  - Hidden test, `colt` (paper Table 8 parameters): candidate reduction kFN 1.369, AkNN 1.001, range 1.461;
+    call reduction 1.943 / 1.545 / 2.076; every answer exact. `alt_filter` and `bruteforce` score 0
+    candidate reduction.
+  - Paper setting (`scoring/scores.json`): 1.091 / 0.787 / 1.382. `reference.json` rows updated from it.
+  - Seed spread of the reference: 0.042 in rank. Honest λ=16/64 variants gain +0.33 to +0.36; every
+    shortcut fails with worst values.
 
 ## Deviations From Paper
 

@@ -1,8 +1,6 @@
 # Once you set action to 'submit' or 'done', STOP immediately.
 # Do NOT sleep, poll, or wait for jobs. The system reads this file
 # only after your turn ends.
-action: submit
-gpus: 0
-test: false
+action: done
 milestone: secondary_claims
-notes: "Hardening job (resumable, priority order): probe groups alt+colt through hidden test, train and paper reference scores, seed reruns, unisolated secret probe, train variants, summary"
+notes: "Hardened: evaluator-owned protocol on the paper's NW network, isolated solvers (eval/.git/data/downloads hidden), node-charged candidates; better variants +0.33-0.36 rank vs 0.042 seed spread, every shortcut fails (copied-graph gamble exact but +0.001); see HARDENING.md"

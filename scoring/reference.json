@@ -2,7 +2,7 @@
   "experiments": {
     "kfn": {
       "description": "Exact k farthest-neighbor search (k=10) over road-network object sets. Benefit: how few objects a method has to retrieve individually and how few exact network distances it computes, relative to evaluating every object. Constraints: every answer exact, index size and index construction work within budget.",
-      "notes": "colt / colt_default / alt_filter / bruteforce rows are produced by this workspace's pipeline in the paper setting (eval/evaluate.py: original NW travel times, real POI categories). PRELIMINARY until the first full paper-setting job: colt_default and alt_filter rows are from the held-out smoke run 9fc1dbc3-96c, colt copies colt_default. colt_phl_paper / aub_phl_paper are read off the paper's log-scale Figure 11c/11d (continental US network, uniform objects at d=0.0001, i.e. ~2.4k objects, the closest object-set size to this benchmark) and are approximate.",
+      "notes": "colt / colt_default / alt_filter / bruteforce rows: this workspace's pipeline in the paper's own setting (scripts/evaluate.sh -> eval/evaluate.py: original NW travel times, the eight real POI categories as published plus uniform d=0.001, public query seed), job 82d200b3-495. colt uses the paper's Table 8 kFN parameters (b=4, m=4, Slice landmarks, lambda=256, 16 ALT root landmarks); colt_default uses b=8, m=2, Random. Candidates count individually retrieved objects plus opened non-empty index nodes (the paper counts objects only; on the held-out test colt's objects-only value is 1.43 vs 1.37 with nodes). Scale: the NW subset (1.09M vertices) of the paper's 24M-vertex US network, Dijkstra instead of PHL, so the paper's numbers are kept under _paper_* keys: read off the paper's log-scale Figure 11c/11d (continental US, uniform objects at d=0.0001, ~2.4k objects, the closest object-set size to this benchmark), approximate.",
       "weight": 0.4,
       "primary_metric": "log10_candidate_reduction",
       "metrics": {
@@ -35,33 +35,33 @@
       "results": {
         "colt": {
           "type": "proposed",
-          "log10_candidate_reduction": 1.365780828122942,
-          "log10_call_reduction": 1.9350650924557884,
           "exact_answer_rate": 1.0,
-          "index_entries_per_vertex": 24.0,
-          "sdl_work_per_vertex": 139.71065377413106
+          "log10_call_reduction": 1.5296004565020462,
+          "log10_candidate_reduction": 1.0905822314536777,
+          "index_entries_per_vertex": 40.0,
+          "sdl_work_per_vertex": 393.4631816818098
         },
         "colt_default": {
           "type": "proposed",
-          "log10_candidate_reduction": 1.365780828122942,
-          "log10_call_reduction": 1.9350650924557884,
           "exact_answer_rate": 1.0,
+          "log10_call_reduction": 1.5127277473408733,
+          "log10_candidate_reduction": 0.9888669914465497,
           "index_entries_per_vertex": 24.0,
-          "sdl_work_per_vertex": 139.71065377413106
+          "sdl_work_per_vertex": 134.8888895005473
         },
         "alt_filter": {
           "type": "baseline",
-          "log10_candidate_reduction": 0.0,
-          "log10_call_reduction": 1.9432010512368638,
           "exact_answer_rate": 1.0,
+          "log10_call_reduction": 1.5348131640037768,
+          "log10_candidate_reduction": 0.0,
           "index_entries_per_vertex": 16.0,
           "sdl_work_per_vertex": 16.0
         },
         "bruteforce": {
           "type": "baseline",
-          "log10_candidate_reduction": 0.0,
-          "log10_call_reduction": 0.0,
           "exact_answer_rate": 1.0,
+          "log10_call_reduction": 0.0,
+          "log10_candidate_reduction": 0.0,
           "index_entries_per_vertex": 1.0,
           "sdl_work_per_vertex": 1.0
         },
@@ -79,7 +79,7 @@
     },
     "aknn": {
       "description": "Exact aggregate k nearest-neighbor search (k=10, |Q|=8 query vertices drawn from a 15% subnetwork, max and sum aggregates). Same benefit and constraint metrics as kfn.",
-      "notes": "Same provenance as kfn (PRELIMINARY rows until the first full paper-setting job). colt_phl_paper is read off the paper's Figure 8b (max aggregate, A=15%, d=0.001, ~24k objects) and is approximate; the paper reports AkNN candidates only at this density.",
+      "notes": "Same provenance as kfn (job 82d200b3-495, paper setting). colt uses the paper's Table 8 AkNN parameters (b=8, m=2, Random, lambda=256), which coincide with colt_default. _paper_colt_phl is read off the paper's Figure 8b (max aggregate, A=15%, d=0.001, ~24k objects on the 24M-vertex network) and is approximate; the paper reports AkNN candidates only at that density.",
       "weight": 0.35,
       "primary_metric": "log10_candidate_reduction",
       "metrics": {
@@ -112,33 +112,33 @@
       "results": {
         "colt": {
           "type": "proposed",
-          "log10_candidate_reduction": 1.0457434639969276,
-          "log10_call_reduction": 1.5448426698258795,
           "exact_answer_rate": 1.0,
+          "log10_call_reduction": 1.2374214947777904,
+          "log10_candidate_reduction": 0.7871975234688549,
           "index_entries_per_vertex": 24.0,
-          "sdl_work_per_vertex": 139.71065377413106
+          "sdl_work_per_vertex": 134.8888895005473
         },
         "colt_default": {
           "type": "proposed",
-          "log10_candidate_reduction": 1.0457434639969276,
-          "log10_call_reduction": 1.5448426698258795,
           "exact_answer_rate": 1.0,
+          "log10_call_reduction": 1.2374214947777904,
+          "log10_candidate_reduction": 0.7871975234688549,
           "index_entries_per_vertex": 24.0,
-          "sdl_work_per_vertex": 139.71065377413106
+          "sdl_work_per_vertex": 134.8888895005473
         },
         "alt_filter": {
           "type": "baseline",
-          "log10_candidate_reduction": 0.0,
-          "log10_call_reduction": 1.536191267548607,
           "exact_answer_rate": 1.0,
+          "log10_call_reduction": 1.2370529486040969,
+          "log10_candidate_reduction": 0.0,
           "index_entries_per_vertex": 16.0,
           "sdl_work_per_vertex": 16.0
         },
         "bruteforce": {
           "type": "baseline",
-          "log10_candidate_reduction": 0.0,
-          "log10_call_reduction": 0.0,
           "exact_answer_rate": 1.0,
+          "log10_call_reduction": 0.0,
+          "log10_candidate_reduction": 0.0,
           "index_entries_per_vertex": 1.0,
           "sdl_work_per_vertex": 1.0
         },
@@ -150,7 +150,7 @@
     },
     "range": {
       "description": "Exact range search (radius 2.5% of the network diameter). Same benefit and constraint metrics as kfn.",
-      "notes": "Same provenance as kfn (PRELIMINARY rows until the first full paper-setting job). colt_phl_paper is read off the paper's Figure 13d (r=2.5% D, d=0.0001, ~2.4k objects) and is approximate.",
+      "notes": "Same provenance as kfn (job 82d200b3-495, paper setting). colt uses the paper's Table 8 range parameters (b=8, m=2, Border Minmax, lambda=256). _paper_colt_phl is read off the paper's Figure 13d (r=2.5% D, d=0.0001, ~2.4k objects) and is approximate.",
       "weight": 0.25,
       "primary_metric": "log10_candidate_reduction",
       "metrics": {
@@ -183,33 +183,33 @@
       "results": {
         "colt": {
           "type": "proposed",
-          "log10_candidate_reduction": 1.6414669720467918,
-          "log10_call_reduction": 2.0958463185099085,
           "exact_answer_rate": 1.0,
+          "log10_call_reduction": 1.9963598016276,
+          "log10_candidate_reduction": 1.3816552187751479,
           "index_entries_per_vertex": 24.0,
-          "sdl_work_per_vertex": 139.71065377413106
+          "sdl_work_per_vertex": 130.6877808085451
         },
         "colt_default": {
           "type": "proposed",
-          "log10_candidate_reduction": 1.6414669720467918,
-          "log10_call_reduction": 2.0958463185099085,
           "exact_answer_rate": 1.0,
+          "log10_call_reduction": 2.0056144988211373,
+          "log10_candidate_reduction": 1.3954459054042618,
           "index_entries_per_vertex": 24.0,
-          "sdl_work_per_vertex": 139.71065377413106
+          "sdl_work_per_vertex": 134.8888895005473
         },
         "alt_filter": {
           "type": "baseline",
-          "log10_candidate_reduction": 0.0,
-          "log10_call_reduction": 2.047949733136746,
           "exact_answer_rate": 1.0,
+          "log10_call_reduction": 2.0021964791201095,
+          "log10_candidate_reduction": 0.0,
           "index_entries_per_vertex": 16.0,
           "sdl_work_per_vertex": 16.0
         },
         "bruteforce": {
           "type": "baseline",
-          "log10_candidate_reduction": 0.0,
-          "log10_call_reduction": 0.0,
           "exact_answer_rate": 1.0,
+          "log10_call_reduction": 0.0,
+          "log10_candidate_reduction": 0.0,
           "index_entries_per_vertex": 1.0,
           "sdl_work_per_vertex": 1.0
         },
