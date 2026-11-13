@@ -71,9 +71,3 @@
 
 ## Stop Justification
 - Completed at milestone `secondary_claims`.
-
-### [2026-11-13 04:30] - secondary_claims
-- Hardening (iteration 11): rebuilt on the paper's NW network and POI data with an evaluator-owned protocol, isolated solvers, node-charged candidates and hidden test workloads.
-- Hidden-test reference (`colt`, paper Table 8 parameters): exact on all 344 queries; log10 candidate reduction kFN 1.369, AkNN 1.001, range 1.461 vs 0 for the ALT-filter (AUB-PHL) and brute-force baselines.
-- Not reproduced: the paper's kFN network-distance advantage over AUB-PHL (call reduction is equal here). Better variants (smaller lambda) beat the reference well beyond seed noise; every shortcut probe fails (see HARDENING.md).
-

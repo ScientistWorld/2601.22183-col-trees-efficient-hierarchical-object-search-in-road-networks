@@ -6,7 +6,7 @@ The proposed solution consists of two hierarchical index structures. The SUL-Tre
 
 The key insight is that landmark distances provide both lower and upper bounds on true network distances via the triangle inequality, and these bounds preserve the convexity of aggregate functions, enabling effective branch-and-bound search over the tree even for multi-POI queries. The paper reports up to roughly two orders of magnitude improvement for AkNN, up to 330x for kFN, and up to 2.7x for range queries, with modest preprocessing overhead.
 
-This reproduction runs on the paper's own public dataset: the North-West US subset of the DIMACS travel-time network (1.09M vertices) with its real OpenStreetMap POI categories. The evaluator owns all network distances. It reports two machine-independent measures, which are the paper's own heuristic-efficiency metrics: objects retrieved individually and exact distances computed. It also enforces exactness, an index-size budget and an index-construction budget.
+This reproduction runs on the paper's own public dataset: the North-West US subset of the DIMACS travel-time network (1.09M vertices) with its real OpenStreetMap POI categories. The evaluator owns all network distances. It reports two machine-independent measures, which follow the paper's own heuristic-efficiency metrics. The first is candidates retrieved: objects retrieved individually plus the non-empty index nodes opened. The second is exact distances computed. It also enforces exactness, an index-size budget and an index-construction budget.
 
 ---
 
@@ -69,105 +69,73 @@ This environment targets the three query types above. The road network is the pa
 
 # Method: COL-Tree and SUL-Tree for Hierarchical POI Search
 
-## Overview
+This file describes the paper's method and how the reproduction implements it (`method/build.py`,
+`method/solver.py`). The problem and the measurement are in `problem.md` and `evaluation.md`.
 
-The proposed approach introduces two hierarchical index structures to accelerate POI search in road networks:
+## SUL-Tree (road-network index, paper Section 3.1)
 
-1. **SUL-Tree (Subgraph-Landmark Tree)**: Partitions the road network hierarchically and precomputes landmark-based distance lower and upper bounds for efficient network traversal.
-2. **COL-Tree (Compacted Object-Landmark Tree)**: A compact version of the SUL-Tree specialized for a given POI set, with POI-specific distance information at leaf nodes.
+- The road network is recursively partitioned into `b` disjoint, similar-sized subgraphs until a subgraph
+  has at most `alpha` vertices. The paper uses METIS and allows any partitioner that produces
+  similar-sized subgraphs. The reproduction uses recursive median bisection of the vertex coordinates
+  (`method/build.py`), which gives balanced, spatially compact subgraphs. These subgraphs are not always
+  connected inside, so the distance-list construction can settle many outside vertices.
+- The root node is the shared ALT index: 16 random landmarks with distances to every vertex (paper Section 9.1).
+- Every other node selects `m` local landmarks among its own vertices. The four policies of Section 3.3.1
+  are implemented: Random, Furthest Border, Slice-Based Furthest Border and Border Minmax.
+- For each landmark of a node, a Subgraph Distance List (SDL) holds the distance to every vertex of the
+  node's subgraph. In this gym the submitted structure only fixes the hierarchy and the landmarks. The
+  evaluator computes the SDLs on its own network.
 
-The key idea is to use precomputed landmark distances to derive lower and upper bounds on network distances, enabling aggressive pruning during query answering.
+## COL-Tree (object index, Section 3.2)
 
-## SUL-Tree Construction
+For a query's object set, the COL-Tree is the SUL-Tree compacted at the first node holding at most
+`lambda` objects. Internal COL nodes keep, per landmark, the minimum and maximum landmark distance over
+their objects. COL leaves keep one Object Distance List (ODL) per landmark: the landmark distances of
+the leaf's objects, sorted. In the gym, node summaries and ODL reads (`nodes`, `peek`, `bisect`) are the
+COL-Tree's bookkeeping. `get` retrieves objects from an ODL.
 
-### Hierarchical Partitioning
+## Bounds (Section 3.3)
 
-The road network is recursively partitioned into b-way trees (default b = 8). Each node in the tree corresponds to a subgraph of the original network. The paper uses a METIS-style graph partitioner; this reproduction uses a deterministic multi-source BFS partitioner to keep the environment self-contained while preserving graph-aware subgraphs.
+- Per landmark, for all objects of a node: Eq. (4) lower bound and Eq. (6) upper bound, from `d(l, q)`
+  and the node's min/max landmark distances.
+- `d(l, q)` is exact when `q` lies in the landmark's subgraph. Otherwise it is bounded through the
+  landmarks of the root and of the lowest common ancestor (Eq. 7).
+- Alternate bound from the root landmarks' min/max (`M_R`).
+- `--bounds all` (an option, not the paper's default) also uses every ancestor's landmarks.
 
-- **Internal nodes**: Represent a partition of their parent's subgraph, containing a subset of the vertices and edges.
-- **Leaf nodes**: Represent small, atomic subgraphs (clusters of vertices).
-- Each node is assigned a set of **m landmark vertices** (default m = 2-4, depending on query type).
+## Query algorithms (Sections 4-6)
 
-### Subgraph Distance List (SDL)
+- **AkNN** (Algorithm 1): best-first search keyed by the aggregate lower bound (Lemma 1).
+  - A leaf's ODL is chosen by the largest average distance to Q.
+  - The search starts at the ODL position given by Lemma 2 (sum: median) or Lemma 3 (max: midpoint), then
+    moves left and right (convexity). Objects get their own bound from the leaf landmark and the root
+    landmarks before an exact distance is computed.
+- **kFN** (Algorithm 2): best-first search keyed by the upper bound.
+  - A leaf's ODL is chosen by the landmark closest to q and scanned from its far end.
+  - It stops when no remaining bound exceeds the k-th best exact distance.
+- **Range** (Algorithm 3): stack traversal.
+  - Subtrees whose upper bound is within r are reported whole. Subtrees whose lower bound exceeds r are pruned.
+  - Leaves report the ODL prefix confirmed by upper bound. They verify the window allowed by the lower bound.
 
-For each internal node with subgraph G_s and landmark set L_s, the SUL-Tree precomputes and stores for every vertex v in G_s:
-  SDL(v, L_s) = { d(v, l) | l ∈ L_s }
+## Parameters (paper Table 8, alpha = 1024, lambda = 256)
 
-This is the distance from v to each landmark in the node's landmark set. These precomputed values serve as the basis for lower and upper bound estimates during query processing.
+| Query | b | m | Landmark policy | Entries per vertex |
+|---|---:|---:|---|---:|
+| kFN | 4 | 4 | Slice-Based Furthest Border | 16 + 6 levels x 4 = 40 |
+| AkNN | 8 | 2 | Random | 16 + 4 levels x 2 = 24 |
+| Range | 8 | 2 | Border Minmax | 16 + 4 levels x 2 = 24 |
 
-### Landmark Selection Strategies
+`experiment_results/colt` uses these per-query settings. `experiment_results/colt_default` uses b=8,
+m=2, Random for every query type (the paper's default).
 
-The paper evaluates random, slice-based border, and border-minmax landmark policies. The core reproduction uses random local landmarks because the shipped graph lacks geographic coordinates needed for the full slice policy.
+## Key claims
 
-## COL-Tree Construction
-
-The COL-Tree is built on top of the SUL-Tree structure but is specialized for the POI set P.
-
-### Leaf Node Structure
-
-Leaf nodes of the COL-Tree store at most λ POIs (default λ = 256). Each leaf node maintains:
-- A sorted list of its contained POIs
-- For each POI p in the leaf, an **Object Distance List (ODL)**: { d(p, l) | l ∈ L_leaf } sorted by distance to landmarks
-
-The ODL enables efficient candidate pruning based on landmark distances.
-
-### Upper and Lower Bounds via Landmarks
-
-Given a query vertex q and a POI p, the precomputed landmark distances provide bounds:
-
-- **Lower bound**: Using triangle inequality with landmarks: d(q, p) ≥ |d(q, l) - d(p, l)| for any landmark l
-- **Upper bound**: d(q, p) ≤ d(q, l) + d(p, l)
-
-The maximum over all lower bounds provides the best (tightest) lower bound estimate. These bounds are used to prune the search space.
-
-### Convexity Preservation
-
-For aggregate functions (sum, max), the landmark-based bounds preserve the convexity of the distance function. This property ensures that the bounds are effective for pruning even in multi-POI queries (AkNN). Specifically, the lower bound on agg(d(q_i, p)) can be derived from landmark distances, allowing branch-and-bound search over the tree.
-
-## Query Processing
-
-### AkNN Query Algorithm
-
-Given query set Q, aggregate function agg, and k:
-1. Start from the root of the COL-Tree.
-2. For each node, compute landmark-based lower and upper bounds on the aggregate distance to any POI in the node's subtree.
-3. If the lower bound is already worse than the current best answer, prune the entire subtree.
-4. Recursively descend into promising child nodes.
-5. At leaf nodes, examine individual POIs using their ODLs, computing actual distances only when necessary to verify candidates.
-6. Maintain a priority structure of the current best k candidates, updating bounds as candidates are found.
-
-The search is a best-first or depth-first branch-and-bound over the tree, guided by the landmark-based bounds.
-
-### kFN Query Algorithm
-
-Given query vertex q and k:
-1. Traverse the COL-Tree similarly, but use bounds tailored to maximizing the minimum distance.
-2. Local landmark selection provides tighter bounds for farthest-neighbor queries; the paper's strongest kFN setting uses slice-based landmarks, while this reproduction uses random local landmarks.
-3. Prune subtrees where even the upper bound is worse than the current best minimum distance.
-4. At leaf nodes, use ODLs to quickly identify promising candidates without computing all distances.
-
-### Range Query Algorithm
-
-Given query vertex q and radius r:
-1. Traverse the COL-Tree, using landmark bounds to determine if any POI in a subtree can be within distance r.
-2. Prune subtrees where the lower bound exceeds r.
-3. At leaf nodes, check individual POIs using their ODLs.
-
-## Parameters
-
-Key parameters affecting performance and memory:
-- **b** (branching factor): Default 8. Higher b increases fanout but may weaken bounds.
-- **λ** (leaf capacity): Default 256. Maximum POIs per leaf node.
-- **m** (landmark count): 2 for AkNN, 4 for kFN. More landmarks give tighter bounds but increase memory.
-- Landmark selection strategy: random in the core reproduction; the paper also evaluates slice and border-minmax variants.
-
-## Key Claims
-
-1. Landmark-based bounds are tight enough to prune the vast majority of the network during query processing.
-2. The convexity-preserving property of the bounds enables effective pruning even for aggregate queries.
-3. The COL-Tree's compact POI-specific index reduces memory overhead compared to a full network index.
-4. The hierarchical structure enables early pruning of large portions of the search space.
-5. Different landmark selection strategies optimize for different query types (nearest vs. farthest).
+1. Landmark bounds over a subgraph hierarchy prune most objects without retrieving them individually,
+   for AkNN, kFN and range queries.
+2. Convexity of sum/max aggregates lets one binary search per leaf start AkNN retrieval at the best object.
+3. kFN can be answered by incremental retrieval by upper bound, which no expansion-based or
+   Euclidean-bound method supports.
+4. The index costs little more than an ALT index of the same size.
 
 ---
 
@@ -213,39 +181,54 @@ using exact distances in the full evaluation network. **Index size** is the tota
 **Construction work** is the number of vertices a shortest-path search from each landmark settles before
 it covers that node's vertex set.
 
-Budget: at most 40 entries per vertex for kFN and 24 for AkNN and range, at most 400 settled vertices per
-vertex, leaves of at least 128 vertices, at most 32 landmarks per node, and at most 200,000 nodes.
+Budget: at most 40 entries per vertex for kFN and 24 for AkNN and range. Construction work may be at most
+3,000 settled vertices per vertex for kFN and 600 for AkNN and range. Leaves need at least 128 vertices,
+nodes at most 32 landmarks, and a structure at most 200,000 nodes.
 
 ## Protocol
 
-The solver speaks JSON lines on stdin/stdout. `data/oracle_client.py` wraps the protocol.
+The solver speaks JSON lines on stdin/stdout. `data/oracle_client.py` wraps the protocol. The solver
+runs with the workspace root as its working directory, in its own user, mount and pid namespaces. There,
+`eval/`, `.git` and `data/downloads/` are empty and `/proc` shows only the solver's processes. The raw
+public data (travel times, coordinates, POI files) is therefore available to index construction, which
+runs before evaluation, but not to the solver while it answers. Everything else in the workspace (its
+code, the `data/*.py` modules, its structure files) is readable as usual.
 
 1. The evaluator sends `{"type":"hello","task":...,"n_vertices":...,"structure":path}` and the solver replies `{"type":"ready"}`.
 2. The evaluator sends `{"type":"landmarks","records":{v: record(v)}}` for every landmark vertex, and the solver replies `{"type":"ok"}`.
    `record(v)` is the list of d(l, v) for every landmark l on the root-to-leaf path of v, in path and landmark order.
 3. Per query, the evaluator sends `{"type":"query","kind":..., "q":[...], "q_records":[...], "n_objects":|P|, "root":summary(0), "k"/"agg"/"radius"}`.
    The solver may then send requests, either singly or as `{"op":"batch","reqs":[...]}`:
-   - `nodes(ids)` (free): per-node summary `[count, mins, maxs]`. These are the element-wise min and max of the
+   - `nodes(ids)`: per-node summary `[count, mins, maxs]`. These are the element-wise min and max of the
      record prefix (the landmarks of the node and its ancestors) over the query's objects inside that node.
-   - `peek(node,pos,idx)` and `bisect(node,pos,x)` (free): read the sorted list of `record[pos]` values
+   - `peek(node,pos,idx)` and `bisect(node,pos,x)`: read the sorted list of `record[pos]` values
      over the node's objects (an object distance list) without learning which objects they belong to.
-   - `get(node,pos,lo,hi)` (counted): reveal the objects at ranks [lo, hi) of that list, with their records.
-   - `dist(qi, vertices)` (counted): exact network distances from query vertex `qi`.
+   - `get(node,pos,lo,hi)`: reveal the objects at ranks [lo, hi) of that list, with their records.
+   - `dist(qi, vertices)`: exact network distances from query vertex `qi`.
+
+   What is counted: every object revealed by `get`, passed to `dist` or returned. Also counted: every
+   non-root node that holds at least one of the query's objects and is accessed by any request (once per
+   query). Nodes with no objects, and the root (whose summary comes with the query), are free. Every
+   distinct `dist` pair is counted.
    - `answer(result)`: object ids. A range answer is the full in-range set. kFN and AkNN answers are exactly k objects.
 4. `{"type":"bye"}` ends the session.
 
 ## Metrics (per experiment `kfn`, `aknn`, `range`)
 
-- `log10_candidate_reduction` (primary, higher is better): mean of log10((|P|+1)/(objects revealed+1)).
-  An object counts as revealed if it is returned by `get`, passed to `dist`, or included in the answer.
+- `log10_candidate_reduction` (primary, higher is better): mean of log10((|P|+1)/(candidates+1)), floored at 0.
+  Candidates are the objects revealed plus the non-empty index nodes accessed (see Protocol). An object
+  counts as revealed if it is returned by `get`, passed to `dist`, or included in the answer.
 - `log10_call_reduction` (higher is better): mean of log10((|Q||P|+1)/(distinct (query vertex, vertex) `dist` pairs+1)).
 - `exact_answer_rate` (constraint, must be 1.0): every answer is checked against the evaluator's own Dijkstra.
   Ties at the k-th distance are accepted.
 - `index_entries_per_vertex` and `sdl_work_per_vertex` (constraints, lower is better): index size and construction cost.
 
-A method that fails anything gets the worst value of every metric in every experiment. Failures include an
-invalid or over-budget structure, a crash, a timeout (2 h per task, 15 min idle), a protocol error, or a single
-inexact answer.
+A method that fails anything gets the worst value of every metric in every experiment. Worst values:
+0 for the three rates and reductions, and the cap for index size and construction work. Failures include:
+- an invalid or over-budget structure
+- a crash or a protocol error
+- a timeout: 2 h of the solver's own answering time per task, or 15 min without a message
+- a single inexact answer
 
 ## How to run
 
@@ -775,6 +758,156 @@ Each evaluator scores every directory under `experiment_results/`. Only method d
 ### Iteration 10: gpt-6.1-sol (redteam)
 - **Milestone**: `secondary_claims` | **Status**: done
 - **Working time**: 8m | **GPU**: 0.0h
+
+<details>
+<summary>Progress Log</summary>
+
+### [2026-05-20 01:23] - method_runs
+- Audited the prior implementation and found root-only landmarks and missing COL internal object bounds.
+- Reworked SUL-Tree construction to use graph-aware recursive partitions with local per-node landmarks and SDLs.
+- Reworked COL-Tree construction to store object-specific min/max bounds for internal nodes and ODLs for leaves.
+- Verified the revised method on a tiny local graph; submitting the first compute job to test the core kFN claim on US48.
+
+### [2026-05-20 01:27] - method_runs
+- Continued the audit and found that no fresh `experiment_results/core_claim` artifacts existed for the revised implementation.
+- Fixed kFN leaf processing so a revisited COL leaf retrieves additional ODL objects instead of being requeued without progress.
+- Resubmitting the US48 kFN core job to generate real scores before restoring `core_claim`.
+
+### [2026-05-20 01:29] - method_runs
+- Container build failed because `environment/container.def` tried to bake gitignored `data/downloads/*` files into the image.
+- Removed the fragile `%files` section; runtime uses the bind-mounted workspace and `scripts/download.sh` repopulates `data/downloads/` from tracked data or verified URLs.
+- Resubmitting the same CPU core job after the environment packaging fix.
+
+### [2026-05-20 01:32] - core_claim
+- CPU job `90b0e53b-aab` completed the US48 kFN core experiment with 12/12 exact queries.
+- Reproduced the core benefit/constraint pair: exact kFN correctness with `candidates_ratio=0.1650` and `lookup_reduction_vs_brute=6.0601`.
+- Expanding the same core experiment to a second object density before attempting a higher milestone.
+
+### [2026-05-20 01:36] - core_claim_plus
+- CPU job `e203f389-121` completed kFN at object densities 0.05 and 0.10 with 24/24 exact queries.
+- Averaged score improved to `candidates_ratio=0.1566` and `lookup_reduction_vs_brute=6.4020` while preserving `accuracy=1.0`.
+- Adding small AkNN and range runs to test secondary query claims next.
+
+### [2026-05-20 01:40] - core_claim_plus
+- CPU job `26aa2eab-2d1` verified AkNN and range correctness, but range scanned all objects (`candidates_ratio=1.0`).
+- Fixed range leaf processing to use the ODL landmark-distance window implied by triangle inequality before exact checks.
+- Resubmitting secondary query coverage before claiming `secondary_claims`.
+
+### [2026-05-20 01:44] - secondary_claims
+- CPU job `d266aebb-8f5` reran kFN, AkNN, and range after range ODL pruning.
+- All evaluated query families were exact: kFN, AkNN, and range each reached `accuracy=1.0`.
+- Secondary pruning now holds: AkNN `candidates_ratio=0.1666`, range `candidates_ratio=0.0844`, and kFN `lookup_reduction_vs_brute=6.4020`.
+
+### [2026-05-20 02:21] - secondary_claims
+- Refreshed the evaluator to populate p90 and worst-query candidate-ratio constraint metrics from saved per-query method artifacts.
+- Re-ran `scripts/evaluate.sh`, `scripts/evaluate_train.sh`, `scripts/evaluate_test.sh`, and `python validate.py --compare`; all checks pass.
+
+### [2026-05-20 02:23] - secondary_claims
+- Final verification passed after cleaning method-agnostic documentation, documenting replacement benchmark reference rows, and moving brute-force baseline helpers under `baseline/`.
+- Verified download URLs and reran `python validate.py --compare`; all checks pass.
+
+### [2026-05-20 02:27] - secondary_claims
+- Re-audited the submitted workspace, moved the AUB-PHL-style helper used by the experiment harness into `baseline/`, and removed the stale baseline module from `method/`.
+- Re-ran bytecode checks, `scripts/evaluate.sh`, and `python3 validate.py --compare`; all checks pass.
+
+### [2026-05-20 02:32] - method_runs
+- Sub-agent audit found that the previous results relied on stale artifacts and exact full-graph local-landmark distances, so the honest current milestone is reset pending a fresh job.
+- Removed full-graph local-landmark SDL caching, switched COL node bounds to root-landmark lower/upper-bound substitution, changed kFN leaves to enqueue object candidates by upper bound before exact verification, and made result artifacts include per-query outputs.
+- Updated evaluation to recompute main accuracy from method outputs and exact ground truth, tightened train/test evaluators to require per-query correctness and exact lookup counts, and changed `scripts/run.sh` to regenerate method artifacts before scoring.
+- Bytecode checks and a tiny local graph smoke test pass; submitting a CPU job to regenerate the benchmark artifacts.
+
+### [2026-05-20 02:35] - method_runs
+- Final verification found that the checked-in `experiment_results/core_claim` artifacts are still stale and fail standalone `scripts/evaluate.sh` because they lack `queries.per_query`.
+- Verified both download URLs with `curl -I -L --max-time 15`; both returned HTTP 200.
+- Cleaned public scoring guidance to avoid exposing implementation names in method-agnostic/high-level gym documents.
+- Keeping the milestone at `method_runs` and submitting the prepared CPU job to regenerate artifacts and scores before any final `secondary_claims` sign-off.
+
+### [2026-05-20 02:39] - secondary_claims
+- CPU job `714f3f12-b67` regenerated post-audit artifacts and completed `scripts/run.sh` with exit code 0.
+- Fresh artifacts now include `queries.per_query`, per-query correctness flags, and kFN exact-lookup counts required by the stricter evaluator.
+- `python3 validate.py --compare` passed in the job; regenerated scores show exact kFN, AkNN, and range results with nontrivial candidate pruning.
+
+</details>
+
+### Iteration 11: claude-opus-5-5 (hardener)
+- **Milestone**: `secondary_claims` | **Status**: done
+- **Working time**: 22m | **GPU**: 0.0h
+- **Jobs**: 1 total (1 completed, 0 failed)
+
+<details>
+<summary>Progress Log</summary>
+
+### [2026-05-20 01:23] - method_runs
+- Audited the prior implementation and found root-only landmarks and missing COL internal object bounds.
+- Reworked SUL-Tree construction to use graph-aware recursive partitions with local per-node landmarks and SDLs.
+- Reworked COL-Tree construction to store object-specific min/max bounds for internal nodes and ODLs for leaves.
+- Verified the revised method on a tiny local graph; submitting the first compute job to test the core kFN claim on US48.
+
+### [2026-05-20 01:27] - method_runs
+- Continued the audit and found that no fresh `experiment_results/core_claim` artifacts existed for the revised implementation.
+- Fixed kFN leaf processing so a revisited COL leaf retrieves additional ODL objects instead of being requeued without progress.
+- Resubmitting the US48 kFN core job to generate real scores before restoring `core_claim`.
+
+### [2026-05-20 01:29] - method_runs
+- Container build failed because `environment/container.def` tried to bake gitignored `data/downloads/*` files into the image.
+- Removed the fragile `%files` section; runtime uses the bind-mounted workspace and `scripts/download.sh` repopulates `data/downloads/` from tracked data or verified URLs.
+- Resubmitting the same CPU core job after the environment packaging fix.
+
+### [2026-05-20 01:32] - core_claim
+- CPU job `90b0e53b-aab` completed the US48 kFN core experiment with 12/12 exact queries.
+- Reproduced the core benefit/constraint pair: exact kFN correctness with `candidates_ratio=0.1650` and `lookup_reduction_vs_brute=6.0601`.
+- Expanding the same core experiment to a second object density before attempting a higher milestone.
+
+### [2026-05-20 01:36] - core_claim_plus
+- CPU job `e203f389-121` completed kFN at object densities 0.05 and 0.10 with 24/24 exact queries.
+- Averaged score improved to `candidates_ratio=0.1566` and `lookup_reduction_vs_brute=6.4020` while preserving `accuracy=1.0`.
+- Adding small AkNN and range runs to test secondary query claims next.
+
+### [2026-05-20 01:40] - core_claim_plus
+- CPU job `26aa2eab-2d1` verified AkNN and range correctness, but range scanned all objects (`candidates_ratio=1.0`).
+- Fixed range leaf processing to use the ODL landmark-distance window implied by triangle inequality before exact checks.
+- Resubmitting secondary query coverage before claiming `secondary_claims`.
+
+### [2026-05-20 01:44] - secondary_claims
+- CPU job `d266aebb-8f5` reran kFN, AkNN, and range after range ODL pruning.
+- All evaluated query families were exact: kFN, AkNN, and range each reached `accuracy=1.0`.
+- Secondary pruning now holds: AkNN `candidates_ratio=0.1666`, range `candidates_ratio=0.0844`, and kFN `lookup_reduction_vs_brute=6.4020`.
+
+### [2026-05-20 02:21] - secondary_claims
+- Refreshed the evaluator to populate p90 and worst-query candidate-ratio constraint metrics from saved per-query method artifacts.
+- Re-ran `scripts/evaluate.sh`, `scripts/evaluate_train.sh`, `scripts/evaluate_test.sh`, and `python validate.py --compare`; all checks pass.
+
+### [2026-05-20 02:23] - secondary_claims
+- Final verification passed after cleaning method-agnostic documentation, documenting replacement benchmark reference rows, and moving brute-force baseline helpers under `baseline/`.
+- Verified download URLs and reran `python validate.py --compare`; all checks pass.
+
+### [2026-05-20 02:27] - secondary_claims
+- Re-audited the submitted workspace, moved the AUB-PHL-style helper used by the experiment harness into `baseline/`, and removed the stale baseline module from `method/`.
+- Re-ran bytecode checks, `scripts/evaluate.sh`, and `python3 validate.py --compare`; all checks pass.
+
+### [2026-05-20 02:32] - method_runs
+- Sub-agent audit found that the previous results relied on stale artifacts and exact full-graph local-landmark distances, so the honest current milestone is reset pending a fresh job.
+- Removed full-graph local-landmark SDL caching, switched COL node bounds to root-landmark lower/upper-bound substitution, changed kFN leaves to enqueue object candidates by upper bound before exact verification, and made result artifacts include per-query outputs.
+- Updated evaluation to recompute main accuracy from method outputs and exact ground truth, tightened train/test evaluators to require per-query correctness and exact lookup counts, and changed `scripts/run.sh` to regenerate method artifacts before scoring.
+- Bytecode checks and a tiny local graph smoke test pass; submitting a CPU job to regenerate the benchmark artifacts.
+
+### [2026-05-20 02:35] - method_runs
+- Final verification found that the checked-in `experiment_results/core_claim` artifacts are still stale and fail standalone `scripts/evaluate.sh` because they lack `queries.per_query`.
+- Verified both download URLs with `curl -I -L --max-time 15`; both returned HTTP 200.
+- Cleaned public scoring guidance to avoid exposing implementation names in method-agnostic/high-level gym documents.
+- Keeping the milestone at `method_runs` and submitting the prepared CPU job to regenerate artifacts and scores before any final `secondary_claims` sign-off.
+
+### [2026-05-20 02:39] - secondary_claims
+- CPU job `714f3f12-b67` regenerated post-audit artifacts and completed `scripts/run.sh` with exit code 0.
+- Fresh artifacts now include `queries.per_query`, per-query correctness flags, and kFN exact-lookup counts required by the stricter evaluator.
+- `python3 validate.py --compare` passed in the job; regenerated scores show exact kFN, AkNN, and range results with nontrivial candidate pruning.
+
+</details>
+
+### Iteration 11: claude-opus-5-5 (hardener)
+- **Milestone**: `secondary_claims` | **Status**: done
+- **Working time**: 29m | **GPU**: 0.0h
+- **Jobs**: 4 total (1 completed, 1 failed)
 
 <details>
 <summary>Progress Log</summary>
