@@ -993,14 +993,13 @@ Each evaluator scores every directory under `experiment_results/`. Only method d
 
 </details>
 
+### Iteration 11: claude-opus-5-5 (hardener)
+- **Milestone**: `secondary_claims` | **Status**: done
+- **Working time**: 59m | **GPU**: 0.0h
+- **Jobs**: 8 total (4 completed, 1 failed)
 
----
-
-# Reproduction Milestones
-
-**Current: secondary_claims**
-
-## Progress Log
+<details>
+<summary>Progress Log</summary>
 
 ### [2026-05-20 01:23] - method_runs
 - Audited the prior implementation and found root-only landmarks and missing COL internal object bounds.
@@ -1072,6 +1071,15 @@ Each evaluator scores every directory under `experiment_results/`. Only method d
 - Workloads cover the paper's density range (uniform d = 0.001, 0.01, 0.1). The hidden test averages over three hidden travel-time conditions.
 - The paper's effects now appear beyond noise on the hidden test. The local-landmark ablation scores -0.284 rank. Against the ALT filter, COL-Tree computes fewer exact distances at d = 0.01 (+0.14 +- 0.04) and d = 0.1 (+0.35 +- 0.07), and retrieves 1-3 orders of magnitude fewer candidates.
 - Honest improvements beat the reference and transfer to train (colt_best +0.061 test / +0.041 train). The shared-backbone seed spread is 0.007. Re-drawing root landmarks moves test kFN by up to +0.069 without a train signal; this is documented as an unfixed weakness.
+
+</details>
+
+
+---
+
+# Reproduction Milestones
+
+**Current: secondary_claims**
 
 ## Stop Justification
 - Completed at milestone `secondary_claims`.
