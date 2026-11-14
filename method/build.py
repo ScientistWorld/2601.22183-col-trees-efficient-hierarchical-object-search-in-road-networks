@@ -218,6 +218,49 @@ def pick_furthest_border(verts, borders, m, sssp, rng):
     return chosen
 
 
+def pick_farthest_root(graph, m, rng, csr):
+    """(variant, not the paper's) Farthest landmark selection for the root ALT
+    landmarks (Goldberg & Harrelson): start from a random vertex, then repeatedly
+    add the vertex farthest from the landmarks chosen so far (public weights)."""
+    n = graph.n
+    start = rng.randrange(n)
+    if HAVE_SCIPY and csr is not None:
+        d = sp_dijkstra(csr, directed=True, indices=[start])[0]
+        d = np.where(np.isfinite(d), d, -1.0)
+        chosen = [int(np.argmax(d))]
+        while len(chosen) < m:
+            d = sp_dijkstra(csr, directed=True, indices=chosen, min_only=True)
+            d = np.where(np.isfinite(d), d, -1.0)
+            d[np.asarray(chosen, dtype=np.int64)] = -1.0
+            chosen.append(int(np.argmax(d)))
+        return sorted(chosen)
+    import heapq  # stdlib fallback (tiny graphs)
+
+    def multi_source(sources):
+        dist = [math.inf] * n
+        heap = [(0, s) for s in sources]
+        for s in sources:
+            dist[s] = 0
+        while heap:
+            d, u = heapq.heappop(heap)
+            if d > dist[u]:
+                continue
+            for i in range(int(graph.indptr[u]), int(graph.indptr[u + 1])):
+                v, nd = int(graph.indices[i]), d + int(graph.weights[i])
+                if nd < dist[v]:
+                    dist[v] = nd
+                    heapq.heappush(heap, (nd, v))
+        return dist
+
+    def farthest(dist, exclude):
+        return max((i for i in range(n) if dist[i] < math.inf and i not in exclude), key=lambda i: (dist[i], -i))
+
+    chosen = [farthest(multi_source([start]), set())]
+    while len(chosen) < m:
+        chosen.append(farthest(multi_source(chosen), set(chosen)))
+    return sorted(chosen)
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--out", required=True)
@@ -226,6 +269,8 @@ def main():
     ap.add_argument("--alpha", type=int, default=1024, help="max vertices per SUL leaf")
     ap.add_argument("--root-landmarks", type=int, default=16, help="ALT landmarks at the root")
     ap.add_argument("--policy", default="random", choices=["random", "slice", "minmax", "border"])
+    ap.add_argument("--root-policy", default="random", choices=["random", "farthest"],
+                    help="root (ALT) landmarks: random as in the paper's experiments, or farthest (variant)")
     ap.add_argument("--seed", type=int, default=1)
     args = ap.parse_args()
 
@@ -249,7 +294,11 @@ def main():
     for node in range(len(parent)):
         verts = members[node]
         if node == 0:
-            landmarks.append(sorted(pick_random(verts, args.root_landmarks, rng)))
+            root = sorted(pick_random(verts, args.root_landmarks, rng))
+            if args.root_policy == "farthest":
+                # separate generator: the local landmarks stay those of the random-root build
+                root = pick_farthest_root(graph, args.root_landmarks, random.Random(args.seed + 7919), csr)
+            landmarks.append(root)
             continue
         m = min(args.m, len(verts))
         if args.policy == "random":
@@ -269,6 +318,8 @@ def main():
             leaf_of[v] = leaf
     meta = {"b": args.b, "m": args.m, "alpha": args.alpha, "root_landmarks": args.root_landmarks,
             "policy": args.policy, "seed": args.seed, "partitioner": "recursive-median-bisection"}
+    if args.root_policy != "random":
+        meta["root_policy"] = args.root_policy
     os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
     save_structure(args.out, parent, landmarks, leaf_of, meta)
     entries = sum(len(landmarks[i]) * len(members[i]) for i in range(len(parent)))

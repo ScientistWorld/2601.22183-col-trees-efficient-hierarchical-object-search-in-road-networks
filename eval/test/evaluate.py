@@ -65,15 +65,17 @@ SECRET = 0x04385DECF1B74B0A
 NOISE = {"grid": 12, "sigma_region": 0.35, "sigma_edge": 0.20, "clip": (0.4, 2.5)}
 JITTER_STEPS = 3
 REAL_SETS = ("school", "park", "post_office", "fast_food", "hotel")
+# Object densities span the paper's sensitivity range (Figures 6a, 11, 13a:
+# d = |P|/|V| from 0.0001 to 0.1); the real categories cover d = 0.0004-0.005.
 TASKS = {
     "kfn": {"sets": ["school", "park", "post_office", "fast_food", "hotel",
-                     "uniform:0.001", "uniform:0.005"],
+                     "uniform:0.001", "uniform:0.01", "uniform:0.1"],
             "per_set": 20, "k": 10},
     "aknn": {"sets": ["school", "park", "post_office", "fast_food", "hotel",
-                      "uniform:0.001", "uniform:0.005"],
+                      "uniform:0.001", "uniform:0.01", "uniform:0.1"],
              "per_set": 12, "k": 10, "q_size": 8, "area": 0.15, "aggs": ["max", "sum"]},
     "range": {"sets": ["school", "park", "post_office", "fast_food",
-                       "uniform:0.005", "uniform:0.01"],
+                       "uniform:0.001", "uniform:0.01", "uniform:0.1"],
               "per_set": 20, "radius_frac": 0.025},
 }
 # Index budget: subgraph-distance-list entries per vertex (the paper's tuned
@@ -359,7 +361,7 @@ def load_poi(name):
 
 
 class Workload:
-    def __init__(self, n, eu, ev, engine, seed):
+    def __init__(self, n, eu, ev, engine, seed, tasks=None):
         self.n = n
         self.seed = seed
         self.adj_ptr, self.adj = self._topology(n, eu, ev)
@@ -371,6 +373,8 @@ class Workload:
         self.diameter = float(row[argmax_row(row)])
         self.queries = {}
         for task, cfg in TASKS.items():
+            if tasks is not None and task not in tasks:
+                continue
             specs = []
             for si, set_name in enumerate(cfg["sets"]):
                 for qi in range(cfg["per_set"]):
@@ -1050,8 +1054,17 @@ def main():
                     help="directory whose sub-directories are methods (default: experiment_results)")
     ap.add_argument("--output", default=os.path.join(WORKSPACE, "scoring", f"scores_{SPLIT}.json"))
     ap.add_argument("--details", default=None, help="optional per-query work counts (no hidden data)")
+    ap.add_argument("--tasks", default=None,
+                    help="comma-separated subset of tasks to score (default: all; for split runs only)")
+    ap.add_argument("--checkpoint", default=None,
+                    help="resume file: tasks finished by an earlier run with the same methods are kept")
     args = ap.parse_args()
     roots = args.root or [os.path.join(WORKSPACE, "experiment_results")]
+    tasks_run = list(TASKS)
+    if args.tasks:
+        tasks_run = [t for t in TASKS if t in args.tasks.split(",")]
+        if not tasks_run or set(args.tasks.split(",")) - set(TASKS):
+            raise SystemExit(f"--tasks must name tasks among {list(TASKS)}")
 
     t0 = time.time()
     log = lambda msg: print(f"[eval:{SPLIT} {time.time() - t0:7.1f}s] {msg}", file=sys.stderr, flush=True)
@@ -1059,7 +1072,7 @@ def main():
     ww = hidden_weights(n, eu, ev, ew, xs, ys, SECRET)
     engine = Engine(n, eu, ev, ww)
     log(f"network: {n} vertices, {len(eu)} edges (scipy={HAVE_SCIPY})")
-    workload = Workload(n, eu, ev, engine, SECRET)
+    workload = Workload(n, eu, ev, engine, SECRET, tasks_run)
     log("workload: " + ", ".join(f"{t}={len(q)} queries" for t, q in workload.queries.items()))
 
     methods = discover(roots)
@@ -1097,10 +1110,37 @@ def main():
             raise idx
         return idx
 
-    results = {name: {task: [] for task in TASKS} for name, _ in methods}
+    results = {name: {task: [] for task in tasks_run} for name, _ in methods}
+
+    # Optional resume (used by long batch runs that may be preempted): a task is
+    # skipped when an earlier run of this same evaluator file on the same method
+    # submissions finished it.  The file holds work counts and statuses only.
+    with open(os.path.abspath(__file__), "rb") as handle:
+        self_digest = hashlib.sha256(handle.read()).hexdigest()
+    signature = {"evaluator": self_digest, "tasks": tasks_run, "methods": [m for m, _ in methods],
+                 "plans": {m: [p[0], {t: p[1][t][0] for t in p[1]}] for m, p in plans.items()},
+                 "invalid": {m: s for m, s in status.items() if s is not None}}
+    ckpt = {"signature": signature, "done": []}
+    if args.checkpoint and os.path.exists(args.checkpoint):
+        try:
+            with open(args.checkpoint) as handle:
+                old = json.load(handle)
+            if old.get("signature") == signature:
+                ckpt = old
+                status.update(old["status"])
+                for name, per_task in old["results"].items():
+                    results[name].update({t: rows for t, rows in per_task.items() if t in old["done"]})
+                for name, per_task in old["stats"].items():
+                    stats.setdefault(name, {}).update({t: tuple(v) for t, v in per_task.items()})
+                log(f"checkpoint: resuming after tasks {old['done']}")
+        except Exception as exc:
+            log(f"checkpoint ignored ({exc})")
+
     logdir = tempfile.mkdtemp(prefix=f"colt_eval_{SPLIT}_")
     task_order = list(workload.queries)
     for ti, (task, specs) in enumerate(workload.queries.items()):
+        if task in ckpt["done"]:
+            continue
         sessions = {}
         for name in plans:
             if status[name] is not None:
@@ -1156,10 +1196,17 @@ def main():
         later = {plans[m][1][t][0] for m in plans if status[m] is None for t in task_order[ti + 1:]}
         for digest in [d for d in indexes if d not in later]:
             del indexes[digest]
+        if args.checkpoint:
+            ckpt.update({"done": ckpt["done"] + [task], "status": status, "results": results,
+                         "stats": {m: {t: list(v) for t, v in s.items()} for m, s in stats.items()}})
+            tmp = args.checkpoint + ".tmp"
+            with open(tmp, "w") as handle:
+                json.dump(ckpt, handle)
+            os.replace(tmp, args.checkpoint)
 
-    scores = {EXPERIMENTS[t]: {"results": {}} for t in TASKS}
+    scores = {EXPERIMENTS[t]: {"results": {}} for t in tasks_run}
     for name, _ in methods:
-        for task in TASKS:
+        for task in tasks_run:
             if status[name] is not None:
                 metrics = worst_metrics(task)
             else:

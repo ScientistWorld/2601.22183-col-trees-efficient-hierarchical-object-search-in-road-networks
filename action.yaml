@@ -1,6 +1,8 @@
 # Once you set action to 'submit' or 'done', STOP immediately.
 # Do NOT sleep, poll, or wait for jobs. The system reads this file
 # only after your turn ends.
-action: done
+action: submit
+gpus: 0
+test: false
 milestone: secondary_claims
-notes: "Hardened: evaluator-owned protocol on the paper's NW network, isolated solvers (eval/.git/data/downloads hidden), node-charged candidates; better variants +0.33-0.36 rank vs 0.042 seed spread, every shortcut fails (copied-graph gamble exact but +0.001); see HARDENING.md"
+notes: "Hardening (REVIEW.md): lambda tuned per query type on the train split, paper's density range (d up to 0.1) in train/test/paper workloads; reruns reference (test, train, paper), probe groups (lambda re-tune, local-landmark ablation, better variants, shortcuts) and seeds"

@@ -1,7 +1,10 @@
 # Experiment Overview
 
 All experiments run on the North-West US road network: 1.09M vertices, travel-time edges, from the 9th DIMACS
-Challenge. Object sets are real OpenStreetMap POI categories mapped to vertices, or uniform random vertex samples.
+Challenge. Object sets are real OpenStreetMap POI categories mapped to vertices, or uniform random vertex samples
+at densities 0.001, 0.01 and 0.1 (about 1,000 to 109,000 objects). The real categories hold 50 to 5,000 objects.
+The dense sets test whether the savings hold as objects crowd together, which is where methods that check
+objects one by one degrade fastest.
 The evaluator owns every network distance. A method only sees what it asks for, and the evaluator counts what it asks for.
 
 ## kfn

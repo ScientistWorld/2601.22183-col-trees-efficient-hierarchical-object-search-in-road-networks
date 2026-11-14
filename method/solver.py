@@ -20,16 +20,28 @@ outside the landmark's subgraph, plus the alternate bound from the root
 landmarks.  Candidate objects are tightened with the root landmarks before
 they enter the queue (Algorithm 1 line 28, Algorithm 2 line 26).
 
-Options (defaults = paper settings, Table 8):
-  --lam       maximum objects in a COL leaf (256)
+Options:
+  --lam       maximum objects in a COL leaf: one value for every query type, or
+              per query type, e.g. 'kfn=64,aknn=32,range=64'.  The paper
+              selects lambda by parameter testing on its own network
+              (Section 9.6, Table 8: 256 on the 24M-vertex US network);
+              scripts/method.sh selects it the same way on this network's
+              public (train) split (method/tune_lambda.py).
   --bounds    'paper' (own + root landmarks, root/LCA substitution) or
               'all' (every landmark on the path, every common ancestor)
+  --lam-rule  (variant, not the paper's) lambda per query from the object-set
+              size: lambda = exp(A) * |P|^B rounded to a power of two and
+              clipped to [lo, hi], given as 'kfn=A:B:lo:hi,aknn=...'
+  --certify   (variant, not the paper's) accept a kFN / AkNN candidate without
+              an exact distance when its bounds already prove it belongs to
+              the result
 """
 
 from __future__ import annotations
 
 import argparse
 import heapq
+import math
 import os
 import sys
 
@@ -60,16 +72,52 @@ class Cursor:
         return v
 
 
+TASKS = ("kfn", "aknn", "range")
+
+
+def parse_per_task(spec, cast):
+    """'256' -> {task: 256}; 'kfn=64,aknn=32' -> {'kfn': 64, 'aknn': 32}."""
+    out = {}
+    if spec is None or spec == "":
+        return out
+    if "=" not in spec:
+        value = cast(spec)
+        return {t: value for t in TASKS}
+    for part in spec.split(","):
+        task, value = part.split("=", 1)
+        if task.strip() not in TASKS:
+            raise SystemExit(f"unknown task {task!r} in {spec!r}")
+        out[task.strip()] = cast(value)
+    return out
+
+
+def parse_rule(value):
+    a, b, lo, hi = value.split(":")
+    return float(a), float(b), int(lo), int(hi)
+
+
+def rule_lambda(rule, n_objects):
+    """lambda = exp(A) * |P|^B, rounded to a power of two and clipped to [lo, hi]."""
+    a, b, lo, hi = rule
+    lam = 2 ** int(round((a + b * math.log(max(1, n_objects))) / math.log(2)))
+    return min(hi, max(lo, lam))
+
+
 class Solver:
-    def __init__(self, client: OracleClient, lam: int = 256, bounds: str = "paper"):
+    def __init__(self, client: OracleClient, lam="256", bounds: str = "paper",
+                 lam_rule=None, certify: bool = False):
         self.c = client
-        self.lam = lam
+        self.lam_by_task = parse_per_task(str(lam), int)
+        self.rule_by_task = parse_per_task(lam_rule, parse_rule)
+        self.lam = 256
         self.all_bounds = bounds == "all"
+        self.certify = certify
 
     # ------------------------------------------------------------------ setup
     def serve(self):
         hello = self.c.recv()
         self.task = hello["task"]
+        self.lam = self.lam_by_task.get(self.task, 256)
         st = load_structure(hello["structure"])
         self.st = st
         self.L = st.landmarks
@@ -107,9 +155,16 @@ class Solver:
         self.bcache = {}
         self.exact = {}
         self.tie = 0
+        rule = self.rule_by_task.get(self.task)
+        if rule is not None:
+            self.lam = rule_lambda(rule, msg["n_objects"])
         if self.task == "aknn":
+            if self.certify:
+                return self.aknn_certify(msg["k"], msg["agg"])
             return self.aknn(msg["k"], msg["agg"])
         if self.task == "kfn":
+            if self.certify:
+                return self.kfn_certify(msg["k"])
             return self.kfn(msg["k"])
         return self.range(msg["radius"])
 
@@ -333,7 +388,7 @@ class Solver:
         fr = st["f"](st["cur"].d(st["rp"])) if st["rp"] < st["cnt"] else INF
         return min(fl, fr)
 
-    def _aknn_retrieve(self, node, st, pq, idxs, aggf):
+    def _aknn_retrieve(self, node, st, pq, idxs, aggf, certify=False):
         f, cur, consts = st["f"], st["cur"], st["consts"]
         if self.all_bounds:
             self.set_layout(node)
@@ -353,8 +408,49 @@ class Solver:
             obj, dv, rec = self.c.get(node, st["pos"], j, j + 1)[0]
             if self.all_bounds:
                 self.set_layout(self.leaf_of[obj])
-            lbs = [self.object_bounds(i, rec, st["pos"], consts[i])[0] for i in idxs]
-            heapq.heappush(pq, (aggf(lbs), self.next_tie(), 1, obj))
+            bnds = [self.object_bounds(i, rec, st["pos"], consts[i]) for i in idxs]
+            lb = aggf(b[0] for b in bnds)
+            if certify:
+                heapq.heappush(pq, (lb, self.next_tie(), 1, obj, aggf(b[1] for b in bnds)))
+            else:
+                heapq.heappush(pq, (lb, self.next_tie(), 1, obj))
+
+    def aknn_certify(self, k, agg):
+        """Algorithm 1 with bound certification (variant): a popped candidate whose
+        aggregate upper bound is <= every remaining lower bound is a result without
+        exact distances; otherwise its exact aggregate distance is computed and it
+        is re-queued under that exact key."""
+        idxs = list(range(len(self.Q)))
+        aggf = max if agg == "max" else sum
+        pq = [(0, self.next_tie(), 0, 0, INF)]  # (key, tie, kind 0 node/1 bounded/2 exact, item, ub)
+        result = []
+        leaves = {}
+        while pq and len(result) < k:
+            key, _, kind, item, ub = heapq.heappop(pq)
+            if kind == 2:
+                result.append(item)
+            elif kind == 1:
+                nxt = pq[0][0] if pq else INF
+                if ub <= nxt:
+                    result.append(item)
+                    continue
+                res = self.c.request({"op": "batch", "reqs": [{"op": "dist", "q": i, "v": [item]} for i in idxs]})
+                d = aggf(r["d"][0] for r in res["res"])
+                heapq.heappush(pq, (d, self.next_tie(), 2, item, d))
+            elif self.is_col_leaf(item):
+                st = leaves.get(item)
+                if st is None:
+                    st = self._aknn_init_leaf(item, idxs, agg)
+                    leaves[item] = st
+                self._aknn_retrieve(item, st, pq, idxs, aggf, certify=True)
+                nxt = self._aknn_next(st)
+                if nxt < INF:
+                    heapq.heappush(pq, (nxt, self.next_tie(), 0, item, INF))
+            else:
+                for e in self.col_children(item):
+                    lbs = [self.node_bounds(i, e)[0] for i in idxs]
+                    heapq.heappush(pq, (aggf(lbs), self.next_tie(), 0, e, INF))
+        return result
 
     # ------------------------------------------------------------------ kFN
     def kfn(self, k):
@@ -399,7 +495,7 @@ class Solver:
         dl = self.exact_landmark([0], nd, a)[0]
         return {"pos": best_pos, "dl": dl, "cur": Cursor(self.c, node, best_pos, cnt), "rp": cnt - 1}
 
-    def _kfn_retrieve(self, node, st, pq):
+    def _kfn_retrieve(self, node, st, pq, certify=False):
         cur, dl = st["cur"], st["dl"]
         while st["rp"] >= 0:
             u = dl + cur.d(st["rp"], False)
@@ -411,8 +507,44 @@ class Solver:
             obj, dv, rec = self.c.get(node, st["pos"], j, j + 1)[0]
             if self.all_bounds:
                 self.set_layout(self.leaf_of[obj])
-            ub = self.object_bounds(0, rec, st["pos"], dl)[1]
-            heapq.heappush(pq, (-ub, self.next_tie(), 1, obj))
+            lb, ub = self.object_bounds(0, rec, st["pos"], dl)
+            if certify:
+                heapq.heappush(pq, (-ub, self.next_tie(), 1, obj, lb))
+            else:
+                heapq.heappush(pq, (-ub, self.next_tie(), 1, obj))
+
+    def kfn_certify(self, k):
+        """Algorithm 2 with bound certification (variant): a popped candidate whose
+        lower bound is >= every remaining upper bound is a result without an exact
+        distance; otherwise its exact distance is computed and it is re-queued
+        under that exact key."""
+        root_ub = self.node_bounds(0, 0)[1]
+        pq = [(-root_ub, self.next_tie(), 0, 0, 0)]  # (-key, tie, kind 0 node/1 bounded/2 exact, item, lb)
+        result = []
+        leaves = {}
+        while pq and len(result) < k:
+            negkey, _, kind, item, lb = heapq.heappop(pq)
+            if kind == 2:
+                result.append(item)
+            elif kind == 1:
+                nxt = -pq[0][0] if pq else -INF
+                if lb >= nxt:
+                    result.append(item)
+                    continue
+                d = self.c.dist(0, [item])[0]
+                heapq.heappush(pq, (-d, self.next_tie(), 2, item, d))
+            elif self.is_col_leaf(item):
+                st = leaves.get(item)
+                if st is None:
+                    st = self._kfn_init_leaf(item)
+                    leaves[item] = st
+                self._kfn_retrieve(item, st, pq, certify=True)
+                if st["rp"] >= 0:
+                    heapq.heappush(pq, (-(st["dl"] + st["cur"].d(st["rp"], False)), self.next_tie(), 0, item, 0))
+            else:
+                for e in self.col_children(item):
+                    heapq.heappush(pq, (-self.node_bounds(0, e)[1], self.next_tie(), 0, e, 0))
+        return result
 
     # ---------------------------------------------------------------- range
     def range(self, r):
@@ -477,10 +609,13 @@ class Solver:
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--lam", type=int, default=256)
+    ap.add_argument("--lam", default="256", help="int, or per task: kfn=64,aknn=32,range=64")
     ap.add_argument("--bounds", choices=["paper", "all"], default="paper")
+    ap.add_argument("--lam-rule", default=None, help="per task A:B:lo:hi, lambda = exp(A) * |P|^B (variant)")
+    ap.add_argument("--certify", action="store_true", help="bound certification (variant)")
     args = ap.parse_args()
-    Solver(OracleClient(), lam=args.lam, bounds=args.bounds).serve()
+    Solver(OracleClient(), lam=args.lam, bounds=args.bounds, lam_rule=args.lam_rule,
+           certify=args.certify).serve()
 
 
 if __name__ == "__main__":

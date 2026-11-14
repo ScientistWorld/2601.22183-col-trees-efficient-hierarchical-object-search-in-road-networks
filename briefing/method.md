@@ -48,16 +48,21 @@ COL-Tree's bookkeeping. `get` retrieves objects from an ODL.
   - Subtrees whose upper bound is within r are reported whole. Subtrees whose lower bound exceeds r are pruned.
   - Leaves report the ODL prefix confirmed by upper bound. They verify the window allowed by the lower bound.
 
-## Parameters (paper Table 8, alpha = 1024, lambda = 256)
+## Parameters (paper Table 8, alpha = 1024)
 
-| Query | b | m | Landmark policy | Entries per vertex |
-|---|---:|---:|---|---:|
-| kFN | 4 | 4 | Slice-Based Furthest Border | 16 + 6 levels x 4 = 40 |
-| AkNN | 8 | 2 | Random | 16 + 4 levels x 2 = 24 |
-| Range | 8 | 2 | Border Minmax | 16 + 4 levels x 2 = 24 |
+| Query | b | m | Landmark policy | Entries per vertex | lambda (paper, US) | lambda (here, tuned on train) |
+|---|---:|---:|---|---:|---:|---:|
+| kFN | 4 | 4 | Slice-Based Furthest Border | 16 + 6 levels x 4 = 40 | 256 | LAMBDA_KFN |
+| AkNN | 8 | 2 | Random | 16 + 4 levels x 2 = 24 | 256 | LAMBDA_AKNN |
+| Range | 8 | 2 | Border Minmax | 16 + 4 levels x 2 = 24 | 256 | LAMBDA_RANGE |
 
-`experiment_results/colt` uses these per-query settings. `experiment_results/colt_default` uses b=8,
-m=2, Random for every query type (the paper's default).
+The paper chose its parameters by parameter testing on its own 24M-vertex network (Section 9.6). Its lambda,
+256, was the smallest value it tested. This network is 22x smaller, so the reproduction repeats that
+parameter test for lambda on the public (train) split. `scripts/tune_lambda.sh` scores lambda
+= 8, 16, ..., 512 on the reference structures, and `method/tune_lambda.py` keeps, per query type, the value
+with the best train score. The sweep and the choice are recorded in `method/tuned_lambda.json`.
+`experiment_results/colt` uses these per-query settings. `experiment_results/colt_default` uses the paper's
+untuned defaults for every query type: b=8, m=2, Random, lambda=256.
 
 ## Key claims
 
