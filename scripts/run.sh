@@ -64,7 +64,7 @@ tail -3 "$L/probe_structures.log"
 bash hardening/build.sh > "$L/probe_submissions.log" 2>&1 || { echo "!!! probe submissions failed" >&2; status=1; }
 tail -4 "$L/probe_submissions.log"
 
-# 2. Scoring runs.
+# 2. Scoring runs (P slots; priority order).
 step() {  # step <name> <output> <command...>: run unless the output exists
     local name=$1 out=$2
     shift 2
@@ -102,10 +102,22 @@ launch ref_train scoring/scores_train.json eval_full eval/train/evaluate.py --se
 launch paper scoring/scores.json eval_full eval/evaluate.py --root experiment_results \
     scoring/scores.json scoring/details/paper.json scoring/details/ckpt_paper.json
 launch probes_seeds hardening/results/parts/test_seeds.json bash hardening/run_probes.sh test seeds
+# Seed reruns on the shared ALT backbone; the farthest-landmark variants (split by query type).
+launch probes_frozen hardening/results/parts/test_frozen.json bash hardening/run_probes.sh test frozen
+for t in kfn aknn range; do
+    launch "probes_far_$t" "hardening/results/parts/test_far_$t.json" bash hardening/run_probes.sh test far "$t"
+done
+# Train split: re-drawn seeds and the candidate improvements (do test gains transfer?).
+for t in kfn aknn range; do
+    launch "train_seeds_$t" "hardening/results/parts/train_seeds_$t.json" bash hardening/run_probes.sh train seeds "$t"
+    launch "train_variants_$t" "hardening/results/parts/train_tvariants_$t.json" bash hardening/run_probes.sh train tvariants "$t"
+done
 wait
 
 for f in scoring/scores_test.json scoring/scores_train.json scoring/scores.json \
-         hardening/results/parts/test_{colt_a,colt_b,alt,seeds}.json; do
+         hardening/results/parts/test_{colt_a,colt_b,alt,seeds,frozen}.json \
+         hardening/results/parts/test_far_{kfn,aknn,range}.json \
+         hardening/results/parts/train_{seeds,tvariants}_{kfn,aknn,range}.json; do
     [ -s "$f" ] || { echo "!!! missing $f" >&2; status=1; }
 done
 

@@ -52,9 +52,9 @@ COL-Tree's bookkeeping. `get` retrieves objects from an ODL.
 
 | Query | b | m | Landmark policy | Entries per vertex | lambda (paper, US) | lambda (here, tuned on train) |
 |---|---:|---:|---|---:|---:|---:|
-| kFN | 4 | 4 | Slice-Based Furthest Border | 16 + 6 levels x 4 = 40 | 256 | LAMBDA_KFN |
-| AkNN | 8 | 2 | Random | 16 + 4 levels x 2 = 24 | 256 | LAMBDA_AKNN |
-| Range | 8 | 2 | Border Minmax | 16 + 4 levels x 2 = 24 | 256 | LAMBDA_RANGE |
+| kFN | 4 | 4 | Slice-Based Furthest Border | 16 + 6 levels x 4 = 40 | 256 | 16 |
+| AkNN | 8 | 2 | Random | 16 + 4 levels x 2 = 24 | 256 | 32 |
+| Range | 8 | 2 | Border Minmax | 16 + 4 levels x 2 = 24 | 256 | 32 |
 
 The paper chose its parameters by parameter testing on its own 24M-vertex network (Section 9.6). Its lambda,
 256, was the smallest value it tested. This network is 22x smaller, so the reproduction repeats that

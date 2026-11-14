@@ -272,6 +272,8 @@ def main():
     ap.add_argument("--root-policy", default="random", choices=["random", "farthest"],
                     help="root (ALT) landmarks: random as in the paper's experiments, or farthest (variant)")
     ap.add_argument("--seed", type=int, default=1)
+    ap.add_argument("--root-seed", type=int, default=None,
+                    help="draw the random root (ALT) landmarks with this seed instead of --seed")
     args = ap.parse_args()
 
     t0 = time.time()
@@ -295,6 +297,9 @@ def main():
         verts = members[node]
         if node == 0:
             root = sorted(pick_random(verts, args.root_landmarks, rng))
+            if args.root_seed is not None:
+                # a shared ALT backbone: root landmarks drawn with their own seed
+                root = sorted(pick_random(verts, args.root_landmarks, random.Random(args.root_seed)))
             if args.root_policy == "farthest":
                 # separate generator: the local landmarks stay those of the random-root build
                 root = pick_farthest_root(graph, args.root_landmarks, random.Random(args.seed + 7919), csr)
@@ -320,6 +325,8 @@ def main():
             "policy": args.policy, "seed": args.seed, "partitioner": "recursive-median-bisection"}
     if args.root_policy != "random":
         meta["root_policy"] = args.root_policy
+    if args.root_seed is not None:
+        meta["root_seed"] = args.root_seed
     os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
     save_structure(args.out, parent, landmarks, leaf_of, meta)
     entries = sum(len(landmarks[i]) * len(members[i]) for i in range(len(parent)))
