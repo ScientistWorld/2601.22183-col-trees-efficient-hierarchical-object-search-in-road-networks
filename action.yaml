@@ -5,4 +5,4 @@ action: submit
 gpus: 0
 test: false
 milestone: secondary_claims
-notes: "Hardening (REVIEW.md): lambda tuned per query type on the train split, paper's density range (d up to 0.1) in train/test/paper workloads; reruns reference (test, train, paper), probe groups (lambda re-tune, local-landmark ablation, better variants, shortcuts) and seeds"
+notes: "Hardening job 2: seed reruns on the shared ALT backbone, farthest-landmark variants (kFN too) and combined variant on test; re-drawn seeds and variants on train (transfer check). Reference outputs from job ad607932-ebd are kept (skipped)."
