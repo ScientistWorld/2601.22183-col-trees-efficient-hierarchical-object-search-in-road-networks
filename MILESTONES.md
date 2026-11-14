@@ -69,5 +69,11 @@
 - Fresh artifacts now include `queries.per_query`, per-query correctness flags, and kFN exact-lookup counts required by the stricter evaluator.
 - `python3 validate.py --compare` passed in the job; regenerated scores show exact kFN, AkNN, and range results with nontrivial candidate pruning.
 
+### [2026-11-14 12:30] - secondary_claims
+- Hardening iteration 12 (`HARDENING.md`): the reference's lambda is now tuned per query type on the train split, as the paper tunes its parameters (kFN 16, AkNN 32, range 32). Re-tuning lambda no longer pays (-0.014 / -0.045 rank).
+- Workloads cover the paper's density range (uniform d = 0.001, 0.01, 0.1). The hidden test averages over three hidden travel-time conditions.
+- The paper's effects now appear beyond noise on the hidden test. The local-landmark ablation scores -0.284 rank. Against the ALT filter, COL-Tree computes fewer exact distances at d = 0.01 (+0.14 +- 0.04) and d = 0.1 (+0.35 +- 0.07), and retrieves 1-3 orders of magnitude fewer candidates.
+- Honest improvements beat the reference and transfer to train (colt_best +0.061 test / +0.041 train). The shared-backbone seed spread is 0.007. Re-drawing root landmarks moves test kFN by up to +0.069 without a train signal; this is documented as an unfixed weakness.
+
 ## Stop Justification
 - Completed at milestone `secondary_claims`.

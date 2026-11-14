@@ -1,215 +1,284 @@
-# Hardening report (iteration 11)
+# Hardening report (iteration 12, final)
 
-**Better results now score higher, worse ones lower, and every major shortcut in `REDTEAM.md` is closed.**
-On the hidden test, the honest improvements (smaller COL leaves, λ=16 or 64) gain **+0.33 to +0.36** rank
-over the reference. The reference's own seed reruns span **0.042**. Weaker variants lose: λ=2048 −0.44,
-no hierarchy at query time −0.42, ALT filter −2.72, brute force −4.61. Every shortcut tried now fails
-and receives the worst value of every metric. The one exception, an exact private-search gamble on the
-public travel times, gains nothing (+0.001).
+**Better results now score higher and worse ones lower, and the two weaknesses in `REVIEW.md` are fixed.**
 
-All numbers come from `bash scripts/evaluate_test.sh` (reference rows) and the same test evaluator run
-on probe directories (`hardening/run_probes.sh`). Raw outputs are in `scoring/scores_test.json`,
-`scoring/details/test.json` and `hardening/results/` (`summary.md`, `summary.json`, `parts/`).
+- **Re-tuning λ no longer pays.** The reference now chooses λ by the paper's own procedure, parameter testing,
+  run on the public train split.
+  - Before, re-tuning λ gained up to **+0.36** rank; now it gains **−0.014** (λ×2) and **−0.045** (λ½).
+- **Both paper effects appear beyond noise.** I moved the workload to the paper's object-density range
+  (uniform sets up to d = 0.1).
+  - Local-landmark ablation: before **+0.010** (a tie), now **−0.284**.
+  - kFN exact distances, COL-Tree vs the ALT filter at d = 0.1: before **0.000 ± 0.006** over all queries,
+    now **+0.35 ± 0.07**. At d = 0.01 it is **+0.14 ± 0.04**.
+- **Honest improvements beat the reference and transfer from train to test.**
+  - `colt_best`: test +0.061, train +0.041.
+  - farthest ALT landmarks for AkNN/range: test +0.043, train +0.026.
+  - all-landmark bounds: test +0.022, train +0.013.
+  - The method's own seed noise on the shared ALT index is 0.007.
+- **Weaker variants and shortcuts lose.**
+  - no hierarchy at query time −0.97, λ=2048 −0.70, the paper's λ=256 −0.35, ALT filter −3.24, brute force −5.30.
+  - Every shortcut fails and gets the worst value of every metric.
+- **One weakness is left.** Re-drawing the 16 random root landmarks moves the test rank by up to **+0.069**,
+  with no train signal (see "What I could not fix").
 
-**How the rank is computed.** I use the gym's rule. For each scored metric, take its improvement over
-the reference, in its better direction. Multiply by |coefficient| and the experiment weight, then
-divide by the metric's population standard deviation. The "cohort" population is the 14 honest runs
-(the reference rows plus all variants); a shortcut is ranked with itself added to that cohort. A
-two-attempt "pairwise" rank (as in `REDTEAM.md`) is also in `summary.md`. It is degenerate: any
-difference, however small, becomes ±1 SD.
+**Sources.** All numbers come from these runs:
+- the hidden-test evaluator on the reference (`scoring/scores_test.json`, `scoring/details/test.json`);
+- the probe runs (`hardening/run_probes.sh`, `hardening/results/`), summarised in
+  `hardening/results/summary.{md,json}` by `hardening/summarize.py`;
+- the train sweep (`method/tuned_lambda.json`).
+
+**Rank.** For each scored metric, take the improvement over `colt` in its better direction and multiply by
+|coefficient| × experiment weight. Divide by the metric's population SD over the cohort: the 4 reference rows
+plus every honest variant. A shortcut is ranked with itself added to that cohort. "±" is the standard error of
+per-query paired differences: every method sees the same hidden queries.
 
 ## What changed in this iteration
 
-The red-team audit (`REDTEAM.md`) was run on the old US48 gym. There, the hidden evaluator read numbers
-the method wrote about itself, so fabricated, cherry-picked or failing submissions outranked the
-reference. The graph was unit-weight, and the workload had three AkNN queries. This iteration rebuilt
-the test and then hardened it:
+1. **λ is tuned on the train split** (`scripts/tune_lambda.sh`, `method/tune_lambda.py`, run by `scripts/method.sh`).
+   - The paper fixes its COL-Tree parameters by exhaustive parameter testing on its own 24M-vertex network
+     (Section 9.6). Its λ = 256 was the smallest value it tested. This network is 22× smaller, so the same
+     procedure is repeated here.
+   - The sweep scores λ ∈ {8, …, 512} on the reference structures through `eval/train/evaluate.py`. Per query
+     type it keeps the best train score (candidate reduction + 0.5 × call reduction, the two benefit
+     coefficients). Train scores:
 
-1. **The paper's own data.** The test now uses the paper's own Zenodo dataset: the NW subset of the
-   DIMACS travel-time network (1,089,933 vertices) and the paper's 8 real OSM POI categories.
-2. **The evaluator owns every distance.** A method submits an index structure (hierarchy +
-   landmarks) and a solver command. The evaluator builds the landmark distance lists on its own
-   copy of the network, answers the solver's requests, counts them, and checks every answer
-   against its own Dijkstra. Nothing a method writes about itself is read.
-3. **The workload is held out.** It uses hidden travel-time conditions (a secret spatially
-   correlated and per-edge perturbation), a fresh hidden object set per query (jittered real
-   POIs or uniform samples), and hidden queries: 140 kFN, 84 AkNN and 120 range.
-4. **Failure is total.** An invalid or over-budget index, a crash, protocol error or timeout, or a
-   single inexact answer fails the run, and a failed run gets the worst value of every metric in
-   every experiment. Every directory under `experiment_results/` is scored.
-5. **Index nodes count as candidates.** A non-empty index node a solver opens counts as a
-   retrieved candidate, like an object it reveals. Before, node lookups were free, and `--lam 0`
-   alone would have raised kFN candidate reduction from 1.43 to 2.14 (objects-only metric).
-6. **Construction-work caps per query type** (3,000 / 600 / 600 settled vertices per vertex).
-   The index caps equal the paper's tuned configuration: 40 entries per vertex for kFN, 24 for
-   AkNN and range.
-7. **Solver isolation.** Each solver runs in its own user, mount and pid namespaces, in which
-   `eval/`, `.git` and **`data/downloads/`** are empty mounts and `/proc` shows only its own
-   processes.
-   - Hiding `eval/` and `.git` closes reading the test evaluator's seed at test time.
-   - Hiding `data/downloads/` (added last) closes private shortest-path search on the public
-     travel times while answering; the raw data stays available to index building.
-   - The job log confirms the compute container supports this:
-     `solver isolation: user+mount+pid namespaces (eval, .git, data/downloads hidden, private /proc)`.
-8. **Pipeline.** `scripts/run.sh` runs the probes in small groups, each with its own output file,
-   in priority order. Compute nodes were preempted ("SLURM worker drain") 12 times across two
-   jobs, and a single 70-minute probe run never finished.
-   - A change to the evaluator's search engine to speed it up made no difference: the cost is the
-     settled-vertex work itself. It was reverted, so the evaluators are byte-identical to the
-     version that produced `scoring/scores_test.json`.
+| λ | 8 | 16 | 32 | 64 | 128 | 256 | 512 | chosen |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| kFN | 2.600 | **2.631** | 2.627 | 2.600 | 2.585 | 2.550 | 2.493 | 16 |
+| AkNN | 1.946 | 1.976 | **1.985** | 1.966 | 1.909 | 1.740 | 1.709 | 32 |
+| range | 2.652 | 2.670 | **2.694** | 2.688 | 2.681 | 2.593 | 2.564 | 32 |
 
-## Do better results score higher?
+   - The structures (b, m, landmark policy, α) stay the paper's Table 8 settings.
+   - `colt_default` keeps the paper's untuned defaults (b=8, m=2, Random, λ=256).
 
-**Before** (`REDTEAM.md`, old gym, fixed-cohort rank):
-- stronger landmarks: +0.47
-- seed-rerun range: 0.31
-- exhaustive enumeration: −2.65
-- an honest faster implementation: tied
+2. **The workload covers the paper's density range** (train, test and the paper setting).
+   - The paper's sensitivity studies vary d = |P|/|V| from 0.0001 to 0.1 (Figures 6a, 11, 13a).
+   - The gym used to stop at 5,000 objects: real POI sets and uniform d ≤ 0.01.
+   - Every split now has uniform sets at d = 0.001, 0.01 and 0.1, which is 1,090 to 109,000 objects, next to
+     the real POI categories.
+   - Held-out test: 160 kFN, 96 AkNN and 140 range queries.
 
-**After** (hidden test, rank against the reference `colt`; per-query paired differences in log10
-candidate reduction, mean ± standard error):
+3. **The hidden test averages over three hidden travel-time conditions** (`CONDITIONS = 3` in
+   `eval/test/evaluate.py`).
+   - Query i of an object set runs under condition i mod 3, and every metric averages over the conditions.
+   - Each condition is an independent secret perturbation of the public travel times. Landmark distance lists
+     and exact distances are computed per condition.
+   - This was added to damp root-landmark draw luck. It helped only a little (see below).
+   - Train keeps one public condition, so the λ sweep and the train scores are unaffected.
 
-| Run | What it changes | Cohort rank | kFN Δcand | AkNN Δcand | range Δcand |
+4. **The call metric is unchanged.** It counts every exact distance, including those to landmarks.
+   - The paper counts distances to objects only. That count would favour COL-Tree more: on the test, the
+     objects-only kFN call reduction is **+0.149 ± 0.016** above ALT.
+   - It is not used, for two reasons:
+     - A landmark's distance is just as expensive as an object's.
+     - Free landmark distances would let a method place dense leaf landmarks and buy near-exact bounds for
+       every object.
+
+5. **Pipeline changes.**
+   - Evaluator runs can be split by query type (`--tasks`).
+   - Runs resume after every finished query type and travel-time condition (`--checkpoint`). The compute
+     nodes were preempted about every 28 minutes.
+   - `scripts/run.sh` runs the scoring runs in parallel slots.
+   - None of this changes scoring. Resuming after two of three conditions reproduces an uninterrupted run
+     byte for byte (checked on a 12k-vertex network).
+   - `scoring/scores_test.json` was produced by the evaluator just before per-condition checkpoints were
+     added. The scoring code is identical.
+
+## Do better results score higher? Before → after
+
+**Before** (iteration-11 hidden test, `hardening/results_iter11/`): one travel-time condition, objects up to
+5,000, reference λ = 256.
+
+| Run | Rank | Note |
+|---|---:|---|
+| colt_lam16 | **+0.361** | re-tuning the paper's own knob was the easiest gain |
+| colt_allbounds_lam64 | +0.340 | |
+| colt_lam64 | +0.325 | |
+| colt_seed2 / colt_seed3 | +0.042 / +0.015 | seed spread 0.042 |
+| colt_allbounds | +0.014 | |
+| colt_no_local_landmarks | +0.010 | ablation tied the reference |
+| colt_flat | −0.415 | |
+| colt_lam2048 | −0.437 | |
+| alt_filter / bruteforce | −2.724 / −4.610 | |
+
+**After** (final hidden test, three conditions, tuned λ). Δ are paired per-query differences against `colt`.
+
+| Run | What it changes | Rank | kFN Δcand / Δcall | AkNN Δcand / Δcall | range Δcand / Δcall |
+|---|---|---:|---|---|---|
+| colt_best | farthest ALT landmarks (AkNN, range) + all-landmark bounds + certification | **+0.061** | +0.002 / +0.012 ± 0.002 | +0.019 ± 0.007 / +0.045 ± 0.010 | +0.014 ± 0.006 / +0.047 ± 0.011 |
+| colt_farthest | farthest instead of random ALT landmarks (AkNN, range) | **+0.043** | 0 / 0 | +0.018 ± 0.007 / +0.035 ± 0.010 | +0.012 ± 0.006 / +0.025 ± 0.010 |
+| colt_allbounds | bounds from every landmark on the path | **+0.022** | +0.001 / +0.010 ± 0.002 | +0.001 / +0.014 ± 0.002 | +0.005 ± 0.001 / +0.027 ± 0.004 |
+| colt_certify | accept a result when its bounds prove it | +0.001 | 0 / +0.002 ± 0.001 | 0 / 0 | 0 / 0 |
+| colt_seed2f / colt_seed3f | method seed 2 / 3 on the shared ALT backbone | +0.002 / −0.005 | 0 / 0 | ±0.004 | ±0.002 / ±0.007 |
+| colt_retune_x2 | λ × 2 | −0.014 | +0.008 / +0.013 | −0.026 / −0.007 | +0.003 / −0.008 |
+| colt_retune_half | λ / 2 | −0.045 | −0.026 / −0.014 | −0.005 / −0.007 | −0.026 / +0.001 |
+| colt_no_local_landmarks | only the 16 ALT landmarks (m = 0), same λ | **−0.284** | −0.101 ± 0.013 / −0.024 ± 0.016 | −0.168 ± 0.017 / −0.093 ± 0.019 | −0.056 ± 0.008 / −0.109 ± 0.017 |
+| colt_lam256 | the paper's λ (the previous reference) | −0.350 | −0.122 / +0.032 | −0.219 / −0.057 | −0.091 / −0.068 |
+| colt_default | paper defaults b=8, m=2, Random, λ=256 | −0.421 | −0.264 / +0.027 | −0.219 / −0.057 | −0.057 / −0.049 |
+| colt_lam2048 | λ = 2048 | −0.702 | −0.144 / +0.042 | −0.478 / −0.076 | −0.298 / −0.100 |
+| colt_flat | no hierarchy at query time | −0.971 | −0.182 / −0.024 | −0.619 / −0.093 | −0.464 / −0.109 |
+| alt_filter | the paper's AUB-PHL (ALT filter over every object) | −3.236 | −1.751 / −0.024 | −1.323 / −0.093 | −1.542 / −0.109 |
+| bruteforce | every object, every distance | −5.301 | −1.751 / −2.106 | −1.323 / −1.723 | −1.542 / −2.124 |
+
+- **Two other variants.**
+  - `colt_farthest_all` (farthest ALT landmarks for kFN too): **−0.338**, single-condition run in
+    `hardening/results_single_condition/`. Fringe landmarks loosen kFN upper bounds. That is why `colt_best`
+    keeps the random kFN landmarks.
+  - `colt_adaptive` (λ from the object count) was identical to the reference. With dense sets, the COL leaves
+    bottom out at the SUL leaves.
+- **Gains transfer to train.** Each row shows the change in candidate reduction + 0.5 × call reduction against
+  the reference on the same split:
+
+| Run | rank train | rank test | kFN train / test | AkNN train / test | range train / test |
+|---|---:|---:|---|---|---|
+| colt_best | +0.041 | +0.061 | +0.005 / +0.008 | +0.016 / +0.041 | +0.059 / +0.037 |
+| colt_farthest | +0.026 | +0.043 | 0 / 0 | +0.012 / +0.036 | +0.039 / +0.024 |
+| colt_allbounds | +0.013 | +0.022 | +0.002 / +0.006 | +0.005 / +0.008 | +0.019 / +0.018 |
+| colt_no_local_landmarks | −0.214 | −0.284 | −0.079 / −0.113 | −0.213 / −0.215 | −0.059 / −0.110 |
+| λ/2, λ×2, λ=256 (train from the sweep) | | | −0.031 / −0.033, −0.005 / +0.014, −0.081 / −0.106 | −0.008 / −0.008, −0.018 / −0.030, −0.244 / −0.248 | −0.024 / −0.026, −0.006 / −0.001, −0.101 / −0.125 |
+
+## The paper's effects (REVIEW.md item 1)
+
+**kFN exact distances, COL-Tree vs the ALT filter.** Positive Δcall means COL-Tree computes fewer exact
+distances. Hidden test, paired:
+
+| Object set | real POIs (5 sets) | uniform d=0.001 | uniform d=0.01 | uniform d=0.1 | all |
 |---|---|---:|---:|---:|---:|
-| colt_lam16 | COL leaves of ≤16 objects (paper: 256) | **+0.361** | +0.191 ± 0.019 | +0.185 ± 0.015 | +0.043 ± 0.013 |
-| colt_allbounds_lam64 | λ=64 and bounds from every landmark on the path | **+0.340** | +0.148 ± 0.019 | +0.160 ± 0.014 | +0.076 ± 0.013 |
-| colt_lam64 | λ=64 | **+0.325** | +0.148 ± 0.019 | +0.159 ± 0.014 | +0.073 ± 0.013 |
-| colt_lam0 | COL leaves = SUL leaves | +0.045 | +0.011 ± 0.021 | +0.088 ± 0.016 | −0.016 ± 0.014 |
-| colt_seed2 | reference, landmark/partition seed 2 | +0.042 | +0.037 ± 0.011 | −0.021 ± 0.013 | +0.012 ± 0.010 |
-| colt_seed3 | reference, seed 3 | +0.015 | +0.045 ± 0.010 | −0.020 ± 0.015 | −0.014 ± 0.008 |
-| colt_allbounds | bounds from every landmark on the path | +0.014 | +0.000 | +0.000 | +0.001 |
-| colt_no_local_landmarks | 16 ALT landmarks only, no local landmarks (m=0) | +0.010 | +0.073 ± 0.026 | −0.070 ± 0.018 | −0.018 ± 0.015 |
-| colt (reference) | paper Table 8 parameters | 0 | | | |
-| colt_default | b=8, m=2, Random for every query | −0.041 | −0.082 ± 0.021 | 0 | +0.024 ± 0.013 |
-| colt_flat | no hierarchy at query time (root lists only) | −0.415 | +0.016 ± 0.044 | −0.292 ± 0.028 | −0.297 ± 0.032 |
-| colt_lam2048 | λ=2048 | −0.437 | −0.119 ± 0.043 | −0.267 ± 0.025 | −0.171 ± 0.028 |
-| alt_filter | paper's AUB-PHL / ALT multi-step filter | −2.724 | −1.369 | −1.001 | −1.461 |
-| bruteforce | every object, every distance | −4.610 | −1.369 | −1.001 | −1.461 |
+| kFN Δcall | −0.10 … +0.02 | −0.057 ± 0.016 | **+0.139 ± 0.038** | **+0.352 ± 0.066** | +0.024 ± 0.016 |
+| AkNN Δcall | −0.04 … +0.16 | −0.026 ± 0.012 | +0.101 ± 0.038 | **+0.432 ± 0.071** | **+0.093 ± 0.019** |
+| range Δcall | −0.05 … +0.15 | −0.022 ± 0.017 | +0.148 ± 0.030 | **+0.316 ± 0.041** | **+0.109 ± 0.017** |
 
-**Seed noise.** The reference with three landmark/partition seeds spans 0.042 in rank. In
-candidate reduction the spread is 0.045 (kFN), 0.021 (AkNN) and 0.027 (range). The λ=16/64 gains are
-about 8× the rank spread, and on each query type larger than the seed spread with many standard
-errors to spare. All methods see the same hidden queries, so these are paired comparisons.
+- **Paper direction.** As in the paper's Figure 11c, COL-Tree's advantage in exact distances grows with
+  density. At the dense end it is well beyond noise; the paper reads about log10(230/27) = 0.93 at d = 0.1 on
+  a 22× larger network.
+- **Sparse sets.** On sets of a few thousand objects, COL-Tree spends about as many exact distances as ALT. It
+  computes one landmark distance per opened leaf, which our metric counts and the paper's does not. Counting
+  objects only, as the paper does, COL-Tree is ahead by +0.149 ± 0.016.
+- **Paper setting.** The paper's own setting (original travel times, `scoring/scores.json`) shows the same
+  pattern: kFN Δcall +0.055 ± 0.031 at d = 0.01, +0.129 ± 0.071 at d = 0.1, −0.027 ± 0.012 overall.
+- **Candidates.** COL-Tree retrieves 1.0 to 3.0 orders of magnitude fewer objects than ALT on every set.
 
-**Train agrees in direction.** On the public split, colt_lam64 beats the reference by
-+0.033 ± 0.019 (kFN), +0.158 ± 0.016 (AkNN) and +0.071 ± 0.014 (range). The reference itself scores
-alike on train and test (candidate reduction 1.33 / 1.37, 0.88 / 1.00, 1.49 / 1.46).
+**Local landmarks.** The ablation keeps the reference hierarchies and λ but has only the 16 ALT landmarks:
+- −0.284 rank.
+- Candidates −0.101 / −0.168 / −0.056, many SE apart.
+- Calls −0.024 / −0.093 / −0.109, with a larger gap at higher density (kFN d = 0.1: −0.33 candidates, −0.35 calls).
+- The paper's claim that local landmarks tighten bounds deeper in the hierarchy now shows clearly. With
+  λ = 256 the COL leaves were so large that their local landmarks were no denser than the ALT landmarks.
 
 ## Major shortcuts: fix and score before → after
 
-"Before" is the pairwise rank in `REDTEAM.md` (old gym). "After" is the hidden test. "Failed" means
-worst values everywhere: cohort rank −7.911, pairwise −5.004.
+"Failed" means the worst value of every metric. That is rank −8.91 in the cohort and −5.00 pairwise.
 
 | Shortcut | Before | Fix | After |
 |---|---:|---|---|
-| self-report (forged scores, empty answers) | +1.977 | evaluator ignores method-written numbers and checks answers | failed (kFN query 0 inexact) |
-| impossible values (flags 2, negative counts) | +3.957 | answers must be vertex ids; every metric is computed by the evaluator | failed (protocol error) |
-| denominator (inflated object count) | +1.977 | the evaluator owns \|P\| and \|Q\| | not expressible |
-| cherry-pick queries | +1.977 | evaluator-fixed hidden workload, every query scored | failed (answers [] on large sets) |
-| cached answers | +1.683 | hidden travel times, objects and queries; public data hidden from solvers | not expressible; see the gambles below |
-| replace ground truth / baseline | +0.425 | ground truth is the evaluator's Dijkstra | not expressible |
-| fail kFN, score on the rest | +0.147 | any failure gives the worst value of every metric | failed |
-| zero lookups (metric dropped) | 0 (tie) | every metric always written; answering from bounds alone is inexact | failed (kFN query 1 inexact) |
-| unregistered method directory | 0 (tie) | every directory under `experiment_results/` is scored | failed (no submission.json) |
-| empty answers / malformed flags | −3.663 / unranked | worst vector for every failure | failed (malformed submission) |
-| over-budget index | n/a | cap enforced before any query | failed (41 entries/vertex > 40) |
-| **read the test evaluator's seed at test time** (new) | isolation off: **+3.217**, the maximum on every metric | solver namespaces hide `eval/` and `.git` | failed |
-| **free index-node opens via `--lam 0`** (new) | objects-only metric: kFN 1.43 → 2.14 | non-empty opened nodes are candidates | +0.045, about the seed spread (0.042); kFN Δcand +0.011 ± 0.021 |
-| **private search on the public travel times** (new: `public_oracle`, `public_gamble` ×1.00/×1.15) | n/a | `data/downloads/` hidden from solvers | failed (solver cannot load the graph) |
+| **re-tune λ (REVIEW.md item 2)** | **+0.361** (λ=16), +0.325 (λ=64) | the reference's λ is tuned per query type on train, as the paper tunes on its data | **−0.014** (λ×2), **−0.045** (λ½) |
+| self-report, empty answers | failed | (iteration 11) evaluator ignores method numbers and checks answers | failed (inexact answer) |
+| impossible values | failed | answers must be vertex ids | failed (protocol error) |
+| cherry-pick queries | failed | evaluator-fixed hidden workload | failed (inexact answer) |
+| fail kFN, score on the rest | failed | any failure gives the worst value everywhere | failed (kFN query 0 inexact; worst value in all three experiments) |
+| zero lookups | failed | answering from bounds alone is inexact | failed (inexact answer) |
+| read the test evaluator's seed | failed (+3.217 with isolation off) | solver namespaces hide `eval/`, `.git` | failed |
+| private search on public travel times | failed | `data/downloads/` hidden from solvers | failed (solver cannot load the graph) |
+| over-budget index | failed | cap checked before any query | failed (41 entries/vertex > 40) |
+| unregistered directory / malformed submission | failed | every directory under `experiment_results/` is scored | failed |
 
-## Shortcuts left, and why
+- **Rerun this iteration.** All of these ran again through the final test (groups `colt_b` and `alt`), with
+  the same outcome as before. The probe groups ran one query type at a time. Their merge applies the
+  evaluator's rule: a failure in one query type gives the worst value in all three.
+- **Not rerun.** The two `public_gamble_copied` probes: an exact gamble on copied public travel times. They
+  depend on the solver only, which is unchanged. In iteration 11 they stayed exact and gained +0.001.
 
-- **Copying the public travel times into the method's own directory and gambling on them.** This
-  is `public_gamble_copied` ×1.15 and ×1.30: COL-Tree kFN search plus a non-admissible
-  public-distance bound. It is forbidden by `scoring/CONSTRAINTS.md`, and the evaluator cannot tell
-  copied data from other files. Measured on the hidden test, both stay exact but **do not pay**:
-  rank +0.001 and +0.000, kFN Δcand −0.000. Because travel times are perturbed, public distances
-  cannot sharpen the landmark bounds without risking an inexact answer. Left to the grader.
-- **Faster implementations** (wall-clock). This is an honest alternative the test cannot tell
-  apart, not a loophole. Scores are machine-independent counts, as in the paper's
-  heuristic-efficiency figures, and no metric depends on time.
-- **Isolation depends on user namespaces.** If a future hidden-test container does not allow
-  unprivileged user namespaces, the evaluator logs `solver isolation: none (namespaces
-  unavailable)`. The secret-reading shortcut then pays in full (+3.217). The container used in
-  this iteration supports isolation.
-- **Solvers can write to the workspace during evaluation.** Each hidden test runs in a fresh
-  container, so this is not defended.
+## Shortcuts and weaknesses left
+
+- **Root-landmark lottery (not fixed).** Re-drawing the 16 random ALT root landmarks moves the test rank by
+  **+0.069** (seed 2) and **+0.018** (seed 3).
+  - Almost all of it is kFN (seed 3: Δcand +0.064 ± 0.009, Δcall +0.092 ± 0.013). It appears under all three
+    hidden conditions.
+  - It is absent on train: kFN train Δ −0.011 and +0.016, train rank +0.003 and −0.033.
+  - So it is an interaction between one random landmark set and the test's kFN queries, not a better index.
+    Dense kFN answers concentrate in a few far regions of the network, and whether a random landmark sits on
+    the way to them is close to a lottery.
+  - Averaging over three traffic conditions reduced the spread only from 0.079 to 0.069.
+  - The method's own randomness on the shared ALT backbone is small (spread 0.007), as are the honest gains'
+    standard errors.
+  - **Consequence.** A submission that only re-draws root landmarks can gain up to about +0.07 on test with no
+    train evidence. The honest gains above transfer to train; this one does not. Left to the grader: a
+    root-landmark change should come with a train improvement.
+- **Copied public travel times.** Copying them into a method directory and gambling on them is forbidden by
+  `scoring/CONSTRAINTS.md`. The evaluator cannot tell copied data from other files. It did not pay in
+  iteration 11 (+0.001), and the three hidden conditions make it harder still. Left to the grader.
+- **Wall-clock speed.** Scores are machine-independent counts, as in the paper's heuristic-efficiency
+  figures. A faster implementation ties. This is an honest alternative, not a loophole.
+- **Isolation needs unprivileged user namespaces.** Without them the evaluator logs
+  `solver isolation: none (namespaces unavailable)`, and reading the evaluator's seed would pay. The job
+  containers support isolation.
+- **Solvers can write to the workspace during evaluation.** Each hidden test runs in a fresh container.
 
 ## Reference score before and after
 
-- **Old gym** (`REDTEAM.md`): a different, self-reported metric (fraction of objects), not
-  comparable.
-- **Start of this iteration** (job 9fc1dbc3, no node charging, default configuration): candidate
-  reduction kFN 1.366, AkNN 1.046, range 1.641; call reduction 1.935 / 1.545 / 2.096.
-- **Final reference** (`colt`, paper Table 8 per query type, `scoring/scores_test.json`): candidate
-  reduction **kFN 1.369, AkNN 1.001, range 1.461**; call reduction 1.943 / 1.545 / 2.076. All
-  answers are exact. Index 40 / 24 / 24 entries per vertex; construction work 410 / 140 / 135.
-  With objects only (the paper's metric), candidate reduction is 1.433 / 1.046 / 1.612.
-- **Paper setting** (`scoring/scores.json`: original travel times, real POI sets as published):
-  candidate reduction 1.091 / 0.787 / 1.382. The paper's figure gives about 1.38 for kFN
-  candidates (`reference.json`, `_paper_colt_phl`).
+- **Before** (iteration 11, `hardening/results_iter11/reference/scores_test.json`: one condition, objects up to
+  5,000, λ = 256):
+  - candidate reduction kFN 1.369, AkNN 1.001, range 1.461
+  - call reduction 1.943 / 1.545 / 2.076
+- **After** (`scoring/scores_test.json`: three conditions, densities up to 0.1, tuned λ):
+  - candidate reduction **1.751 / 1.323 / 1.542**
+  - call reduction **2.106 / 1.723 / 2.124**
+  - all answers exact
+  - index 40 / 24 / 24 entries per vertex; construction work 425 / 145 / 141
+- **Like for like.** The workload changed, so the closest comparison is the old configuration (`colt_lam256`)
+  on the new test: 1.629 / 1.104 / 1.450 and 2.138 / 1.667 / 2.057, rank −0.350.
+- **Train** (`scoring/scores_train.json`): 1.641 / 1.207 / 1.595 and 1.980 / 1.556 / 2.198.
+- **Paper setting** (`scoring/scores.json`, also in `scoring/reference.json`): 1.415 / 1.092 / 1.399 and
+  1.756 / 1.445 / 2.069.
+- The paper's own reported numbers under `_paper_*` in `scoring/reference.json` are unchanged.
 
 ## Headroom check
 
-Where the reference sits on each scored metric:
-- `exact_answer_rate` is at its bound (1.0). It is a hard constraint, and every honest method is
-  there.
-- `index_entries_per_vertex` sits at the cap (40 / 24 / 24). That is the worst allowed value; a
-  smaller index scores better.
-- `sdl_work_per_vertex` is well below its cap (410 of 3,000; 140 of 600).
-- The benefit metrics are far from their bounds:
-  - Candidate reduction is 1.37 / 1.00 / 1.46. An answer-only oracle (the unisolated secret
-    reader) reaches 2.25 / 2.25 / 2.25.
-  - Call reduction is 1.94 / 1.55 / 2.08, against the oracle's 3.29 / 4.19 / 3.56.
-- Simple honest changes beat the reference by more than noise, and no simple variant comes close
-  to the bound. So no extra experiment was added.
+- **At the bound.**
+  - `exact_answer_rate` is at 1.0 for every honest method. It is a hard constraint.
+  - `index_entries_per_vertex` sits at the cap (40 / 24 / 24), which is the worst allowed value.
+- **Below the bound.**
+  - `sdl_work_per_vertex` is well below its caps.
+  - Candidate reduction (1.75 / 1.32 / 1.54) and call reduction (2.11 / 1.72 / 2.12) are far from their bounds.
+    Their per-query maximum is log10(|P|+1), between 1.7 and 5.
+- **Measured headroom.** Three honest variants (`colt_best`, `colt_farthest`, `colt_allbounds`) beat the
+  reference beyond the paired noise and the shared-backbone seed spread, and their gains transfer to train.
+- **Simple rules don't win.** No simple rule reaches the reference: no hierarchy at query time −0.97, λ=2048
+  −0.70.
+- **Brute force doesn't win.** The brute force the paper avoids, and its AUB-PHL baseline, score 0 candidate
+  reduction (−5.30 and −3.24).
+- No experiment was added: the existing three have measured headroom.
 
-The brute force the paper avoids, and its AUB-PHL baseline, both score 0 candidate reduction and rank
-−4.6 and −2.7. ALT filtering alone matches the reference on calls, but retrieves every object
-(2,732 per kFN query vs 103 for the reference).
+## What I could not fix
 
-## What I could not fix (stated plainly)
-
-- **The paper's kFN network-distance advantage is not reproduced.** The paper reads as COLT
-  computing fewer exact distances than AUB-PHL for kFN (call reduction about 2.27 vs 1.5). Here
-  they are equal: 1.943 vs 1.943 on test, 1.530 vs 1.535 in the paper setting.
-  - Our call metric counts every distance request, including those to landmarks, which the paper
-    does not count. Counting only object distances would let a method buy exact bounds for free
-    through neighbours of objects.
-  - The candidate-reduction advantage, the paper's key heuristic-efficiency claim, is reproduced
-    in the paper's direction for all three query types.
-- **Local landmarks only pay off for AkNN and range here.** The ablation without local landmarks
-  ties the reference (+0.010, inside the 0.042 seed spread). It is better on kFN (+0.073), worse on
-  AkNN (−0.070) and range (−0.018), with a smaller index.
-  - On this 1.09M-vertex network, 16 global ALT landmarks already bound kFN well. The paper's
-    24M-vertex network is out of reach: building one kFN structure's distance lists on the 1.09M-vertex
-    network takes 5–28 minutes on these preemptible nodes.
-  - The ablation is honest and does not outrank the reference, so it is a headroom note, not a
-    loophole.
-- **The paper's λ=256 is not optimal under this metric.** Opened nodes count as candidates, and
-  λ=16–64 does better. The paper tuned λ for wall-clock time on its own hardware. This is genuine
-  headroom for future methods, not a defect, and the reference keeps the paper's setting.
-- **Runtime.** A full hidden-test run costs 10–30 minutes per submitted method, dominated by
-  building the method's landmark distance lists.
+- **The root-landmark lottery** (above): up to +0.07 on test from re-drawing landmarks, with no train signal.
+- **kFN overall call count.** Averaged over all object sets, kFN COL-Tree computes only slightly fewer exact
+  distances than the ALT filter (+0.024 ± 0.016). In the paper setting, slightly more (−0.027 ± 0.012).
+  - Both because the metric counts COL-Tree's per-leaf landmark distances.
+  - The paper's advantage appears at d ≥ 0.01, or when only object distances are counted.
+- **Network scale.** The paper's 24M-vertex network is out of reach. Distance lists for one kFN structure take
+  5–10 minutes per travel-time condition on the 1.09M-vertex network.
+- **Partitioner.** The SUL-Tree uses recursive median bisection of coordinates instead of METIS. The paper
+  allows any balanced partitioner. METIS was not tried because it cannot be installed and tested on the login
+  node.
+- **Test runtime.** A full hidden-test run of the four reference methods takes about 20 minutes of one core.
+  With 3 conditions, the 40-entry kFN structures dominate.
 
 ## Weights
 
-Weights are unchanged: kFN 0.4, AkNN 0.35, range 0.25. Coefficients are 1.0 for candidate
-reduction, 0.5 for call reduction, 1.0 for exactness, 0.02 for index size and 0.002 for construction
-work. The paper's contribution is aimed at AkNN and kFN, and it calls range a secondary case.
-"Candidates retrieved" is the heuristic-efficiency metric that separates COL-Trees from the
-landmark-based competitors in the paper.
+Unchanged:
+- experiments: kFN 0.4, AkNN 0.35, range 0.25
+- coefficients: candidate reduction 1.0, call reduction 0.5, exactness 1.0, index size 0.02, construction work 0.002
+
+The paper's contribution is aimed at AkNN and kFN; range is its secondary case.
 
 ## Reproduce
 
-`bash scripts/run.sh` on a CPU node rebuilds the reference and baseline submissions, then runs, in
-priority order:
-- the hidden test,
-- the probe groups (`hardening/build.sh` builds the variants and shortcuts),
-- train and the paper setting,
-- the seed reruns,
-- the unisolated secret-reading probe (a temporary copy of the test evaluator with
-  `SANDBOX = False`, deleted afterwards),
-- `hardening/summarize.py`.
+`bash scripts/run.sh` on a CPU node rebuilds the reference and runs the λ sweep on train, then the baselines
+and the probe structures. In parallel it runs:
+- the hidden test (`scoring/scores_test.json`)
+- train
+- the paper setting
+- every probe group (`hardening/run_probes.sh`)
 
-Each step is resumable.
+Then `hardening/summarize.py` and `validate.py`. Every step is resumable.

@@ -1,8 +1,6 @@
 # Once you set action to 'submit' or 'done', STOP immediately.
 # Do NOT sleep, poll, or wait for jobs. The system reads this file
 # only after your turn ends.
-action: submit
-gpus: 0
-test: false
+action: done
 milestone: secondary_claims
-notes: "Hardening job 4: remaining kFN seed reruns (re-drawn and shared-backbone), one method per run, with per-condition checkpoints (job 3 was preempted every ~28 min); all other outputs kept."
+notes: "Hardening done: lambda tuned on train (re-tune -0.014/-0.045), paper density range + 3 hidden travel-time conditions; local-landmark ablation -0.284, kFN call advantage at d>=0.01; honest variants +0.02..+0.06 transfer to train; root-landmark re-draw lottery (+0.069, no train signal) left and documented in HARDENING.md"

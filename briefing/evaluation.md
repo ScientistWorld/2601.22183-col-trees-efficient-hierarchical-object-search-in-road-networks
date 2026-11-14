@@ -95,7 +95,7 @@ A method that fails anything gets the worst value of every metric in every exper
 0 for the three rates and reductions, and the cap for index size and construction work. Failures include:
 - an invalid or over-budget structure
 - a crash or a protocol error
-- a timeout: 2 h of the solver's own answering time per task, or 15 min without a message
+- a timeout: 2 h of the solver's own answering time per task and travel-time condition, or 15 min without a message
 - a single inexact answer
 
 ## How to run
