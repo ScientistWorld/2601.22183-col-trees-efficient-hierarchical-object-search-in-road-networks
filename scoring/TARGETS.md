@@ -5,7 +5,11 @@ scored on the same five metrics, in three settings:
 
 - `scoring/scores.json`: the paper's own setting (original NW travel times, real POI categories).
 - `scoring/scores_train.json`: the public development split.
-- `scoring/scores_test.json`: the held-out split (hidden travel times, object sets and queries).
+- `scoring/scores_test.json`: the held-out split (three hidden travel-time conditions, hidden object sets and queries).
+
+Object sets are real POI categories (50 to 5,000 objects) and uniform samples at d = 0.001, 0.01 and 0.1
+(up to 109,000 objects). The paper's effects, fewer objects touched and fewer exact distances than
+landmark filtering of every object, grow with density.
 
 ## Benefit: avoid touching objects individually (primary)
 

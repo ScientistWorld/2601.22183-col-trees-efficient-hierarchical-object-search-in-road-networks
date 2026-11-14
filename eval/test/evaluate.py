@@ -1140,21 +1140,35 @@ def main():
             if old.get("signature") == signature:
                 ckpt = old
                 status.update(old["status"])
+                part = (old.get("partial") or {}).get("task")
                 for name, per_task in old["results"].items():
-                    results[name].update({t: rows for t, rows in per_task.items() if t in old["done"]})
+                    results[name].update({t: rows for t, rows in per_task.items()
+                                          if t in old["done"] or t == part})
                 for name, per_task in old["stats"].items():
                     stats.setdefault(name, {}).update({t: tuple(v) for t, v in per_task.items()})
-                log(f"checkpoint: resuming after tasks {old['done']}")
+                log(f"checkpoint: resuming after tasks {old['done']}, partial {old.get('partial')}")
         except Exception as exc:
             log(f"checkpoint ignored ({exc})")
+
+    def save_checkpoint(partial):
+        ckpt.update({"partial": partial, "status": status, "results": results,
+                     "stats": {m: {t: list(v) for t, v in s.items()} for m, s in stats.items()}})
+        tmp = args.checkpoint + ".tmp"
+        with open(tmp, "w") as handle:
+            json.dump(ckpt, handle)
+        os.replace(tmp, args.checkpoint)
 
     logdir = tempfile.mkdtemp(prefix=f"colt_eval_{SPLIT}_")
     task_order = list(workload.queries)
     for ti, (task, specs) in enumerate(workload.queries.items()):
         if task in ckpt["done"]:
             continue
-        work_by_field = {}
+        partial = ckpt.get("partial") or {}
+        fields_done = partial.get("fields", []) if partial.get("task") == task else []
+        work_by_field = partial.get("work_by_field", {}) if partial.get("task") == task else {}
         for field in range(CONDITIONS):
+            if field in fields_done:
+                continue
             sessions = {}
             for name in plans:
                 if status[name] is not None:
@@ -1215,13 +1229,12 @@ def main():
             for key in [k for k in indexes if k[1] == field and not any(
                     plans[m][1][t][0] == k[0] for m in plans if status[m] is None for t in task_order[ti + 1:])]:
                 del indexes[key]
+            fields_done = fields_done + [field]
+            if args.checkpoint and field < CONDITIONS - 1:
+                save_checkpoint({"task": task, "fields": fields_done, "work_by_field": work_by_field})
         if args.checkpoint:
-            ckpt.update({"done": ckpt["done"] + [task], "status": status, "results": results,
-                         "stats": {m: {t: list(v) for t, v in s.items()} for m, s in stats.items()}})
-            tmp = args.checkpoint + ".tmp"
-            with open(tmp, "w") as handle:
-                json.dump(ckpt, handle)
-            os.replace(tmp, args.checkpoint)
+            ckpt["done"] = ckpt["done"] + [task]
+            save_checkpoint(None)
 
     scores = {EXPERIMENTS[t]: {"results": {}} for t in tasks_run}
     for name, _ in methods:

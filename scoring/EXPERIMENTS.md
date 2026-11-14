@@ -6,6 +6,8 @@ at densities 0.001, 0.01 and 0.1 (about 1,000 to 109,000 objects). The real cate
 The dense sets test whether the savings hold as objects crowd together, which is where methods that check
 objects one by one degrade fastest.
 The evaluator owns every network distance. A method only sees what it asks for, and the evaluator counts what it asks for.
+On the held-out split, each query type runs under three hidden traffic conditions, and the scores average over them.
+An index is therefore measured on travel times it could not see when it was built.
 
 ## kfn
 

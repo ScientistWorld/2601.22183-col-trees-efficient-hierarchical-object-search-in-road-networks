@@ -99,12 +99,16 @@ launch ref_train scoring/scores_train.json eval_full eval/train/evaluate.py --se
     scoring/scores_train.json scoring/details/train.json scoring/details/ckpt_train.json
 launch paper scoring/scores.json eval_full eval/evaluate.py --root experiment_results \
     scoring/scores.json scoring/details/paper.json scoring/details/ckpt_paper.json
-# Probe groups through the hidden test, one run per group and query type.
-TEST_GROUPS="colt_a colt_b alt frozen seeds"
-for g in $TEST_GROUPS; do
-    for t in kfn aknn range; do
-        launch "probes_${g}_$t" "hardening/results/parts/test_${g}_$t.json" bash hardening/run_probes.sh test "$g" "$t"
-    done
+# Probe groups through the hidden test, one run per group and query type (the kFN
+# seed reruns one method per run: each builds three 40-entry indexes).
+TEST_RUNS="seed2:kfn seed3:kfn seed2f:kfn seed3f:kfn"
+for g in colt_a colt_b alt; do
+    TEST_RUNS="$TEST_RUNS $g:kfn $g:aknn $g:range"
+done
+TEST_RUNS="$TEST_RUNS frozen:aknn frozen:range seeds:aknn seeds:range"
+for r in $TEST_RUNS; do
+    g=${r%%:*} t=${r#*:}
+    launch "probes_${g}_$t" "hardening/results/parts/test_${g}_$t.json" bash hardening/run_probes.sh test "$g" "$t"
 done
 # Train split: re-drawn seeds and the candidate improvements (do test gains transfer?).
 TRAIN_GROUPS="seeds tvariants tbest"
@@ -118,10 +122,8 @@ wait
 for f in scoring/scores_test.json scoring/scores_train.json scoring/scores.json; do
     [ -s "$f" ] || { echo "!!! missing $f" >&2; status=1; }
 done
-for g in $TEST_GROUPS; do
-    for t in kfn aknn range; do
-        [ -s "hardening/results/parts/test_${g}_$t.json" ] || { echo "!!! missing test $g $t" >&2; status=1; }
-    done
+for r in $TEST_RUNS; do
+    [ -s "hardening/results/parts/test_${r%%:*}_${r#*:}.json" ] || { echo "!!! missing test $r" >&2; status=1; }
 done
 for g in $TRAIN_GROUPS; do
     for t in kfn aknn range; do

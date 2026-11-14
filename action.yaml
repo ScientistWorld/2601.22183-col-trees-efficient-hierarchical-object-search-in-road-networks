@@ -5,4 +5,4 @@ action: submit
 gpus: 0
 test: false
 milestone: secondary_claims
-notes: "Hardening job 3: hidden test now averages over 3 hidden travel-time conditions (root-landmark draw luck was test-condition specific). Reruns reference on test and all test probe groups (split per task); train/paper outputs and lambda tuning kept."
+notes: "Hardening job 4: remaining kFN seed reruns (re-drawn and shared-backbone), one method per run, with per-condition checkpoints (job 3 was preempted every ~28 min); all other outputs kept."
