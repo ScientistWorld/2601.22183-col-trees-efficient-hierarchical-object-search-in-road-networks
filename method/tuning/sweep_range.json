@@ -1,0 +1,55 @@
+{
+  "range": {
+    "results": {
+      "lam128": {
+        "exact_answer_rate": 1.0,
+        "log10_call_reduction": 2.192406828946784,
+        "log10_candidate_reduction": 1.5848896794365523,
+        "index_entries_per_vertex": 24.0,
+        "sdl_work_per_vertex": 135.56962675687404
+      },
+      "lam16": {
+        "exact_answer_rate": 1.0,
+        "log10_call_reduction": 2.212501976831884,
+        "log10_candidate_reduction": 1.563670729486147,
+        "index_entries_per_vertex": 24.0,
+        "sdl_work_per_vertex": 135.56962675687404
+      },
+      "lam256": {
+        "exact_answer_rate": 1.0,
+        "log10_call_reduction": 2.160986189093804,
+        "log10_candidate_reduction": 1.5125021903813658,
+        "index_entries_per_vertex": 24.0,
+        "sdl_work_per_vertex": 135.56962675687404
+      },
+      "lam32": {
+        "exact_answer_rate": 1.0,
+        "log10_call_reduction": 2.1977847441349176,
+        "log10_candidate_reduction": 1.5952335904171417,
+        "index_entries_per_vertex": 24.0,
+        "sdl_work_per_vertex": 135.56962675687404
+      },
+      "lam512": {
+        "exact_answer_rate": 1.0,
+        "log10_call_reduction": 2.1581600219177854,
+        "log10_candidate_reduction": 1.4853049179799203,
+        "index_entries_per_vertex": 24.0,
+        "sdl_work_per_vertex": 135.56962675687404
+      },
+      "lam64": {
+        "exact_answer_rate": 1.0,
+        "log10_call_reduction": 2.1932339847869486,
+        "log10_candidate_reduction": 1.5917783545458466,
+        "index_entries_per_vertex": 24.0,
+        "sdl_work_per_vertex": 135.56962675687404
+      },
+      "lam8": {
+        "exact_answer_rate": 1.0,
+        "log10_call_reduction": 2.2183111911675466,
+        "log10_candidate_reduction": 1.54304207063066,
+        "index_entries_per_vertex": 24.0,
+        "sdl_work_per_vertex": 135.56962675687404
+      }
+    }
+  }
+}

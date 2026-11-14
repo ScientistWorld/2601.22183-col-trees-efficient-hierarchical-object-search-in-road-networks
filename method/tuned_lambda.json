@@ -1,0 +1,161 @@
+{
+ "objective": "log10_candidate_reduction + 0.5 * log10_call_reduction on the train split",
+ "chosen": {
+  "kfn": 16,
+  "aknn": 32,
+  "range": 32
+ },
+ "lam_spec": "kfn=16,aknn=32,range=32",
+ "sweep": {
+  "kfn": {
+   "8": {
+    "ok": true,
+    "log10_candidate_reduction": 1.6169881437454277,
+    "log10_call_reduction": 1.9664185163552488,
+    "score": 2.600197401923052
+   },
+   "16": {
+    "ok": true,
+    "log10_candidate_reduction": 1.6412753218756098,
+    "log10_call_reduction": 1.980414064871285,
+    "score": 2.6314823543112524
+   },
+   "32": {
+    "ok": true,
+    "log10_candidate_reduction": 1.6349168783526136,
+    "log10_call_reduction": 1.98331016929814,
+    "score": 2.6265719630016835
+   },
+   "64": {
+    "ok": true,
+    "log10_candidate_reduction": 1.5995606264614664,
+    "log10_call_reduction": 2.0003998145952697,
+    "score": 2.599760533759101
+   },
+   "128": {
+    "ok": true,
+    "log10_candidate_reduction": 1.587754344922708,
+    "log10_call_reduction": 1.9951322874392292,
+    "score": 2.5853204886423224
+   },
+   "256": {
+    "ok": true,
+    "log10_candidate_reduction": 1.549800765526387,
+    "log10_call_reduction": 2.0005412751090157,
+    "score": 2.550071403080895
+   },
+   "512": {
+    "ok": true,
+    "log10_candidate_reduction": 1.4933044643765399,
+    "log10_call_reduction": 1.9996315293177265,
+    "score": 2.4931202290354033
+   }
+  },
+  "aknn": {
+   "8": {
+    "ok": true,
+    "log10_candidate_reduction": 1.1809521725223233,
+    "log10_call_reduction": 1.5303917313026574,
+    "score": 1.946148038173652
+   },
+   "16": {
+    "ok": true,
+    "log10_candidate_reduction": 1.202310676125659,
+    "log10_call_reduction": 1.5483271029674703,
+    "score": 1.976474227609394
+   },
+   "32": {
+    "ok": true,
+    "log10_candidate_reduction": 1.2066198043565641,
+    "log10_call_reduction": 1.5564320902693416,
+    "score": 1.984835849491235
+   },
+   "64": {
+    "ok": true,
+    "log10_candidate_reduction": 1.1896923647838797,
+    "log10_call_reduction": 1.5533220647663455,
+    "score": 1.9663533971670524
+   },
+   "128": {
+    "ok": true,
+    "log10_candidate_reduction": 1.1364535854038924,
+    "log10_call_reduction": 1.545735766922878,
+    "score": 1.9093214688653313
+   },
+   "256": {
+    "ok": true,
+    "log10_candidate_reduction": 0.9917548385181426,
+    "log10_call_reduction": 1.497252996302456,
+    "score": 1.7403813366693706
+   },
+   "512": {
+    "ok": true,
+    "log10_candidate_reduction": 0.965479761929413,
+    "log10_call_reduction": 1.486521394684857,
+    "score": 1.7087404592718416
+   }
+  },
+  "range": {
+   "8": {
+    "ok": true,
+    "log10_candidate_reduction": 1.54304207063066,
+    "log10_call_reduction": 2.2183111911675466,
+    "score": 2.652197666214433
+   },
+   "16": {
+    "ok": true,
+    "log10_candidate_reduction": 1.563670729486147,
+    "log10_call_reduction": 2.212501976831884,
+    "score": 2.669921717902089
+   },
+   "32": {
+    "ok": true,
+    "log10_candidate_reduction": 1.5952335904171417,
+    "log10_call_reduction": 2.1977847441349176,
+    "score": 2.6941259624846006
+   },
+   "64": {
+    "ok": true,
+    "log10_candidate_reduction": 1.5917783545458466,
+    "log10_call_reduction": 2.1932339847869486,
+    "score": 2.6883953469393207
+   },
+   "128": {
+    "ok": true,
+    "log10_candidate_reduction": 1.5848896794365523,
+    "log10_call_reduction": 2.192406828946784,
+    "score": 2.6810930939099444
+   },
+   "256": {
+    "ok": true,
+    "log10_candidate_reduction": 1.5125021903813658,
+    "log10_call_reduction": 2.160986189093804,
+    "score": 2.592995284928268
+   },
+   "512": {
+    "ok": true,
+    "log10_candidate_reduction": 1.4853049179799203,
+    "log10_call_reduction": 2.1581600219177854,
+    "score": 2.564384928938813
+   }
+  }
+ },
+ "adaptive_rule": "kfn=1.9772:0.1:8:512,aknn=2.6703:0.1:8:512,range=3.4657:0.0:8:512",
+ "adaptive_rule_train": {
+  "kfn": {
+   "train_score_fixed": 2.631482354311253,
+   "train_score_rule": 2.633444648836215,
+   "queries": 160
+  },
+  "aknn": {
+   "train_score_fixed": 1.984835849491235,
+   "train_score_rule": 1.985437666068602,
+   "queries": 96
+  },
+  "range": {
+   "train_score_fixed": 2.6941259624845997,
+   "train_score_rule": 2.6941259624845997,
+   "queries": 140
+  }
+ }
+}

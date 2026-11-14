@@ -1,0 +1,4 @@
+{"command": ["python3", "method/solver.py", "--lam", "512", "--bounds", "paper"],
+ "structures": {"kfn": "../../../experiment_results/colt/sul_kfn.json",
+                "aknn": "../../../experiment_results/colt/sul_aknn.json",
+                "range": "../../../experiment_results/colt/sul_range.json"}}
