@@ -5,4 +5,4 @@ action: submit
 gpus: 0
 test: false
 milestone: secondary_claims
-notes: "Hardening job 2: seed reruns on the shared ALT backbone, farthest-landmark variants (kFN too) and combined variant on test; re-drawn seeds and variants on train (transfer check). Reference outputs from job ad607932-ebd are kept (skipped)."
+notes: "Hardening job 3: hidden test now averages over 3 hidden travel-time conditions (root-landmark draw luck was test-condition specific). Reruns reference on test and all test probe groups (split per task); train/paper outputs and lambda tuning kept."

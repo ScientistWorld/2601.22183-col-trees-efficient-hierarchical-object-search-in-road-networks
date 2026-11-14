@@ -4,9 +4,10 @@
 #      split (scripts/method.sh -> scripts/tune_lambda.sh), baselines; the probe
 #      structures are built meanwhile (hardening/build.sh structures);
 #   2. scoring runs, in parallel where the node allows, in priority order:
-#      held-out test (scoring/scores_test.json), the hardening probe groups
-#      (hardening/run_probes.sh), the public split (scoring/scores_train.json),
-#      the paper's own setting (scoring/scores.json), the seed reruns;
+#      held-out test (scoring/scores_test.json), the public split
+#      (scoring/scores_train.json), the paper's own setting (scoring/scores.json),
+#      then the hardening probe groups (hardening/run_probes.sh) through the test
+#      and train evaluators, one run per group and query type;
 #   3. hardening/summarize.py and validate.py.
 # Resumable: finished outputs are kept and their step is skipped; an interrupted
 # evaluator run resumes after its last finished task (--checkpoint).
@@ -94,31 +95,38 @@ eval_full() {  # eval_full <evaluator args...> <output> <details> <checkpoint>
 
 launch ref_test scoring/scores_test.json eval_full eval/test/evaluate.py --root experiment_results \
     scoring/scores_test.json scoring/details/test.json scoring/details/ckpt_test.json
-for g in colt_a colt_b alt; do
-    launch "probes_$g" "hardening/results/parts/test_$g.json" bash hardening/run_probes.sh test "$g"
-done
 launch ref_train scoring/scores_train.json eval_full eval/train/evaluate.py --setting train --root experiment_results \
     scoring/scores_train.json scoring/details/train.json scoring/details/ckpt_train.json
 launch paper scoring/scores.json eval_full eval/evaluate.py --root experiment_results \
     scoring/scores.json scoring/details/paper.json scoring/details/ckpt_paper.json
-launch probes_seeds hardening/results/parts/test_seeds.json bash hardening/run_probes.sh test seeds
-# Seed reruns on the shared ALT backbone; the farthest-landmark variants (split by query type).
-launch probes_frozen hardening/results/parts/test_frozen.json bash hardening/run_probes.sh test frozen
-for t in kfn aknn range; do
-    launch "probes_far_$t" "hardening/results/parts/test_far_$t.json" bash hardening/run_probes.sh test far "$t"
+# Probe groups through the hidden test, one run per group and query type.
+TEST_GROUPS="colt_a colt_b alt frozen seeds"
+for g in $TEST_GROUPS; do
+    for t in kfn aknn range; do
+        launch "probes_${g}_$t" "hardening/results/parts/test_${g}_$t.json" bash hardening/run_probes.sh test "$g" "$t"
+    done
 done
 # Train split: re-drawn seeds and the candidate improvements (do test gains transfer?).
-for t in kfn aknn range; do
-    launch "train_seeds_$t" "hardening/results/parts/train_seeds_$t.json" bash hardening/run_probes.sh train seeds "$t"
-    launch "train_variants_$t" "hardening/results/parts/train_tvariants_$t.json" bash hardening/run_probes.sh train tvariants "$t"
+TRAIN_GROUPS="seeds tvariants tbest"
+for g in $TRAIN_GROUPS; do
+    for t in kfn aknn range; do
+        launch "train_${g}_$t" "hardening/results/parts/train_${g}_$t.json" bash hardening/run_probes.sh train "$g" "$t"
+    done
 done
 wait
 
-for f in scoring/scores_test.json scoring/scores_train.json scoring/scores.json \
-         hardening/results/parts/test_{colt_a,colt_b,alt,seeds,frozen}.json \
-         hardening/results/parts/test_far_{kfn,aknn,range}.json \
-         hardening/results/parts/train_{seeds,tvariants}_{kfn,aknn,range}.json; do
+for f in scoring/scores_test.json scoring/scores_train.json scoring/scores.json; do
     [ -s "$f" ] || { echo "!!! missing $f" >&2; status=1; }
+done
+for g in $TEST_GROUPS; do
+    for t in kfn aknn range; do
+        [ -s "hardening/results/parts/test_${g}_$t.json" ] || { echo "!!! missing test $g $t" >&2; status=1; }
+    done
+done
+for g in $TRAIN_GROUPS; do
+    for t in kfn aknn range; do
+        [ -s "hardening/results/parts/train_${g}_$t.json" ] || { echo "!!! missing train $g $t" >&2; status=1; }
+    done
 done
 
 # 3. Summary and checks.

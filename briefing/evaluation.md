@@ -16,12 +16,16 @@
 |---|---|---|---|---|
 | `scoring/scores.json` | `eval/evaluate.py` (paper setting) | original | the 8 real POI categories as published, plus uniform d = 0.001, 0.01, 0.1 | public seed |
 | `scoring/scores_train.json` | `eval/train/evaluate.py` | public perturbation of the original | 4-5 jittered real POI categories and uniform d = 0.001, 0.01, 0.1; a fresh set per query | public seed |
-| `scoring/scores_test.json` | `eval/test/evaluate.py` | hidden perturbation | hidden draws of the same kinds (other real categories) | hidden |
+| `scoring/scores_test.json` | `eval/test/evaluate.py` | three hidden perturbations (independent traffic conditions) | hidden draws of the same kinds (other real categories) | hidden |
 
 Query defaults follow the paper (Table 4). kFN uses k=10. AkNN uses k=10, |Q|=8 vertices from a connected
 subnetwork holding 15% of the vertices, and alternates max and sum. Range uses r = 2.5% of the network diameter.
 The held-out split has 160 kFN queries (20 per object set), 96 AkNN queries (12 per set) and 140 range
-queries (20 per set). Every method sees the same queries. Each metric is a mean over all queries of a
+queries (20 per set). They are split evenly across three hidden travel-time conditions: each is an independent
+secret perturbation of the public travel times. The landmark distance lists and all exact distances are
+computed separately for each condition. Every metric averages over all three, and construction work is the
+mean over the conditions. An index is therefore scored on traffic it cannot know in advance. The train split
+has one public condition of the same kind. Every method sees the same queries. Each metric is a mean over all queries of a
 query type, so the sparse and the dense object sets carry equal weight per query.
 
 ## Submission format

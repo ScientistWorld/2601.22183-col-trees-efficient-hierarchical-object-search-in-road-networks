@@ -26,7 +26,7 @@ The solver learns object sets and distances through the protocol alone: it must 
 times (or shortest-path distances computed from them) into query answering. Do not try to reconstruct the
 evaluation network's travel times from the public ones. Do not answer from estimates that the protocol
 does not let you verify. One inexact answer fails the run.
-On the held-out split, the travel times differ from the public file.
+On the held-out split, the travel times differ from the public file: three hidden traffic conditions, with the queries split across them.
 
 ## Compliance Checklist
 - [ ] Submission directory contains `submission.json` and a structure for kfn, aknn and range

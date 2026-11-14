@@ -63,6 +63,12 @@ WORKSPACE = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__fi
 SPLIT = "test"
 SECRET = 0x04385DECF1B74B0A
 NOISE = {"grid": 12, "sigma_region": 0.35, "sigma_edge": 0.20, "clip": (0.4, 2.5)}
+# Number of hidden travel-time conditions (independent secret perturbations of the
+# public travel times).  Queries are split evenly across them (query i of an object
+# set runs under condition i mod CONDITIONS) and every metric averages over them, so a
+# method is scored on how well its index works under traffic it cannot know in advance,
+# not on how its landmarks happen to fit one condition.
+CONDITIONS = 3
 JITTER_STEPS = 3
 REAL_SETS = ("school", "park", "post_office", "fast_food", "hotel")
 # Object densities span the paper's sensitivity range (Figures 6a, 11, 13a:
@@ -361,16 +367,18 @@ def load_poi(name):
 
 
 class Workload:
-    def __init__(self, n, eu, ev, engine, seed, tasks=None):
+    def __init__(self, n, eu, ev, engines, seed, tasks=None):
         self.n = n
         self.seed = seed
         self.adj_ptr, self.adj = self._topology(n, eu, ev)
         self.poi = {name: load_poi(name) for name in REAL_SETS}
         rng = Rng(hkey(seed, "diameter"))
         s0 = rng.below(n)
-        far = argmax_row(engine.sssp_many([s0])[0])
-        row = engine.sssp_many([far])[0]
-        self.diameter = float(row[argmax_row(row)])
+        self.diameters = []
+        for engine in engines:   # double sweep, per travel-time condition
+            far = argmax_row(engine.sssp_many([s0])[0])
+            row = engine.sssp_many([far])[0]
+            self.diameters.append(float(row[argmax_row(row)]))
         self.queries = {}
         for task, cfg in TASKS.items():
             if tasks is not None and task not in tasks:
@@ -380,7 +388,9 @@ class Workload:
                 for qi in range(cfg["per_set"]):
                     key = hkey(seed, task, set_name, qi)
                     rng = Rng(key)
-                    spec = {"task": task, "set": set_name, "obj_key": hkey(key, "objects")}
+                    field = qi % len(engines)
+                    engine = engines[field]
+                    spec = {"task": task, "set": set_name, "obj_key": hkey(key, "objects"), "field": field}
                     if task == "aknn":
                         center = rng.below(n)
                         area = nearest_vertices(engine.sssp_many([center])[0],
@@ -393,7 +403,7 @@ class Workload:
                         if task == "kfn":
                             spec["k"] = cfg["k"]
                         else:
-                            spec["radius"] = cfg["radius_frac"] * self.diameter
+                            spec["radius"] = cfg["radius_frac"] * self.diameters[field]
                     specs.append(spec)
             self.queries[task] = specs
 
@@ -1069,10 +1079,11 @@ def main():
     t0 = time.time()
     log = lambda msg: print(f"[eval:{SPLIT} {time.time() - t0:7.1f}s] {msg}", file=sys.stderr, flush=True)
     n, eu, ev, ew, xs, ys = load_base()
-    ww = hidden_weights(n, eu, ev, ew, xs, ys, SECRET)
-    engine = Engine(n, eu, ev, ww)
-    log(f"network: {n} vertices, {len(eu)} edges (scipy={HAVE_SCIPY})")
-    workload = Workload(n, eu, ev, engine, SECRET, tasks_run)
+    engines = [Engine(n, eu, ev, hidden_weights(n, eu, ev, ew, xs, ys,
+                                                SECRET if j == 0 else hkey(SECRET, "condition", j)))
+               for j in range(CONDITIONS)]
+    log(f"network: {n} vertices, {len(eu)} edges, {CONDITIONS} travel-time conditions (scipy={HAVE_SCIPY})")
+    workload = Workload(n, eu, ev, engines, SECRET, tasks_run)
     log("workload: " + ", ".join(f"{t}={len(q)} queries" for t, q in workload.queries.items()))
 
     methods = discover(roots)
@@ -1097,15 +1108,16 @@ def main():
     indexes = {}
     stats = {name: {} for name in plans}
 
-    def index_for(digest, spath):
-        if digest not in indexes:
+    def index_for(digest, spath, field):
+        key = (digest, field)
+        if key not in indexes:
             try:
                 idx = Index(spath, n)
-                idx.compute(engine)
-                indexes[digest] = idx
+                idx.compute(engines[field])
+                indexes[key] = idx
             except Invalid as exc:
-                indexes[digest] = exc
-        idx = indexes[digest]
+                indexes[key] = exc
+        idx = indexes[key]
         if isinstance(idx, Invalid):
             raise idx
         return idx
@@ -1141,61 +1153,68 @@ def main():
     for ti, (task, specs) in enumerate(workload.queries.items()):
         if task in ckpt["done"]:
             continue
-        sessions = {}
-        for name in plans:
-            if status[name] is not None:
-                continue
-            cmd, plan = plans[name]
-            digest, spath = plan[task]
-            try:
-                idx = index_for(digest, spath)
-                if idx.entries > INDEX_CAP[task] * n:
-                    raise Invalid(f"{task} index has {idx.entries / n:.2f} entries per vertex "
-                                  f"(cap {INDEX_CAP[task]})")
-                if idx.work > WORK_CAP[task] * n:
-                    raise Invalid(f"{task} index construction work is {idx.work / n:.1f} settled vertices "
-                                  f"per vertex (cap {WORK_CAP[task]})")
-                stats[name][task] = (idx.entries, idx.work)
-                log(f"{name}: {task} index ready ({idx.entries / n:.1f} entries/v, {idx.work / n:.1f} work/v)")
-                sessions[name] = Session(name, task, idx, spath, cmd,
-                                         os.path.join(logdir, f"{name.replace('/', '_')}.log"))
-            except Invalid as exc:
-                status[name] = f"{task}: {exc}"
-                log(f"{name}: FAILED ({status[name]})")
-        for qn, spec in enumerate(specs):
-            if not sessions:
-                break
-            objects = workload.objects(spec)
-            object_set = set(objects)
-            rows = engine.sssp_many(spec["q"])
-            truth = Truth(spec, objects, rows)
-            for name in list(sessions):
-                sess = sessions[name]
-                try:
-                    result, work = sess.run_query(spec, objects, object_set, rows)
-                except Invalid as exc:
-                    status[name] = f"{task} query {qn}: {exc}"
-                    log(f"{name}: FAILED ({status[name]})")
-                    sess.kill()
-                    del sessions[name]
+        work_by_field = {}
+        for field in range(CONDITIONS):
+            sessions = {}
+            for name in plans:
+                if status[name] is not None:
                     continue
-                ok = truth.check(result)
-                row = {"set": spec["set"], "n_objects": len(objects), "q_size": len(spec["q"])}
-                row.update(work)
-                row["correct"] = bool(ok)
-                results[name][task].append(row)
-                if not ok and status[name] is None:
-                    status[name] = f"{task} query {qn}: inexact answer"
+                cmd, plan = plans[name]
+                digest, spath = plan[task]
+                try:
+                    idx = index_for(digest, spath, field)
+                    if idx.entries > INDEX_CAP[task] * n:
+                        raise Invalid(f"{task} index has {idx.entries / n:.2f} entries per vertex "
+                                      f"(cap {INDEX_CAP[task]})")
+                    if idx.work > WORK_CAP[task] * n:
+                        raise Invalid(f"{task} index construction work is {idx.work / n:.1f} settled vertices "
+                                      f"per vertex (cap {WORK_CAP[task]})")
+                    work_by_field.setdefault(name, []).append(idx.work)
+                    stats[name][task] = (idx.entries, sum(work_by_field[name]) / len(work_by_field[name]))
+                    log(f"{name}: {task} index ready, condition {field} "
+                        f"({idx.entries / n:.1f} entries/v, {idx.work / n:.1f} work/v)")
+                    sessions[name] = Session(name, task, idx, spath, cmd,
+                                             os.path.join(logdir, f"{name.replace('/', '_')}.log"))
+                except Invalid as exc:
+                    status[name] = f"{task}: {exc}"
                     log(f"{name}: FAILED ({status[name]})")
-                    sess.kill()
-                    del sessions[name]
-            if (qn + 1) % 20 == 0:
-                log(f"{task}: {qn + 1}/{len(specs)} queries")
-        for sess in sessions.values():
-            sess.close()
-        later = {plans[m][1][t][0] for m in plans if status[m] is None for t in task_order[ti + 1:]}
-        for digest in [d for d in indexes if d not in later]:
-            del indexes[digest]
+            for qn, spec in enumerate(specs):
+                if spec["field"] != field:
+                    continue
+                if not sessions:
+                    break
+                objects = workload.objects(spec)
+                object_set = set(objects)
+                rows = engines[field].sssp_many(spec["q"])
+                truth = Truth(spec, objects, rows)
+                for name in list(sessions):
+                    sess = sessions[name]
+                    try:
+                        result, work = sess.run_query(spec, objects, object_set, rows)
+                    except Invalid as exc:
+                        status[name] = f"{task} query {qn}: {exc}"
+                        log(f"{name}: FAILED ({status[name]})")
+                        sess.kill()
+                        del sessions[name]
+                        continue
+                    ok = truth.check(result)
+                    row = {"set": spec["set"], "n_objects": len(objects), "q_size": len(spec["q"]),
+                           "condition": field}
+                    row.update(work)
+                    row["correct"] = bool(ok)
+                    results[name][task].append(row)
+                    if not ok and status[name] is None:
+                        status[name] = f"{task} query {qn}: inexact answer"
+                        log(f"{name}: FAILED ({status[name]})")
+                        sess.kill()
+                        del sessions[name]
+                if (qn + 1) % 20 == 0:
+                    log(f"{task}: {qn + 1}/{len(specs)} queries (condition {field})")
+            for sess in sessions.values():
+                sess.close()
+            for key in [k for k in indexes if k[1] == field and not any(
+                    plans[m][1][t][0] == k[0] for m in plans if status[m] is None for t in task_order[ti + 1:])]:
+                del indexes[key]
         if args.checkpoint:
             ckpt.update({"done": ckpt["done"] + [task], "status": status, "results": results,
                          "stats": {m: {t: list(v) for t, v in s.items()} for m, s in stats.items()}})
