@@ -3,11 +3,12 @@
 #   1. reference submissions: structures, the lambda parameter test on the train
 #      split (scripts/method.sh -> scripts/tune_lambda.sh), baselines; the probe
 #      structures are built meanwhile (hardening/build.sh structures);
-#   2. scoring runs, in parallel where the node allows, in priority order:
-#      held-out test (scoring/scores_test.json), the public split
-#      (scoring/scores_train.json), the paper's own setting (scoring/scores.json),
-#      then the hardening probe groups (hardening/run_probes.sh) through the test
-#      and train evaluators, one run per group and query type;
+#   2. scoring runs, in parallel where the node allows, longest first:
+#      held-out test (scoring/scores_test.json), the hardening probe groups
+#      (hardening/run_probes.sh: five root-landmark redraws, variants, shortcuts)
+#      through the test and train evaluators, one run per group and query type,
+#      the public split (scoring/scores_train.json) and the paper's own setting
+#      (scoring/scores.json);
 #   3. hardening/summarize.py and validate.py.
 # Resumable: finished outputs are kept and their step is skipped; an interrupted
 # evaluator run resumes after its last finished task (--checkpoint).
@@ -95,28 +96,29 @@ eval_full() {  # eval_full <evaluator args...> <output> <details> <checkpoint>
 
 launch ref_test scoring/scores_test.json eval_full eval/test/evaluate.py --root experiment_results \
     scoring/scores_test.json scoring/details/test.json scoring/details/ckpt_test.json
-launch ref_train scoring/scores_train.json eval_full eval/train/evaluate.py --setting train --root experiment_results \
-    scoring/scores_train.json scoring/details/train.json scoring/details/ckpt_train.json
-launch paper scoring/scores.json eval_full eval/evaluate.py --root experiment_results \
-    scoring/scores.json scoring/details/paper.json scoring/details/ckpt_paper.json
-# Probe groups through the hidden test, one run per group and query type (the kFN
-# seed reruns one method per run: each builds three 40-entry indexes).
-TEST_RUNS="seed2:kfn seed3:kfn seed2f:kfn seed3f:kfn"
-for g in colt_a colt_b alt; do
-    TEST_RUNS="$TEST_RUNS $g:kfn $g:aknn $g:range"
-done
-TEST_RUNS="$TEST_RUNS frozen:aknn frozen:range seeds:aknn seeds:range"
+# Probe groups through the hidden test, one run per group and query type (a kFN
+# root-landmark redraw runs alone: each builds three 40-entry indexes).  Longest first.
+TEST_RUNS="seed2:kfn seed3:kfn seed4:kfn seed5:kfn seed6:kfn colt_a:kfn colt_b:kfn"
+TEST_RUNS="$TEST_RUNS seeds:aknn seeds:range colt_a:aknn colt_b:aknn alt:kfn alt:aknn"
+TEST_RUNS="$TEST_RUNS colt_a:range colt_b:range alt:range frozen:aknn frozen:range"
+# Train split: root-landmark redraws and the candidate improvements (do test gains transfer?).
+TRAIN_RUNS="seeds:kfn tvariants:kfn seeds:aknn tvariants:aknn seeds:range tvariants:range"
+n=0
 for r in $TEST_RUNS; do
     g=${r%%:*} t=${r#*:}
     launch "probes_${g}_$t" "hardening/results/parts/test_${g}_$t.json" bash hardening/run_probes.sh test "$g" "$t"
+    n=$((n + 1))
+    if [ $n -eq 5 ]; then
+        launch ref_train scoring/scores_train.json eval_full eval/train/evaluate.py --setting train --root experiment_results \
+            scoring/scores_train.json scoring/details/train.json scoring/details/ckpt_train.json
+        for rr in $TRAIN_RUNS; do
+            launch "train_${rr%%:*}_${rr#*:}" "hardening/results/parts/train_${rr%%:*}_${rr#*:}.json" \
+                bash hardening/run_probes.sh train "${rr%%:*}" "${rr#*:}"
+        done
+    fi
 done
-# Train split: re-drawn seeds and the candidate improvements (do test gains transfer?).
-TRAIN_GROUPS="seeds tvariants tbest"
-for g in $TRAIN_GROUPS; do
-    for t in kfn aknn range; do
-        launch "train_${g}_$t" "hardening/results/parts/train_${g}_$t.json" bash hardening/run_probes.sh train "$g" "$t"
-    done
-done
+launch paper scoring/scores.json eval_full eval/evaluate.py --root experiment_results \
+    scoring/scores.json scoring/details/paper.json scoring/details/ckpt_paper.json
 wait
 
 for f in scoring/scores_test.json scoring/scores_train.json scoring/scores.json; do
@@ -125,10 +127,8 @@ done
 for r in $TEST_RUNS; do
     [ -s "hardening/results/parts/test_${r%%:*}_${r#*:}.json" ] || { echo "!!! missing test $r" >&2; status=1; }
 done
-for g in $TRAIN_GROUPS; do
-    for t in kfn aknn range; do
-        [ -s "hardening/results/parts/train_${g}_$t.json" ] || { echo "!!! missing train $g $t" >&2; status=1; }
-    done
+for r in $TRAIN_RUNS; do
+    [ -s "hardening/results/parts/train_${r%%:*}_${r#*:}.json" ] || { echo "!!! missing train $r" >&2; status=1; }
 done
 
 # 3. Summary and checks.

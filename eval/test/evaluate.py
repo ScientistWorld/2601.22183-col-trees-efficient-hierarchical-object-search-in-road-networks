@@ -6,8 +6,9 @@ protocol on workloads that exist only here:
 
   * hidden travel-time conditions of the NW road network (secret, spatially
     correlated + per-edge perturbation of the public travel times),
-  * a fresh hidden object set for every query (jittered real POI categories or
-    uniform samples), and hidden query vertices.
+  * a fresh hidden object set for every query (jittered real POI categories,
+    uniform samples over the network or over a network region), and hidden
+    query vertices (uniform over the vertices or spread over the map).
 
 The evaluator owns all distances.  For a submitted index structure it
 computes the landmark distance lists on the hidden network, answers the
@@ -71,19 +72,34 @@ NOISE = {"grid": 12, "sigma_region": 0.35, "sigma_edge": 0.20, "clip": (0.4, 2.5
 CONDITIONS = 3
 JITTER_STEPS = 3
 REAL_SETS = ("school", "park", "post_office", "fast_food", "hotel")
-# Object densities span the paper's sensitivity range (Figures 6a, 11, 13a:
+# Object sets.  Densities span the paper's sensitivity range (Figures 6a, 11, 13a:
 # d = |P|/|V| from 0.0001 to 0.1); the real categories cover d = 0.0004-0.005.
+#   "<poi>"                 a real POI category (jittered), whole network
+#   "uniform:<d>"           uniform vertices at density d, whole network
+#   "region:<A>/uniform:<d>" uniform vertices at density d inside a network region:
+#                           the A*|V| vertices nearest (network distance) to a centre
+#                           spread over the map
+# A "@spread" suffix draws the query vertex (kFN) or the centre of the query area
+# (AkNN) spread over the map (a random map cell, then a random vertex in it) instead
+# of uniformly over the vertices, which concentrates queries in the large cities.
+# Spread sources and regional object sets put the farthest objects (kFN) and the
+# query areas (AkNN) all over the network, so a score reflects how an index works
+# across the whole network, not around a few corners or cities.
+PAPER_SETS = ["school", "park", "post_office", "fast_food", "hotel",
+              "uniform:0.001", "uniform:0.01", "uniform:0.1"]
+REGION_SETS = [f"region:{a}/uniform:{d}" for a in ("0.02", "0.1", "0.4") for d in ("0.01", "0.1")]
 TASKS = {
-    "kfn": {"sets": ["school", "park", "post_office", "fast_food", "hotel",
-                     "uniform:0.001", "uniform:0.01", "uniform:0.1"],
-            "per_set": 20, "k": 10},
-    "aknn": {"sets": ["school", "park", "post_office", "fast_food", "hotel",
-                      "uniform:0.001", "uniform:0.01", "uniform:0.1"],
-             "per_set": 12, "k": 10, "q_size": 8, "area": 0.15, "aggs": ["max", "sum"]},
+    "kfn": {"sets": PAPER_SETS + [s + "@spread" for s in PAPER_SETS] + REGION_SETS,
+            "per_set": 15, "k": 10},
+    "aknn": {"sets": PAPER_SETS + [s + "@spread" for s in PAPER_SETS],
+             "per_set": 12, "k": 10, "q_size": 8, "area": 0.15, "area_spread": 0.05,
+             "aggs": ["max", "sum"]},
     "range": {"sets": ["school", "park", "post_office", "fast_food",
                        "uniform:0.001", "uniform:0.01", "uniform:0.1"],
               "per_set": 20, "radius_frac": 0.025},
 }
+SPREAD_GRID = 12          # map cells per side for spread sources and region centres
+SPREAD_MIN_CELL = 200     # cells with fewer vertices are never drawn
 # Index budget: subgraph-distance-list entries per vertex (the paper's tuned
 # configuration for each query type: 16 ALT root landmarks plus m local
 # landmarks on every level of a b-ary hierarchy with leaves of <= 1024 vertices).
@@ -366,10 +382,22 @@ def load_poi(name):
     return out
 
 
+def split_set(name):
+    """'<objects>[@spread]' -> (objects, spread source?, region fraction or None, inner objects)."""
+    spread = name.endswith("@spread")
+    base = name[:-len("@spread")] if spread else name
+    frac, inner = None, base
+    if base.startswith("region:"):
+        head, inner = base[len("region:"):].split("/", 1)
+        frac = float(head)
+    return base, spread, frac, inner
+
+
 class Workload:
-    def __init__(self, n, eu, ev, engines, seed, tasks=None):
+    def __init__(self, n, eu, ev, engines, seed, tasks=None, xs=None, ys=None):
         self.n = n
         self.seed = seed
+        self.engines = engines
         self.adj_ptr, self.adj = self._topology(n, eu, ev)
         self.poi = {name: load_poi(name) for name in REAL_SETS}
         rng = Rng(hkey(seed, "diameter"))
@@ -379,33 +407,58 @@ class Workload:
             far = argmax_row(engine.sssp_many([s0])[0])
             row = engine.sssp_many([far])[0]
             self.diameters.append(float(row[argmax_row(row)]))
+        self.cells = None
+        if any(split_set(s)[1] or split_set(s)[2] is not None
+               for t, cfg in TASKS.items() if tasks is None or t in tasks for s in cfg["sets"]):
+            self.cells = self._cells(n, xs, ys)
         self.queries = {}
         for task, cfg in TASKS.items():
             if tasks is not None and task not in tasks:
                 continue
             specs = []
             for si, set_name in enumerate(cfg["sets"]):
+                _, spread, frac, _ = split_set(set_name)
                 for qi in range(cfg["per_set"]):
                     key = hkey(seed, task, set_name, qi)
                     rng = Rng(key)
                     field = qi % len(engines)
                     engine = engines[field]
                     spec = {"task": task, "set": set_name, "obj_key": hkey(key, "objects"), "field": field}
+                    if frac is not None:
+                        spec["region"] = (self.spread_vertex(Rng(hkey(key, "region"))), frac)
                     if task == "aknn":
-                        center = rng.below(n)
+                        center = self.spread_vertex(rng) if spread else rng.below(n)
+                        size = cfg["area_spread"] if spread else cfg["area"]
                         area = nearest_vertices(engine.sssp_many([center])[0],
-                                                max(cfg["q_size"], int(math.ceil(cfg["area"] * n))))
+                                                max(cfg["q_size"], int(math.ceil(size * n))))
                         spec["q"] = [area[i] for i in rng.sample(len(area), cfg["q_size"])]
                         spec["agg"] = cfg["aggs"][qi % len(cfg["aggs"])]
                         spec["k"] = cfg["k"]
                     else:
-                        spec["q"] = [rng.below(n)]
+                        spec["q"] = [self.spread_vertex(rng) if spread else rng.below(n)]
                         if task == "kfn":
                             spec["k"] = cfg["k"]
                         else:
                             spec["radius"] = cfg["radius_frac"] * self.diameters[field]
                     specs.append(spec)
             self.queries[task] = specs
+
+    @staticmethod
+    def _cells(n, xs, ys):
+        """Vertices of every populated cell of a SPREAD_GRID x SPREAD_GRID map grid."""
+        g = SPREAD_GRID
+        xmin, xmax, ymin, ymax = min(xs), max(xs), min(ys), max(ys)
+        cells = {}
+        for v in range(n):
+            cx = min(g - 1, (xs[v] - xmin) * g // max(1, xmax - xmin))
+            cy = min(g - 1, (ys[v] - ymin) * g // max(1, ymax - ymin))
+            cells.setdefault(cx * g + cy, []).append(v)
+        out = [cells[c] for c in sorted(cells) if len(cells[c]) >= SPREAD_MIN_CELL]
+        return out or [list(range(n))]
+
+    def spread_vertex(self, rng):
+        cell = self.cells[rng.below(len(self.cells))]
+        return cell[rng.below(len(cell))]
 
     @staticmethod
     def _topology(n, eu, ev):
@@ -424,7 +477,13 @@ class Workload:
 
     def objects(self, spec):
         rng = Rng(spec["obj_key"])
-        name = spec["set"]
+        _, _, frac, name = split_set(spec["set"])
+        if frac is not None:   # uniform objects inside a region around a spread centre
+            center, frac = spec["region"]
+            pool = nearest_vertices(self.engines[spec["field"]].sssp_many([center])[0],
+                                    max(1, int(math.ceil(frac * self.n))))
+            count = max(1, int(round(float(name.split(":")[1]) * len(pool))))
+            return [pool[i] for i in rng.sample(len(pool), count)]
         if name.startswith("uniform:"):
             count = max(1, int(round(float(name.split(":")[1]) * self.n)))
             return rng.sample(self.n, count)
@@ -1083,7 +1142,7 @@ def main():
                                                 SECRET if j == 0 else hkey(SECRET, "condition", j)))
                for j in range(CONDITIONS)]
     log(f"network: {n} vertices, {len(eu)} edges, {CONDITIONS} travel-time conditions (scipy={HAVE_SCIPY})")
-    workload = Workload(n, eu, ev, engines, SECRET, tasks_run)
+    workload = Workload(n, eu, ev, engines, SECRET, tasks_run, xs, ys)
     log("workload: " + ", ".join(f"{t}={len(q)} queries" for t, q in workload.queries.items()))
 
     methods = discover(roots)
