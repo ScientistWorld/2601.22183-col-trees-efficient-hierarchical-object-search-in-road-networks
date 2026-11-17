@@ -5,4 +5,4 @@ action: submit
 gpus: 0
 test: false
 milestone: secondary_claims
-notes: "Hardening (final): diversified kFN/AkNN test and train workloads (regional object sets, map-spread query sources); lambda re-sweep on train; reference + baselines + 5 root-landmark redraws + variants + shortcuts through test/train/paper (scripts/run.sh, resumable)"
+notes: "Hardening job 2 (resubmitted after a stalled/preempted node): reference root-landmark draw parameter-tested on train (kfn seed 6, aknn/range seed 2); rerun reference, baselines (shared ALT draw), variants, shortcuts and fresh redraws 7-9 through test/train/paper"
