@@ -1,0 +1,48 @@
+{
+  "aknn": {
+    "results": {
+      "seed1": {
+        "exact_answer_rate": 1.0,
+        "log10_call_reduction": 1.6465325168504128,
+        "log10_candidate_reduction": 1.2826598174821902,
+        "index_entries_per_vertex": 24.0,
+        "sdl_work_per_vertex": 142.14761274316862
+      },
+      "seed2": {
+        "exact_answer_rate": 1.0,
+        "log10_call_reduction": 1.6547690719014627,
+        "log10_candidate_reduction": 1.2852300295905073,
+        "index_entries_per_vertex": 24.0,
+        "sdl_work_per_vertex": 141.34944625036584
+      },
+      "seed3": {
+        "exact_answer_rate": 1.0,
+        "log10_call_reduction": 1.6044926097108443,
+        "log10_candidate_reduction": 1.2489457992446322,
+        "index_entries_per_vertex": 24.0,
+        "sdl_work_per_vertex": 141.76880046755167
+      },
+      "seed4": {
+        "exact_answer_rate": 1.0,
+        "log10_call_reduction": 1.6402273482548626,
+        "log10_candidate_reduction": 1.270803741136768,
+        "index_entries_per_vertex": 24.0,
+        "sdl_work_per_vertex": 138.43183204839195
+      },
+      "seed5": {
+        "exact_answer_rate": 1.0,
+        "log10_call_reduction": 1.6274479748001094,
+        "log10_candidate_reduction": 1.265698651268808,
+        "index_entries_per_vertex": 24.0,
+        "sdl_work_per_vertex": 140.71365854598403
+      },
+      "seed6": {
+        "exact_answer_rate": 1.0,
+        "log10_call_reduction": 1.6162978106658514,
+        "log10_candidate_reduction": 1.2668282567677684,
+        "index_entries_per_vertex": 24.0,
+        "sdl_work_per_vertex": 141.088979781326
+      }
+    }
+  }
+}

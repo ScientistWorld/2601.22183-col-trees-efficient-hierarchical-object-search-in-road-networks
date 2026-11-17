@@ -226,3 +226,6 @@ python_wheels/
 
 # Auto-added by swarm
 data/downloads/
+
+# Draw-test candidate structures, rebuilt by scripts/tune_root.sh (deterministic, several MB each).
+method/tuning_root/seed*/sul_*.json

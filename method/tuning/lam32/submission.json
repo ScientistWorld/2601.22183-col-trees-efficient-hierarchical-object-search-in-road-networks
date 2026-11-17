@@ -1,4 +1,4 @@
 {"command": ["python3", "method/solver.py", "--lam", "32", "--bounds", "paper"],
- "structures": {"kfn": "../../../experiment_results/colt/sul_kfn.json",
-                "aknn": "../../../experiment_results/colt/sul_aknn.json",
-                "range": "../../../experiment_results/colt/sul_range.json"}}
+ "structures": {"kfn": "../../tuning_root/seed1/sul_kfn.json",
+                "aknn": "../../tuning_root/seed1/sul_aknn.json",
+                "range": "../../tuning_root/seed1/sul_range.json"}}

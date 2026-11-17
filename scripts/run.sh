@@ -5,7 +5,7 @@
 #      structures are built meanwhile (hardening/build.sh structures);
 #   2. scoring runs, in parallel where the node allows, longest first:
 #      held-out test (scoring/scores_test.json), the hardening probe groups
-#      (hardening/run_probes.sh: five root-landmark redraws, variants, shortcuts)
+#      (hardening/run_probes.sh: fresh root-landmark redraws, variants, shortcuts)
 #      through the test and train evaluators, one run per group and query type,
 #      the public split (scoring/scores_train.json) and the paper's own setting
 #      (scoring/scores.json);
@@ -57,9 +57,9 @@ echo "parallel slots: $P"
 status=0
 
 # 1. Submissions.
+time bash scripts/method.sh || { echo "!!! scripts/method.sh failed" >&2; exit 1; }
 bash hardening/build.sh structures > "$L/probe_structures.log" 2>&1 &
 pid_structures=$!
-time bash scripts/method.sh || { echo "!!! scripts/method.sh failed" >&2; exit 1; }
 time bash scripts/baseline.sh || { echo "!!! scripts/baseline.sh failed" >&2; exit 1; }
 wait "$pid_structures" || { echo "!!! probe structures failed" >&2; status=1; }
 tail -3 "$L/probe_structures.log"
@@ -98,9 +98,12 @@ launch ref_test scoring/scores_test.json eval_full eval/test/evaluate.py --root 
     scoring/scores_test.json scoring/details/test.json scoring/details/ckpt_test.json
 # Probe groups through the hidden test, one run per group and query type (a kFN
 # root-landmark redraw runs alone: each builds three 40-entry indexes).  Longest first.
-TEST_RUNS="seed2:kfn seed3:kfn seed4:kfn seed5:kfn seed6:kfn colt_a:kfn colt_b:kfn"
+# Redraws 7-9 are fresh draws; the six draws of the reference's parameter test (seeds
+# 1-6) were scored through the same test in job f355bc96 (hardening/results_job1/)
+# and are copied into hardening/results/parts/ as test_pool_*.json.
+TEST_RUNS="seed7:kfn seed8:kfn seed9:kfn colt_a:kfn colt_b:kfn"
 TEST_RUNS="$TEST_RUNS seeds:aknn seeds:range colt_a:aknn colt_b:aknn alt:kfn alt:aknn"
-TEST_RUNS="$TEST_RUNS colt_a:range colt_b:range alt:range frozen:aknn frozen:range"
+TEST_RUNS="$TEST_RUNS colt_a:range colt_b:range alt:range"
 # Train split: root-landmark redraws and the candidate improvements (do test gains transfer?).
 TRAIN_RUNS="seeds:kfn tvariants:kfn seeds:aknn tvariants:aknn seeds:range tvariants:range"
 n=0

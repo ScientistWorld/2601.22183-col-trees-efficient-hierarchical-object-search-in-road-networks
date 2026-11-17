@@ -3,21 +3,26 @@
 # SUL-Tree index) into experiment_results/<method>/:
 #
 #   colt          per-query SUL-Tree parameters finalised in the paper
-#                 (Table 8; alpha=1024, 16 ALT root landmarks):
+#                 (Table 8; alpha=1024, 16 random ALT root landmarks):
 #                   kFN   b=4 m=4 Slice-Based Furthest Border
 #                   AkNN  b=8 m=2 Random
 #                   range b=8 m=2 Border Minmax
-#                 and the COL-Tree leaf size lambda chosen per query type by
-#                 parameter testing, as the paper does on its own network
-#                 (Section 9.6), here on this network's public (train) split:
-#                 scripts/tune_lambda.sh -> method/tuned_lambda.json
+#                 with two index parameters set by parameter testing on this
+#                 network's public (train) split, as the paper sets its own on its
+#                 network (Section 9.6), one parameter at a time:
+#                   1. the COL-Tree leaf size lambda per query type, on the default
+#                      random draw (seed 1): scripts/tune_lambda.sh ->
+#                      method/tuned_lambda.json
+#                   2. the random ALT root-landmark draw per query type, best of six
+#                      random draws at that lambda: scripts/tune_root.sh ->
+#                      method/tuned_root.json, experiment_results/colt/
 #   colt_default  the paper's untuned defaults for every query type
-#                 (Section 9.5: b=8, m=2, alpha=1024, Random, lambda=256)
+#                 (Section 9.5: b=8, m=2, alpha=1024, Random, lambda=256, default draw)
 #
 # Each directory gets a submission.json naming the solver command and the
 # structure used for each task; the evaluators do the rest.
 # Data must already be present (scripts/download.sh, run on a node with internet).
-# Set RETUNE=1 to redo the lambda sweep even when method/tuned_lambda.json exists.
+# Set RETUNE=1 to redo both parameter tests even when their outputs exist.
 
 set -euo pipefail
 
@@ -31,11 +36,12 @@ build() {  # build <out> <b> <m> <policy>
         --alpha 1024 --root-landmarks 16 --seed 1
 }
 
-echo "=== colt structures (paper Table 8 parameters per query type) ==="
-mkdir -p "$OUT/colt"
-build "$OUT/colt/sul_kfn.json"   4 4 slice
-build "$OUT/colt/sul_aknn.json"  8 2 random
-build "$OUT/colt/sul_range.json" 8 2 minmax
+echo "=== colt structures, default random draw (paper Table 8 parameters per query type) ==="
+D=/home/user/method/tuning_root/seed1
+mkdir -p "$D" "$OUT/colt"
+build "$D/sul_kfn.json"   4 4 slice
+build "$D/sul_aknn.json"  8 2 random
+build "$D/sul_range.json" 8 2 minmax
 
 echo "=== colt_default (b=8, m=2, Random, lambda=256 for every query type) ==="
 mkdir -p "$OUT/colt_default"
@@ -45,16 +51,19 @@ cat > "$OUT/colt_default/submission.json" <<'EOF'
  "structures": {"kfn": "sul.json", "aknn": "sul.json", "range": "sul.json"}}
 EOF
 
+if [ "${RETUNE:-0}" = 1 ]; then
+    rm -f method/tuned_lambda.json method/tuning/sweep_*.json method/tuning_root/sweep_*.json
+fi
+
 echo "=== colt: lambda per query type (parameter testing on the train split) ==="
-if [ -s method/tuned_lambda.json ] && [ "${RETUNE:-0}" != 1 ]; then
-    LAM=$(python3 -c "import json; print(json.load(open('method/tuned_lambda.json'))['lam_spec'])")
-    echo "using method/tuned_lambda.json: --lam $LAM"
-    cat > "$OUT/colt/submission.json" <<EOF
-{"command": ["python3", "method/solver.py", "--lam", "$LAM", "--bounds", "paper"], "structures": {"kfn": "sul_kfn.json", "aknn": "sul_aknn.json", "range": "sul_range.json"}}
-EOF
+if [ -s method/tuned_lambda.json ]; then
+    echo "using method/tuned_lambda.json: --lam $(python3 -c "import json; print(json.load(open('method/tuned_lambda.json'))['lam_spec'])")"
 else
     bash scripts/tune_lambda.sh
 fi
+
+echo "=== colt: random ALT root-landmark draw per query type (parameter testing on the train split) ==="
+bash scripts/tune_root.sh
 
 echo "=== method submissions ready ==="
 cat "$OUT/colt/submission.json" "$OUT/colt_default/submission.json"

@@ -2,14 +2,16 @@
 # Parameter testing for the COL-Tree leaf size lambda on the public (train)
 # split, as the paper does on its own network (Section 9.6, Table 8):
 #
-#   1. method/tuning/lam<L>/ submissions: the reference structures
-#      (experiment_results/colt/sul_*.json) with --lam L for every L of the grid;
+#   1. method/tuning/lam<L>/ submissions: the reference structures with the
+#      default random draw (method/tuning_root/seed1/sul_*.json, built by
+#      scripts/method.sh) with --lam L for every L of the grid;
 #   2. eval/train/evaluate.py scores them, one process per query type
 #      (method/tuning/sweep_<task>.json, details_<task>.json);
 #   3. method/tune_lambda.py picks lambda per query type and writes
-#      experiment_results/colt/submission.json and method/tuned_lambda.json.
+#      method/tuned_lambda.json (scripts/tune_root.sh then picks the random root
+#      draw and writes experiment_results/colt/).
 #
-# Needs the structures from scripts/method.sh.  Resumable: finished sweep files
+# Needs the default-draw structures from scripts/method.sh.  Resumable: finished sweep files
 # are kept; an interrupted evaluator run resumes after its last finished task.
 
 set -uo pipefail
@@ -22,9 +24,9 @@ for L in $GRID; do
     mkdir -p "$T/lam$L"
     cat > "$T/lam$L/submission.json" <<EOF
 {"command": ["python3", "method/solver.py", "--lam", "$L", "--bounds", "paper"],
- "structures": {"kfn": "../../../experiment_results/colt/sul_kfn.json",
-                "aknn": "../../../experiment_results/colt/sul_aknn.json",
-                "range": "../../../experiment_results/colt/sul_range.json"}}
+ "structures": {"kfn": "../../tuning_root/seed1/sul_kfn.json",
+                "aknn": "../../tuning_root/seed1/sul_aknn.json",
+                "range": "../../tuning_root/seed1/sul_range.json"}}
 EOF
 done
 
