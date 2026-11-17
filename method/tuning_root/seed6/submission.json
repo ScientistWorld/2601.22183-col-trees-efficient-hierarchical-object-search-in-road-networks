@@ -1,0 +1,2 @@
+{"command": ["python3", "method/solver.py", "--lam", "kfn=16,aknn=32,range=32", "--bounds", "paper"],
+ "structures": {"kfn": "sul_kfn.json", "aknn": "sul_aknn.json", "range": "sul_range.json"}}
