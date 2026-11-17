@@ -2,7 +2,7 @@
   "experiments": {
     "kfn": {
       "description": "Exact k farthest-neighbor search (k=10) over road-network object sets (real POI categories and uniform densities up to d=0.1; on train and test also regional object sets and map-spread query vertices). Benefit: how few objects a method has to retrieve individually and how few exact network distances it computes, relative to evaluating every object. Constraints: every answer exact, index size and index construction work within budget.",
-      "notes": "colt / colt_default / alt_filter / bruteforce rows: this workspace's pipeline in the paper's own setting (scripts/evaluate.sh -> eval/evaluate.py: original NW travel times, the eight real POI categories as published plus uniform d = 0.001, 0.01, 0.1 from the paper's sensitivity analysis, public query seed), job fe5c0106-435. colt uses the paper's Table 8 kFN structure (b=4, m=4, Slice landmarks, 16 random ALT root landmarks) with two index parameters set by the paper's own procedure (parameter testing, Section 9.6) on this network's public train split, one at a time: lambda=16 (method/tuned_lambda.json; the paper's 256 was tuned on its 22x larger network), then the random draw of the 16 ALT landmarks, best of six draws (seed 6, method/tuned_root.json; single draws differ consistently by ~0.1 log10 candidates on this network). alt_filter (the paper's AUB-PHL) uses the same ALT draw, as in the paper. colt_default uses the paper's untuned defaults (b=8, m=2, Random, lambda=256, default draw seed 1). Candidates count individually retrieved objects plus opened non-empty index nodes (the paper counts objects only); calls count every exact distance, including those to landmarks (the paper counts distances to objects only). Scale: the NW subset (1.09M vertices) of the paper's 24M-vertex US network, Dijkstra instead of PHL, so the paper's numbers are kept under _paper_* keys: read off the paper's log-scale Figure 11c/11d (continental US, uniform objects at d=0.0001, ~2.4k objects), approximate.",
+      "notes": "colt / colt_default / alt_filter / bruteforce rows: this workspace's reference runs on the public train split (scripts/evaluate_train.sh -> scoring/scores_train.json; the same workload families as the hidden test: real POI categories and uniform d = 0.001, 0.01, 0.1 from vertex-uniform and map-spread sources, plus regional object sets for kFN), job fe5c0106-435. The _paper_setting_* rows are the same methods in the paper's own setting (scripts/evaluate.sh -> eval/evaluate.py -> scoring/scores.json: original NW travel times, the eight real POI categories as published plus uniform d = 0.001, 0.01, 0.1, public query seed). The hidden-test rows are in scoring/scores_test.json. colt uses the paper's Table 8 kFN structure (b=4, m=4, Slice landmarks, 16 random ALT root landmarks) with two index parameters set by the paper's own procedure (parameter testing, Section 9.6) on this network's public train split, one at a time: lambda=16 (method/tuned_lambda.json; the paper's 256 was tuned on its 22x larger network), then the random draw of the 16 ALT landmarks, best of six draws (seed 6, method/tuned_root.json; single draws differ consistently by ~0.1 log10 candidates on this network). alt_filter (the paper's AUB-PHL) uses the same ALT draw, as in the paper. colt_default uses the paper's untuned defaults (b=8, m=2, Random, lambda=256, default draw seed 1). Candidates count individually retrieved objects plus opened non-empty index nodes (the paper counts objects only); calls count every exact distance, including those to landmarks (the paper counts distances to objects only). Scale: the NW subset (1.09M vertices) of the paper's 24M-vertex US network, Dijkstra instead of PHL, so the paper's numbers are kept under _paper_* keys: read off the paper's log-scale Figure 11c/11d (continental US, uniform objects at d=0.0001, ~2.4k objects), approximate.",
       "weight": 0.4,
       "primary_metric": "log10_candidate_reduction",
       "metrics": {
@@ -36,12 +36,44 @@
         "colt": {
           "type": "proposed",
           "exact_answer_rate": 1.0,
+          "log10_call_reduction": 2.0233186640588245,
+          "log10_candidate_reduction": 1.6316668501601168,
+          "index_entries_per_vertex": 40.0,
+          "sdl_work_per_vertex": 414.2180932222439
+        },
+        "colt_default": {
+          "type": "proposed",
+          "exact_answer_rate": 1.0,
+          "log10_call_reduction": 1.8647927750291367,
+          "log10_candidate_reduction": 1.3256501165024104,
+          "index_entries_per_vertex": 24.0,
+          "sdl_work_per_vertex": 142.14761274316862
+        },
+        "alt_filter": {
+          "type": "baseline",
+          "exact_answer_rate": 1.0,
+          "log10_call_reduction": 2.061112279554391,
+          "log10_candidate_reduction": 0.0,
+          "index_entries_per_vertex": 16.0,
+          "sdl_work_per_vertex": 16.0
+        },
+        "bruteforce": {
+          "type": "baseline",
+          "exact_answer_rate": 1.0,
+          "log10_call_reduction": 0.0,
+          "log10_candidate_reduction": 0.0,
+          "index_entries_per_vertex": 1.0,
+          "sdl_work_per_vertex": 1.0
+        },
+        "_paper_setting_colt": {
+          "type": "proposed",
+          "exact_answer_rate": 1.0,
           "log10_call_reduction": 1.8668319878614792,
           "log10_candidate_reduction": 1.4707210201985554,
           "index_entries_per_vertex": 40.0,
           "sdl_work_per_vertex": 393.3569916682952
         },
-        "colt_default": {
+        "_paper_setting_colt_default": {
           "type": "proposed",
           "exact_answer_rate": 1.0,
           "log10_call_reduction": 1.7823968444141876,
@@ -49,7 +81,7 @@
           "index_entries_per_vertex": 24.0,
           "sdl_work_per_vertex": 134.8888895005473
         },
-        "alt_filter": {
+        "_paper_setting_alt_filter": {
           "type": "baseline",
           "exact_answer_rate": 1.0,
           "log10_call_reduction": 1.9601190490652314,
@@ -57,7 +89,7 @@
           "index_entries_per_vertex": 16.0,
           "sdl_work_per_vertex": 16.0
         },
-        "bruteforce": {
+        "_paper_setting_bruteforce": {
           "type": "baseline",
           "exact_answer_rate": 1.0,
           "log10_call_reduction": 0.0,
@@ -79,7 +111,7 @@
     },
     "aknn": {
       "description": "Exact aggregate k nearest-neighbor search (k=10, |Q|=8 query vertices drawn from a 15% subnetwork, max and sum aggregates). Same benefit and constraint metrics as kfn. On train and test, half of the query areas are centred spread over the map (5% of the vertices).",
-      "notes": "Same provenance as kfn (job fe5c0106-435, paper setting). colt uses the paper's Table 8 AkNN structure (b=8, m=2, Random) with lambda=32 and the ALT root-landmark draw (seed 2, best of six) both tested on the train split; alt_filter uses the same ALT draw; colt_default uses lambda=256 and the default draw. _paper_colt_phl is read off the paper's Figure 8b (max aggregate, A=15%, d=0.001, ~24k objects on the 24M-vertex network) and is approximate.",
+      "notes": "Same provenance as kfn (job fe5c0106-435): method rows from the public train split, _paper_setting_* rows from the paper's own setting. colt uses the paper's Table 8 AkNN structure (b=8, m=2, Random) with lambda=32 and the ALT root-landmark draw (seed 2, best of six) both tested on the train split; alt_filter uses the same ALT draw; colt_default uses lambda=256 and the default draw. _paper_colt_phl is read off the paper's Figure 8b (max aggregate, A=15%, d=0.001, ~24k objects on the 24M-vertex network) and is approximate.",
       "weight": 0.35,
       "primary_metric": "log10_candidate_reduction",
       "metrics": {
@@ -113,12 +145,44 @@
         "colt": {
           "type": "proposed",
           "exact_answer_rate": 1.0,
+          "log10_call_reduction": 1.6547690719014627,
+          "log10_candidate_reduction": 1.2852300295905073,
+          "index_entries_per_vertex": 24.0,
+          "sdl_work_per_vertex": 141.34944625036584
+        },
+        "colt_default": {
+          "type": "proposed",
+          "exact_answer_rate": 1.0,
+          "log10_call_reduction": 1.5972460327080567,
+          "log10_candidate_reduction": 1.080752157511625,
+          "index_entries_per_vertex": 24.0,
+          "sdl_work_per_vertex": 142.14761274316862
+        },
+        "alt_filter": {
+          "type": "baseline",
+          "exact_answer_rate": 1.0,
+          "log10_call_reduction": 1.5619434391368465,
+          "log10_candidate_reduction": 0.0,
+          "index_entries_per_vertex": 16.0,
+          "sdl_work_per_vertex": 16.0
+        },
+        "bruteforce": {
+          "type": "baseline",
+          "exact_answer_rate": 1.0,
+          "log10_call_reduction": 0.0,
+          "log10_candidate_reduction": 0.0,
+          "index_entries_per_vertex": 1.0,
+          "sdl_work_per_vertex": 1.0
+        },
+        "_paper_setting_colt": {
+          "type": "proposed",
+          "exact_answer_rate": 1.0,
           "log10_call_reduction": 1.451345714112295,
           "log10_candidate_reduction": 1.1047513117757004,
           "index_entries_per_vertex": 24.0,
           "sdl_work_per_vertex": 134.38320428870398
         },
-        "colt_default": {
+        "_paper_setting_colt_default": {
           "type": "proposed",
           "exact_answer_rate": 1.0,
           "log10_call_reduction": 1.4072728431580357,
@@ -126,7 +190,7 @@
           "index_entries_per_vertex": 24.0,
           "sdl_work_per_vertex": 134.8888895005473
         },
-        "alt_filter": {
+        "_paper_setting_alt_filter": {
           "type": "baseline",
           "exact_answer_rate": 1.0,
           "log10_call_reduction": 1.4142933027849958,
@@ -134,7 +198,7 @@
           "index_entries_per_vertex": 16.0,
           "sdl_work_per_vertex": 16.0
         },
-        "bruteforce": {
+        "_paper_setting_bruteforce": {
           "type": "baseline",
           "exact_answer_rate": 1.0,
           "log10_call_reduction": 0.0,
@@ -150,7 +214,7 @@
     },
     "range": {
       "description": "Exact range search (radius 2.5% of the network diameter). Same benefit and constraint metrics as kfn.",
-      "notes": "Same provenance as kfn (job fe5c0106-435, paper setting). colt uses the paper's Table 8 range structure (b=8, m=2, Border Minmax) with lambda=32 and the ALT root-landmark draw (seed 2, best of six) both tested on the train split; alt_filter uses the same ALT draw; colt_default uses b=8, m=2, Random, lambda=256 and the default draw. _paper_colt_phl is read off the paper's Figure 13d (r=2.5% D, d=0.0001, ~2.4k objects) and is approximate.",
+      "notes": "Same provenance as kfn (job fe5c0106-435): method rows from the public train split, _paper_setting_* rows from the paper's own setting. colt uses the paper's Table 8 range structure (b=8, m=2, Border Minmax) with lambda=32 and the ALT root-landmark draw (seed 2, best of six) both tested on the train split; alt_filter uses the same ALT draw; colt_default uses b=8, m=2, Random, lambda=256 and the default draw. _paper_colt_phl is read off the paper's Figure 13d (r=2.5% D, d=0.0001, ~2.4k objects) and is approximate.",
       "weight": 0.25,
       "primary_metric": "log10_candidate_reduction",
       "metrics": {
@@ -184,12 +248,44 @@
         "colt": {
           "type": "proposed",
           "exact_answer_rate": 1.0,
+          "log10_call_reduction": 2.2161927689578715,
+          "log10_candidate_reduction": 1.6074331195728309,
+          "index_entries_per_vertex": 24.0,
+          "sdl_work_per_vertex": 133.07684600796563
+        },
+        "colt_default": {
+          "type": "proposed",
+          "exact_answer_rate": 1.0,
+          "log10_call_reduction": 2.1918596622329094,
+          "log10_candidate_reduction": 1.5547448878257424,
+          "index_entries_per_vertex": 24.0,
+          "sdl_work_per_vertex": 142.14761274316862
+        },
+        "alt_filter": {
+          "type": "baseline",
+          "exact_answer_rate": 1.0,
+          "log10_call_reduction": 2.1571645555019816,
+          "log10_candidate_reduction": 0.0,
+          "index_entries_per_vertex": 16.0,
+          "sdl_work_per_vertex": 16.0
+        },
+        "bruteforce": {
+          "type": "baseline",
+          "exact_answer_rate": 1.0,
+          "log10_call_reduction": 0.0,
+          "log10_candidate_reduction": 0.0,
+          "index_entries_per_vertex": 1.0,
+          "sdl_work_per_vertex": 1.0
+        },
+        "_paper_setting_colt": {
+          "type": "proposed",
+          "exact_answer_rate": 1.0,
           "log10_call_reduction": 2.0836308571048305,
           "log10_candidate_reduction": 1.3972224519233043,
           "index_entries_per_vertex": 24.0,
           "sdl_work_per_vertex": 128.7241197394702
         },
-        "colt_default": {
+        "_paper_setting_colt_default": {
           "type": "proposed",
           "exact_answer_rate": 1.0,
           "log10_call_reduction": 2.0336492094404655,
@@ -197,7 +293,7 @@
           "index_entries_per_vertex": 24.0,
           "sdl_work_per_vertex": 134.8888895005473
         },
-        "alt_filter": {
+        "_paper_setting_alt_filter": {
           "type": "baseline",
           "exact_answer_rate": 1.0,
           "log10_call_reduction": 2.0350483802321615,
@@ -205,7 +301,7 @@
           "index_entries_per_vertex": 16.0,
           "sdl_work_per_vertex": 16.0
         },
-        "bruteforce": {
+        "_paper_setting_bruteforce": {
           "type": "baseline",
           "exact_answer_rate": 1.0,
           "log10_call_reduction": 0.0,
