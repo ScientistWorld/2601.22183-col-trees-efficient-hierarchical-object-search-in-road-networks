@@ -3,6 +3,6 @@
 # only after your turn ends.
 action: submit
 gpus: 0
-test: false
+test: true
 milestone: secondary_claims
-notes: "Hardening job 2 (resubmitted after a stalled/preempted node): reference root-landmark draw parameter-tested on train (kfn seed 6, aknn/range seed 2); rerun reference, baselines (shared ALT draw), variants, shortcuts and fresh redraws 7-9 through test/train/paper"
+notes: "Short job: rerun the five root-level shortcut probes (impossible_values, self_report, zero_lookups, public_oracle, read_test_secret) through the hidden test after pointing them at a stable structure; everything else is skipped (outputs exist); summary + validate"
