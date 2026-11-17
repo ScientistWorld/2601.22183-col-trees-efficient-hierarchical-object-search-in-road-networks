@@ -63,7 +63,7 @@ All POIs within network distance r from q.
 
 ## Scope
 
-This environment targets the three query types above. The road network is the paper's own dataset (North-West US subset of the DIMACS travel-time network, 1.09M vertices) with its real OpenStreetMap POI categories. The object set changes with every query. Exact network distances are only available from the evaluator, which counts them; see `briefing/evaluation.md`.
+This environment targets the three query types above. The road network is the paper's own dataset (North-West US subset of the DIMACS travel-time network, 1.09M vertices) with its real OpenStreetMap POI categories. The object set changes with every query; it may cover the whole network or only one region of it, and queries can come from anywhere on the network. Exact network distances are only available from the evaluator, which counts them; see `briefing/evaluation.md`.
 
 ---
 
@@ -80,6 +80,7 @@ This file describes the paper's method and how the reproduction implements it (`
   (`method/build.py`), which gives balanced, spatially compact subgraphs. These subgraphs are not always
   connected inside, so the distance-list construction can settle many outside vertices.
 - The root node is the shared ALT index: 16 random landmarks with distances to every vertex (paper Section 9.1).
+  The ALT baseline (`alt_filter`) uses the same 16 landmarks for each query type, as in the paper.
 - Every other node selects `m` local landmarks among its own vertices. The four policies of Section 3.3.1
   are implemented: Random, Furthest Border, Slice-Based Furthest Border and Border Minmax.
 - For each landmark of a node, a Subgraph Distance List (SDL) holds the distance to every vertex of the
@@ -130,8 +131,16 @@ The paper chose its parameters by parameter testing on its own 24M-vertex networ
 parameter test for lambda on the public (train) split. `scripts/tune_lambda.sh` scores lambda
 = 8, 16, ..., 512 on the reference structures, and `method/tune_lambda.py` keeps, per query type, the value
 with the best train score. The sweep and the choice are recorded in `method/tuned_lambda.json`.
+Single random draws of the 16 ALT landmarks differ consistently on this network: for kFN, one draw
+retrieves about 0.1 log10 fewer candidates than another on every kind of object set, on train and test
+alike. The paper uses one random draw. The reproduction treats the draw as an index parameter and tests
+it the same way, after lambda. `scripts/tune_root.sh` builds the Table 8 structures with six random draws
+(seeds 1 to 6; seed 1 is the draw lambda was tested on) and scores them on the train split at the tuned
+lambda. `method/tune_root.py` keeps, per query type, the draw with the best train score. The result is
+recorded in `method/tuned_root.json`: kFN seed 6, AkNN and range seed 2. The landmarks are still uniformly
+random vertices; only the draw is chosen.
 `experiment_results/colt` uses these per-query settings. `experiment_results/colt_default` uses the paper's
-untuned defaults for every query type: b=8, m=2, Random, lambda=256.
+untuned defaults for every query type: b=8, m=2, Random, lambda=256, the default draw (seed 1).
 
 ## Key claims
 
@@ -155,24 +164,40 @@ untuned defaults for every query type: b=8, m=2, Random, lambda=256.
   50 and 5,099 objects each), plus uniform random vertex samples with density d = |P|/|V|. The uniform
   densities are d = 0.001, 0.01 and 0.1, which span the paper's sensitivity range. That is about 1,090,
   10,900 and 109,000 objects per query, so the object sets range from 50 to 109,000 objects.
+- **Regional object sets** (train and test only): uniform vertices at density d = 0.01 or 0.1 inside a network
+  region. A region is the 2%, 10% or 40% of the vertices nearest (by network distance) to a centre drawn
+  spread over the map. These sets hold about 220 to 44,000 objects.
+- **Query sources** (train and test only): besides query vertices drawn uniformly over the vertices, as in
+  the paper, every real and uniform object set is also queried from **spread** sources. For a spread
+  source, a cell of a 12 x 12 map grid is drawn uniformly among the populated cells, then a vertex inside
+  it. For kFN this is the query vertex; for AkNN it is the centre of the query area, and that area then holds
+  5% of the vertices instead of 15% (the paper's A = 5%). Vertex-uniform sources fall mostly in the two
+  largest cities. Spread sources and regional sets put kFN's farthest objects and AkNN's query areas all
+  over the network, so a score reflects how an index works across the whole network.
 
 ## Settings
 
 | File | Evaluator | Travel times | Object sets | Queries |
 |---|---|---|---|---|
 | `scoring/scores.json` | `eval/evaluate.py` (paper setting) | original | the 8 real POI categories as published, plus uniform d = 0.001, 0.01, 0.1 | public seed |
-| `scoring/scores_train.json` | `eval/train/evaluate.py` | public perturbation of the original | 4-5 jittered real POI categories and uniform d = 0.001, 0.01, 0.1; a fresh set per query | public seed |
+| `scoring/scores_train.json` | `eval/train/evaluate.py` | public perturbation of the original | 5 jittered real POI categories (4 for range) and uniform d = 0.001, 0.01, 0.1, each from vertex-uniform and (kFN, AkNN) spread sources, plus (kFN) 6 regional sets; a fresh set per query | public seed |
 | `scoring/scores_test.json` | `eval/test/evaluate.py` | three hidden perturbations (independent traffic conditions) | hidden draws of the same kinds (other real categories) | hidden |
 
-Query defaults follow the paper (Table 4). kFN uses k=10. AkNN uses k=10, |Q|=8 vertices from a connected
-subnetwork holding 15% of the vertices, and alternates max and sum. Range uses r = 2.5% of the network diameter.
-The held-out split has 160 kFN queries (20 per object set), 96 AkNN queries (12 per set) and 140 range
-queries (20 per set). They are split evenly across three hidden travel-time conditions: each is an independent
+Query defaults follow the paper (Table 4). kFN uses k=10. AkNN uses k=10 and |Q|=8 vertices from a connected
+subnetwork holding 15% of the vertices (5% around a spread centre), and alternates max and sum. Range uses
+r = 2.5% of the network diameter. Both splits have:
+- kFN: 22 object sets x 15 queries = 330 queries. These are the 8 paper sets (5 real categories and 3
+  uniform densities) from vertex-uniform sources, the same 8 from spread sources, and 6 regional sets.
+- AkNN: 16 object sets x 12 queries = 192 queries. These are the 8 paper sets from vertex-uniform and from
+  spread query areas.
+- Range: 7 object sets x 20 queries = 140 queries, from vertex-uniform sources.
+
+The held-out queries are split evenly across three hidden travel-time conditions: each is an independent
 secret perturbation of the public travel times. The landmark distance lists and all exact distances are
 computed separately for each condition. Every metric averages over all three, and construction work is the
 mean over the conditions. An index is therefore scored on traffic it cannot know in advance. The train split
-has one public condition of the same kind. Every method sees the same queries. Each metric is a mean over all queries of a
-query type, so the sparse and the dense object sets carry equal weight per query.
+has one public condition of the same kind. Every method sees the same queries. Each metric is a mean over all
+queries of a query type, so every object set carries equal weight per query.
 
 ## Submission format
 
@@ -997,6 +1022,87 @@ Each evaluator scores every directory under `experiment_results/`. Only method d
 - **Milestone**: `secondary_claims` | **Status**: done
 - **Working time**: 59m | **GPU**: 0.0h
 - **Jobs**: 8 total (4 completed, 1 failed)
+
+<details>
+<summary>Progress Log</summary>
+
+### [2026-05-20 01:23] - method_runs
+- Audited the prior implementation and found root-only landmarks and missing COL internal object bounds.
+- Reworked SUL-Tree construction to use graph-aware recursive partitions with local per-node landmarks and SDLs.
+- Reworked COL-Tree construction to store object-specific min/max bounds for internal nodes and ODLs for leaves.
+- Verified the revised method on a tiny local graph; submitting the first compute job to test the core kFN claim on US48.
+
+### [2026-05-20 01:27] - method_runs
+- Continued the audit and found that no fresh `experiment_results/core_claim` artifacts existed for the revised implementation.
+- Fixed kFN leaf processing so a revisited COL leaf retrieves additional ODL objects instead of being requeued without progress.
+- Resubmitting the US48 kFN core job to generate real scores before restoring `core_claim`.
+
+### [2026-05-20 01:29] - method_runs
+- Container build failed because `environment/container.def` tried to bake gitignored `data/downloads/*` files into the image.
+- Removed the fragile `%files` section; runtime uses the bind-mounted workspace and `scripts/download.sh` repopulates `data/downloads/` from tracked data or verified URLs.
+- Resubmitting the same CPU core job after the environment packaging fix.
+
+### [2026-05-20 01:32] - core_claim
+- CPU job `90b0e53b-aab` completed the US48 kFN core experiment with 12/12 exact queries.
+- Reproduced the core benefit/constraint pair: exact kFN correctness with `candidates_ratio=0.1650` and `lookup_reduction_vs_brute=6.0601`.
+- Expanding the same core experiment to a second object density before attempting a higher milestone.
+
+### [2026-05-20 01:36] - core_claim_plus
+- CPU job `e203f389-121` completed kFN at object densities 0.05 and 0.10 with 24/24 exact queries.
+- Averaged score improved to `candidates_ratio=0.1566` and `lookup_reduction_vs_brute=6.4020` while preserving `accuracy=1.0`.
+- Adding small AkNN and range runs to test secondary query claims next.
+
+### [2026-05-20 01:40] - core_claim_plus
+- CPU job `26aa2eab-2d1` verified AkNN and range correctness, but range scanned all objects (`candidates_ratio=1.0`).
+- Fixed range leaf processing to use the ODL landmark-distance window implied by triangle inequality before exact checks.
+- Resubmitting secondary query coverage before claiming `secondary_claims`.
+
+### [2026-05-20 01:44] - secondary_claims
+- CPU job `d266aebb-8f5` reran kFN, AkNN, and range after range ODL pruning.
+- All evaluated query families were exact: kFN, AkNN, and range each reached `accuracy=1.0`.
+- Secondary pruning now holds: AkNN `candidates_ratio=0.1666`, range `candidates_ratio=0.0844`, and kFN `lookup_reduction_vs_brute=6.4020`.
+
+### [2026-05-20 02:21] - secondary_claims
+- Refreshed the evaluator to populate p90 and worst-query candidate-ratio constraint metrics from saved per-query method artifacts.
+- Re-ran `scripts/evaluate.sh`, `scripts/evaluate_train.sh`, `scripts/evaluate_test.sh`, and `python validate.py --compare`; all checks pass.
+
+### [2026-05-20 02:23] - secondary_claims
+- Final verification passed after cleaning method-agnostic documentation, documenting replacement benchmark reference rows, and moving brute-force baseline helpers under `baseline/`.
+- Verified download URLs and reran `python validate.py --compare`; all checks pass.
+
+### [2026-05-20 02:27] - secondary_claims
+- Re-audited the submitted workspace, moved the AUB-PHL-style helper used by the experiment harness into `baseline/`, and removed the stale baseline module from `method/`.
+- Re-ran bytecode checks, `scripts/evaluate.sh`, and `python3 validate.py --compare`; all checks pass.
+
+### [2026-05-20 02:32] - method_runs
+- Sub-agent audit found that the previous results relied on stale artifacts and exact full-graph local-landmark distances, so the honest current milestone is reset pending a fresh job.
+- Removed full-graph local-landmark SDL caching, switched COL node bounds to root-landmark lower/upper-bound substitution, changed kFN leaves to enqueue object candidates by upper bound before exact verification, and made result artifacts include per-query outputs.
+- Updated evaluation to recompute main accuracy from method outputs and exact ground truth, tightened train/test evaluators to require per-query correctness and exact lookup counts, and changed `scripts/run.sh` to regenerate method artifacts before scoring.
+- Bytecode checks and a tiny local graph smoke test pass; submitting a CPU job to regenerate the benchmark artifacts.
+
+### [2026-05-20 02:35] - method_runs
+- Final verification found that the checked-in `experiment_results/core_claim` artifacts are still stale and fail standalone `scripts/evaluate.sh` because they lack `queries.per_query`.
+- Verified both download URLs with `curl -I -L --max-time 15`; both returned HTTP 200.
+- Cleaned public scoring guidance to avoid exposing implementation names in method-agnostic/high-level gym documents.
+- Keeping the milestone at `method_runs` and submitting the prepared CPU job to regenerate artifacts and scores before any final `secondary_claims` sign-off.
+
+### [2026-05-20 02:39] - secondary_claims
+- CPU job `714f3f12-b67` regenerated post-audit artifacts and completed `scripts/run.sh` with exit code 0.
+- Fresh artifacts now include `queries.per_query`, per-query correctness flags, and kFN exact-lookup counts required by the stricter evaluator.
+- `python3 validate.py --compare` passed in the job; regenerated scores show exact kFN, AkNN, and range results with nontrivial candidate pruning.
+
+### [2026-11-14 12:30] - secondary_claims
+- Hardening iteration 12 (`HARDENING.md`): the reference's lambda is now tuned per query type on the train split, as the paper tunes its parameters (kFN 16, AkNN 32, range 32). Re-tuning lambda no longer pays (-0.014 / -0.045 rank).
+- Workloads cover the paper's density range (uniform d = 0.001, 0.01, 0.1). The hidden test averages over three hidden travel-time conditions.
+- The paper's effects now appear beyond noise on the hidden test. The local-landmark ablation scores -0.284 rank. Against the ALT filter, COL-Tree computes fewer exact distances at d = 0.01 (+0.14 +- 0.04) and d = 0.1 (+0.35 +- 0.07), and retrieves 1-3 orders of magnitude fewer candidates.
+- Honest improvements beat the reference and transfer to train (colt_best +0.061 test / +0.041 train). The shared-backbone seed spread is 0.007. Re-drawing root landmarks moves test kFN by up to +0.069 without a train signal; this is documented as an unfixed weakness.
+
+</details>
+
+### Iteration 11: claude-opus-5-5 (hardener)
+- **Milestone**: `secondary_claims` | **Status**: done
+- **Working time**: 34m | **GPU**: 0.0h
+- **Jobs**: 12 total (7 completed, 1 failed)
 
 <details>
 <summary>Progress Log</summary>

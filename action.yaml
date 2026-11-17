@@ -1,8 +1,6 @@
 # Once you set action to 'submit' or 'done', STOP immediately.
 # Do NOT sleep, poll, or wait for jobs. The system reads this file
 # only after your turn ends.
-action: submit
-gpus: 0
-test: true
+action: done
 milestone: secondary_claims
-notes: "Short job: rerun the five root-level shortcut probes (impossible_values, self_report, zero_lookups, public_oracle, read_test_secret) through the hidden test after pointing them at a stable structure; everything else is skipped (outputs exist); summary + validate"
+notes: "Final hardening: kFN/AkNN workloads diversified; reference's random ALT draw parameter-tested on train (best of 6), alt_filter shares it; all 9 root-landmark redraws score below the reference while honest variants beat it on test and train; shortcuts fail; reference.json method rows from train (paper-setting rows under _paper_setting_*); validate passes; see HARDENING.md"
