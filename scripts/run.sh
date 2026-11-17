@@ -104,6 +104,7 @@ launch ref_test scoring/scores_test.json eval_full eval/test/evaluate.py --root 
 TEST_RUNS="seed7:kfn seed8:kfn seed9:kfn colt_a:kfn colt_b:kfn"
 TEST_RUNS="$TEST_RUNS seeds:aknn seeds:range colt_a:aknn colt_b:aknn alt:kfn alt:aknn"
 TEST_RUNS="$TEST_RUNS colt_a:range colt_b:range alt:range"
+TEST_RUNS="$TEST_RUNS shortcuts:kfn shortcuts:aknn shortcuts:range"
 # Train split: root-landmark redraws and the candidate improvements (do test gains transfer?).
 TRAIN_RUNS="seeds:kfn tvariants:kfn seeds:aknn tvariants:aknn seeds:range tvariants:range"
 n=0
