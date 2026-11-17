@@ -1,0 +1,35 @@
+[eval:train     6.9s] network: 1089933 vertices, 1272922 edges (scipy=True)
+[eval:train     8.3s] workload: kfn=330 queries
+[eval:train     8.3s] methods: ['lam128', 'lam16', 'lam256', 'lam32', 'lam512', 'lam64', 'lam8']
+[eval:train     8.3s] solver isolation: user+mount+pid namespaces (eval, .git, data/downloads hidden, private /proc)
+[eval:train   287.3s] lam128: kfn index ready (40.0 entries/v, 414.5 work/v)
+[eval:train   287.7s] lam16: kfn index ready (40.0 entries/v, 414.5 work/v)
+[eval:train   288.1s] lam256: kfn index ready (40.0 entries/v, 414.5 work/v)
+[eval:train   288.5s] lam32: kfn index ready (40.0 entries/v, 414.5 work/v)
+[eval:train   288.8s] lam512: kfn index ready (40.0 entries/v, 414.5 work/v)
+[eval:train   289.2s] lam64: kfn index ready (40.0 entries/v, 414.5 work/v)
+[eval:train   289.6s] lam8: kfn index ready (40.0 entries/v, 414.5 work/v)
+[eval:train   293.8s] kfn: 20/330 queries
+[eval:train   299.8s] kfn: 40/330 queries
+[eval:train   309.3s] kfn: 60/330 queries
+[eval:train   314.3s] kfn: 80/330 queries
+[eval:train   325.5s] kfn: 100/330 queries
+[eval:train   414.8s] kfn: 120/330 queries
+[eval:train   418.8s] kfn: 140/330 queries
+[eval:train   424.8s] kfn: 160/330 queries
+[eval:train   434.3s] kfn: 180/330 queries
+[eval:train   439.4s] kfn: 200/330 queries
+[eval:train   450.4s] kfn: 220/330 queries
+[eval:train   538.5s] kfn: 240/330 queries
+[eval:train   547.4s] kfn: 260/330 queries
+[eval:train   559.2s] kfn: 280/330 queries
+[eval:train   586.7s] kfn: 300/330 queries
+[eval:train   623.5s] kfn: 320/330 queries
+[eval:train   664.1s] lam128: ok
+[eval:train   664.1s] lam16: ok
+[eval:train   664.1s] lam256: ok
+[eval:train   664.1s] lam32: ok
+[eval:train   664.1s] lam512: ok
+[eval:train   664.1s] lam64: ok
+[eval:train   664.1s] lam8: ok
+[eval:train   664.1s] scores written to method/tuning/sweep_kfn.json.tmp (solver logs: /tmp/colt_eval_train_d4wqa8lj)

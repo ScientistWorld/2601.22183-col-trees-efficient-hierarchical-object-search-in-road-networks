@@ -1,0 +1,26 @@
+[eval:train     6.7s] network: 1089933 vertices, 1272922 edges (scipy=True)
+[eval:train     7.5s] workload: range=140 queries
+[eval:train     7.5s] methods: ['lam128', 'lam16', 'lam256', 'lam32', 'lam512', 'lam64', 'lam8']
+[eval:train     7.5s] solver isolation: user+mount+pid namespaces (eval, .git, data/downloads hidden, private /proc)
+[eval:train    80.8s] lam128: range index ready (24.0 entries/v, 135.6 work/v)
+[eval:train    81.0s] lam16: range index ready (24.0 entries/v, 135.6 work/v)
+[eval:train    81.2s] lam256: range index ready (24.0 entries/v, 135.6 work/v)
+[eval:train    81.4s] lam32: range index ready (24.0 entries/v, 135.6 work/v)
+[eval:train    81.6s] lam512: range index ready (24.0 entries/v, 135.6 work/v)
+[eval:train    81.8s] lam64: range index ready (24.0 entries/v, 135.6 work/v)
+[eval:train    82.0s] lam8: range index ready (24.0 entries/v, 135.6 work/v)
+[eval:train    86.0s] range: 20/140 queries
+[eval:train    95.5s] range: 40/140 queries
+[eval:train   105.4s] range: 60/140 queries
+[eval:train   111.1s] range: 80/140 queries
+[eval:train   117.0s] range: 100/140 queries
+[eval:train   135.1s] range: 120/140 queries
+[eval:train   240.9s] range: 140/140 queries
+[eval:train   241.1s] lam128: ok
+[eval:train   241.1s] lam16: ok
+[eval:train   241.1s] lam256: ok
+[eval:train   241.1s] lam32: ok
+[eval:train   241.1s] lam512: ok
+[eval:train   241.1s] lam64: ok
+[eval:train   241.1s] lam8: ok
+[eval:train   241.1s] scores written to method/tuning/sweep_range.json.tmp (solver logs: /tmp/colt_eval_train_x1ge7ixu)

@@ -1,0 +1,98 @@
+{
+  "kfn": {
+    "results": {
+      "alt_filter": {
+        "exact_answer_rate": 1.0,
+        "log10_call_reduction": 1.7991129199362677,
+        "log10_candidate_reduction": 0.0,
+        "index_entries_per_vertex": 16.0,
+        "sdl_work_per_vertex": 16.0
+      },
+      "bruteforce": {
+        "exact_answer_rate": 1.0,
+        "log10_call_reduction": 0.0,
+        "log10_candidate_reduction": 0.0,
+        "index_entries_per_vertex": 1.0,
+        "sdl_work_per_vertex": 1.0
+      },
+      "colt": {
+        "exact_answer_rate": 1.0,
+        "log10_call_reduction": 1.874909097610175,
+        "log10_candidate_reduction": 1.5570856779662012,
+        "index_entries_per_vertex": 40.0,
+        "sdl_work_per_vertex": 414.4996986053271
+      },
+      "colt_default": {
+        "exact_answer_rate": 1.0,
+        "log10_call_reduction": 1.8647927750291367,
+        "log10_candidate_reduction": 1.3256501165024104,
+        "index_entries_per_vertex": 24.0,
+        "sdl_work_per_vertex": 142.14761274316862
+      }
+    }
+  },
+  "aknn": {
+    "results": {
+      "alt_filter": {
+        "exact_answer_rate": 1.0,
+        "log10_call_reduction": 1.5475616456524472,
+        "log10_candidate_reduction": 0.0,
+        "index_entries_per_vertex": 16.0,
+        "sdl_work_per_vertex": 16.0
+      },
+      "bruteforce": {
+        "exact_answer_rate": 1.0,
+        "log10_call_reduction": 0.0,
+        "log10_candidate_reduction": 0.0,
+        "index_entries_per_vertex": 1.0,
+        "sdl_work_per_vertex": 1.0
+      },
+      "colt": {
+        "exact_answer_rate": 1.0,
+        "log10_call_reduction": 1.6465325168504128,
+        "log10_candidate_reduction": 1.2826598174821902,
+        "index_entries_per_vertex": 24.0,
+        "sdl_work_per_vertex": 142.14761274316862
+      },
+      "colt_default": {
+        "exact_answer_rate": 1.0,
+        "log10_call_reduction": 1.5972460327080567,
+        "log10_candidate_reduction": 1.080752157511625,
+        "index_entries_per_vertex": 24.0,
+        "sdl_work_per_vertex": 142.14761274316862
+      }
+    }
+  },
+  "range": {
+    "results": {
+      "alt_filter": {
+        "exact_answer_rate": 1.0,
+        "log10_call_reduction": 2.152568022942127,
+        "log10_candidate_reduction": 0.0,
+        "index_entries_per_vertex": 16.0,
+        "sdl_work_per_vertex": 16.0
+      },
+      "bruteforce": {
+        "exact_answer_rate": 1.0,
+        "log10_call_reduction": 0.0,
+        "log10_candidate_reduction": 0.0,
+        "index_entries_per_vertex": 1.0,
+        "sdl_work_per_vertex": 1.0
+      },
+      "colt": {
+        "exact_answer_rate": 1.0,
+        "log10_call_reduction": 2.1977847441349176,
+        "log10_candidate_reduction": 1.5952335904171417,
+        "index_entries_per_vertex": 24.0,
+        "sdl_work_per_vertex": 135.56962675687404
+      },
+      "colt_default": {
+        "exact_answer_rate": 1.0,
+        "log10_call_reduction": 2.1918596622329094,
+        "log10_candidate_reduction": 1.5547448878257424,
+        "index_entries_per_vertex": 24.0,
+        "sdl_work_per_vertex": 142.14761274316862
+      }
+    }
+  }
+}

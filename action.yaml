@@ -1,8 +1,8 @@
 # Once you set action to 'submit' or 'done', STOP immediately.
 # Do NOT sleep, poll, or wait for jobs. The system reads this file
 # only after your turn ends.
-action: pending
+action: submit
 gpus: 0
 test: false
 milestone: secondary_claims
-notes: ""
+notes: "Hardening (final): diversified kFN/AkNN test and train workloads (regional object sets, map-spread query sources); lambda re-sweep on train; reference + baselines + 5 root-landmark redraws + variants + shortcuts through test/train/paper (scripts/run.sh, resumable)"

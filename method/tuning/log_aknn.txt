@@ -1,0 +1,28 @@
+[eval:train     6.6s] network: 1089933 vertices, 1272922 edges (scipy=True)
+[eval:train    44.7s] workload: aknn=192 queries
+[eval:train    44.7s] methods: ['lam128', 'lam16', 'lam256', 'lam32', 'lam512', 'lam64', 'lam8']
+[eval:train    44.8s] solver isolation: user+mount+pid namespaces (eval, .git, data/downloads hidden, private /proc)
+[eval:train   123.3s] lam128: aknn index ready (24.0 entries/v, 142.1 work/v)
+[eval:train   123.5s] lam16: aknn index ready (24.0 entries/v, 142.1 work/v)
+[eval:train   123.7s] lam256: aknn index ready (24.0 entries/v, 142.1 work/v)
+[eval:train   123.9s] lam32: aknn index ready (24.0 entries/v, 142.1 work/v)
+[eval:train   124.1s] lam512: aknn index ready (24.0 entries/v, 142.1 work/v)
+[eval:train   124.3s] lam64: aknn index ready (24.0 entries/v, 142.1 work/v)
+[eval:train   124.5s] lam8: aknn index ready (24.0 entries/v, 142.1 work/v)
+[eval:train   152.8s] aknn: 20/192 queries
+[eval:train   188.3s] aknn: 40/192 queries
+[eval:train   221.8s] aknn: 60/192 queries
+[eval:train   258.0s] aknn: 80/192 queries
+[eval:train   362.4s] aknn: 100/192 queries
+[eval:train   389.2s] aknn: 120/192 queries
+[eval:train   421.8s] aknn: 140/192 queries
+[eval:train   451.7s] aknn: 160/192 queries
+[eval:train   487.5s] aknn: 180/192 queries
+[eval:train   565.0s] lam128: ok
+[eval:train   565.0s] lam16: ok
+[eval:train   565.0s] lam256: ok
+[eval:train   565.0s] lam32: ok
+[eval:train   565.0s] lam512: ok
+[eval:train   565.0s] lam64: ok
+[eval:train   565.0s] lam8: ok
+[eval:train   565.0s] scores written to method/tuning/sweep_aknn.json.tmp (solver logs: /tmp/colt_eval_train_3ccrjldi)

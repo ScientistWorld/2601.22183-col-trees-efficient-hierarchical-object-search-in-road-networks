@@ -1,0 +1,161 @@
+{
+ "objective": "log10_candidate_reduction + 0.5 * log10_call_reduction on the train split",
+ "chosen": {
+  "kfn": 16,
+  "aknn": 32,
+  "range": 32
+ },
+ "lam_spec": "kfn=16,aknn=32,range=32",
+ "sweep": {
+  "kfn": {
+   "8": {
+    "ok": true,
+    "log10_candidate_reduction": 1.531648334102517,
+    "log10_call_reduction": 1.8612463917578665,
+    "score": 2.46227152998145
+   },
+   "16": {
+    "ok": true,
+    "log10_candidate_reduction": 1.5570856779662012,
+    "log10_call_reduction": 1.874909097610175,
+    "score": 2.4945402267712886
+   },
+   "32": {
+    "ok": true,
+    "log10_candidate_reduction": 1.5511494896081348,
+    "log10_call_reduction": 1.8744716918687425,
+    "score": 2.488385335542506
+   },
+   "64": {
+    "ok": true,
+    "log10_candidate_reduction": 1.522784853028198,
+    "log10_call_reduction": 1.8819287460452399,
+    "score": 2.463749226050818
+   },
+   "128": {
+    "ok": true,
+    "log10_candidate_reduction": 1.4750313020507488,
+    "log10_call_reduction": 1.8639185223470887,
+    "score": 2.4069905632242934
+   },
+   "256": {
+    "ok": true,
+    "log10_candidate_reduction": 1.4011745043895043,
+    "log10_call_reduction": 1.8619743740232106,
+    "score": 2.33216169140111
+   },
+   "512": {
+    "ok": true,
+    "log10_candidate_reduction": 1.3168437572438945,
+    "log10_call_reduction": 1.8385636892943993,
+    "score": 2.236125601891094
+   }
+  },
+  "aknn": {
+   "8": {
+    "ok": true,
+    "log10_candidate_reduction": 1.2489863399985899,
+    "log10_call_reduction": 1.6149138622974093,
+    "score": 2.0564432711472946
+   },
+   "16": {
+    "ok": true,
+    "log10_candidate_reduction": 1.2730167335908755,
+    "log10_call_reduction": 1.636272094151381,
+    "score": 2.091152780666566
+   },
+   "32": {
+    "ok": true,
+    "log10_candidate_reduction": 1.2826598174821902,
+    "log10_call_reduction": 1.6465325168504128,
+    "score": 2.1059260759073966
+   },
+   "64": {
+    "ok": true,
+    "log10_candidate_reduction": 1.2646397468285435,
+    "log10_call_reduction": 1.6417105353193673,
+    "score": 2.0854950144882274
+   },
+   "128": {
+    "ok": true,
+    "log10_candidate_reduction": 1.225379686758109,
+    "log10_call_reduction": 1.6341536416726565,
+    "score": 2.042456507594437
+   },
+   "256": {
+    "ok": true,
+    "log10_candidate_reduction": 1.080752157511625,
+    "log10_call_reduction": 1.5972460327080567,
+    "score": 1.8793751738656534
+   },
+   "512": {
+    "ok": true,
+    "log10_candidate_reduction": 1.05374162785082,
+    "log10_call_reduction": 1.593869617409598,
+    "score": 1.8506764365556192
+   }
+  },
+  "range": {
+   "8": {
+    "ok": true,
+    "log10_candidate_reduction": 1.54304207063066,
+    "log10_call_reduction": 2.2183111911675466,
+    "score": 2.652197666214433
+   },
+   "16": {
+    "ok": true,
+    "log10_candidate_reduction": 1.563670729486147,
+    "log10_call_reduction": 2.212501976831884,
+    "score": 2.669921717902089
+   },
+   "32": {
+    "ok": true,
+    "log10_candidate_reduction": 1.5952335904171417,
+    "log10_call_reduction": 2.1977847441349176,
+    "score": 2.6941259624846006
+   },
+   "64": {
+    "ok": true,
+    "log10_candidate_reduction": 1.5917783545458466,
+    "log10_call_reduction": 2.1932339847869486,
+    "score": 2.6883953469393207
+   },
+   "128": {
+    "ok": true,
+    "log10_candidate_reduction": 1.5848896794365523,
+    "log10_call_reduction": 2.192406828946784,
+    "score": 2.6810930939099444
+   },
+   "256": {
+    "ok": true,
+    "log10_candidate_reduction": 1.5125021903813658,
+    "log10_call_reduction": 2.160986189093804,
+    "score": 2.592995284928268
+   },
+   "512": {
+    "ok": true,
+    "log10_candidate_reduction": 1.4853049179799203,
+    "log10_call_reduction": 2.1581600219177854,
+    "score": 2.564384928938813
+   }
+  }
+ },
+ "adaptive_rule": "kfn=1.9633:0.1:8:512,aknn=2.6703:0.1:8:512,range=3.4657:0.0:8:512",
+ "adaptive_rule_train": {
+  "kfn": {
+   "train_score_fixed": 2.4945402267712886,
+   "train_score_rule": 2.4973592786989114,
+   "queries": 330
+  },
+  "aknn": {
+   "train_score_fixed": 2.1059260759073966,
+   "train_score_rule": 2.106211158119145,
+   "queries": 192
+  },
+  "range": {
+   "train_score_fixed": 2.6941259624845997,
+   "train_score_rule": 2.6941259624845997,
+   "queries": 140
+  }
+ }
+}
