@@ -9,24 +9,40 @@
   50 and 5,099 objects each), plus uniform random vertex samples with density d = |P|/|V|. The uniform
   densities are d = 0.001, 0.01 and 0.1, which span the paper's sensitivity range. That is about 1,090,
   10,900 and 109,000 objects per query, so the object sets range from 50 to 109,000 objects.
+- **Regional object sets** (train and test only): uniform vertices at density d = 0.01 or 0.1 inside a network
+  region. A region is the 2%, 10% or 40% of the vertices nearest (by network distance) to a centre drawn
+  spread over the map. These sets hold about 220 to 44,000 objects.
+- **Query sources** (train and test only): besides query vertices drawn uniformly over the vertices, as in
+  the paper, every real and uniform object set is also queried from **spread** sources. For a spread
+  source, a cell of a 12 x 12 map grid is drawn uniformly among the populated cells, then a vertex inside
+  it. For kFN this is the query vertex; for AkNN it is the centre of the query area, and that area then holds
+  5% of the vertices instead of 15% (the paper's A = 5%). Vertex-uniform sources fall mostly in the two
+  largest cities. Spread sources and regional sets put kFN's farthest objects and AkNN's query areas all
+  over the network, so a score reflects how an index works across the whole network.
 
 ## Settings
 
 | File | Evaluator | Travel times | Object sets | Queries |
 |---|---|---|---|---|
 | `scoring/scores.json` | `eval/evaluate.py` (paper setting) | original | the 8 real POI categories as published, plus uniform d = 0.001, 0.01, 0.1 | public seed |
-| `scoring/scores_train.json` | `eval/train/evaluate.py` | public perturbation of the original | 4-5 jittered real POI categories and uniform d = 0.001, 0.01, 0.1; a fresh set per query | public seed |
+| `scoring/scores_train.json` | `eval/train/evaluate.py` | public perturbation of the original | 5 jittered real POI categories (4 for range) and uniform d = 0.001, 0.01, 0.1, each from vertex-uniform and (kFN, AkNN) spread sources, plus (kFN) 6 regional sets; a fresh set per query | public seed |
 | `scoring/scores_test.json` | `eval/test/evaluate.py` | three hidden perturbations (independent traffic conditions) | hidden draws of the same kinds (other real categories) | hidden |
 
-Query defaults follow the paper (Table 4). kFN uses k=10. AkNN uses k=10, |Q|=8 vertices from a connected
-subnetwork holding 15% of the vertices, and alternates max and sum. Range uses r = 2.5% of the network diameter.
-The held-out split has 160 kFN queries (20 per object set), 96 AkNN queries (12 per set) and 140 range
-queries (20 per set). They are split evenly across three hidden travel-time conditions: each is an independent
+Query defaults follow the paper (Table 4). kFN uses k=10. AkNN uses k=10 and |Q|=8 vertices from a connected
+subnetwork holding 15% of the vertices (5% around a spread centre), and alternates max and sum. Range uses
+r = 2.5% of the network diameter. Both splits have:
+- kFN: 22 object sets x 15 queries = 330 queries. These are the 8 paper sets (5 real categories and 3
+  uniform densities) from vertex-uniform sources, the same 8 from spread sources, and 6 regional sets.
+- AkNN: 16 object sets x 12 queries = 192 queries. These are the 8 paper sets from vertex-uniform and from
+  spread query areas.
+- Range: 7 object sets x 20 queries = 140 queries, from vertex-uniform sources.
+
+The held-out queries are split evenly across three hidden travel-time conditions: each is an independent
 secret perturbation of the public travel times. The landmark distance lists and all exact distances are
 computed separately for each condition. Every metric averages over all three, and construction work is the
 mean over the conditions. An index is therefore scored on traffic it cannot know in advance. The train split
-has one public condition of the same kind. Every method sees the same queries. Each metric is a mean over all queries of a
-query type, so the sparse and the dense object sets carry equal weight per query.
+has one public condition of the same kind. Every method sees the same queries. Each metric is a mean over all
+queries of a query type, so every object set carries equal weight per query.
 
 ## Submission format
 

@@ -5,6 +5,10 @@ Challenge. Object sets are real OpenStreetMap POI categories mapped to vertices,
 at densities 0.001, 0.01 and 0.1 (about 1,000 to 109,000 objects). The real categories hold 50 to 5,000 objects.
 The dense sets test whether the savings hold as objects crowd together, which is where methods that check
 objects one by one degrade fastest.
+On the train and held-out splits, the kFN and AkNN workloads are also spread over the whole map. Queries
+come from map-spread sources as well as from vertices drawn uniformly, which concentrates them in the large
+cities. kFN also has regional object sets: objects inside a network region of 2% to 40% of the vertices.
+A score therefore reflects how an index serves the whole network, not a few corners or cities.
 The evaluator owns every network distance. A method only sees what it asks for, and the evaluator counts what it asks for.
 On the held-out split, each query type runs under three hidden traffic conditions, and the scores average over them.
 An index is therefore measured on travel times it could not see when it was built.

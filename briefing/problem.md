@@ -51,4 +51,4 @@ All POIs within network distance r from q.
 
 ## Scope
 
-This environment targets the three query types above. The road network is the paper's own dataset (North-West US subset of the DIMACS travel-time network, 1.09M vertices) with its real OpenStreetMap POI categories. The object set changes with every query. Exact network distances are only available from the evaluator, which counts them; see `briefing/evaluation.md`.
+This environment targets the three query types above. The road network is the paper's own dataset (North-West US subset of the DIMACS travel-time network, 1.09M vertices) with its real OpenStreetMap POI categories. The object set changes with every query; it may cover the whole network or only one region of it, and queries can come from anywhere on the network. Exact network distances are only available from the evaluator, which counts them; see `briefing/evaluation.md`.

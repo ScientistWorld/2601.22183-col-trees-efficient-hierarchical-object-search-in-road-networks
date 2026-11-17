@@ -8,8 +8,9 @@ scored on the same five metrics, in three settings:
 - `scoring/scores_test.json`: the held-out split (three hidden travel-time conditions, hidden object sets and queries).
 
 Object sets are real POI categories (50 to 5,000 objects) and uniform samples at d = 0.001, 0.01 and 0.1
-(up to 109,000 objects). The paper's effects, fewer objects touched and fewer exact distances than
-landmark filtering of every object, grow with density.
+(up to 109,000 objects). On train and test, kFN and AkNN are also queried from map-spread sources, and kFN
+also has regional object sets (uniform objects inside a network region). The paper's effects, fewer objects
+touched and fewer exact distances than landmark filtering of every object, grow with density.
 
 ## Benefit: avoid touching objects individually (primary)
 

@@ -11,6 +11,7 @@ This file describes the paper's method and how the reproduction implements it (`
   (`method/build.py`), which gives balanced, spatially compact subgraphs. These subgraphs are not always
   connected inside, so the distance-list construction can settle many outside vertices.
 - The root node is the shared ALT index: 16 random landmarks with distances to every vertex (paper Section 9.1).
+  The ALT baseline (`alt_filter`) uses the same 16 landmarks for each query type, as in the paper.
 - Every other node selects `m` local landmarks among its own vertices. The four policies of Section 3.3.1
   are implemented: Random, Furthest Border, Slice-Based Furthest Border and Border Minmax.
 - For each landmark of a node, a Subgraph Distance List (SDL) holds the distance to every vertex of the
@@ -61,8 +62,16 @@ The paper chose its parameters by parameter testing on its own 24M-vertex networ
 parameter test for lambda on the public (train) split. `scripts/tune_lambda.sh` scores lambda
 = 8, 16, ..., 512 on the reference structures, and `method/tune_lambda.py` keeps, per query type, the value
 with the best train score. The sweep and the choice are recorded in `method/tuned_lambda.json`.
+Single random draws of the 16 ALT landmarks differ consistently on this network: for kFN, one draw
+retrieves about 0.1 log10 fewer candidates than another on every kind of object set, on train and test
+alike. The paper uses one random draw. The reproduction treats the draw as an index parameter and tests
+it the same way, after lambda. `scripts/tune_root.sh` builds the Table 8 structures with six random draws
+(seeds 1 to 6; seed 1 is the draw lambda was tested on) and scores them on the train split at the tuned
+lambda. `method/tune_root.py` keeps, per query type, the draw with the best train score. The result is
+recorded in `method/tuned_root.json`: kFN seed 6, AkNN and range seed 2. The landmarks are still uniformly
+random vertices; only the draw is chosen.
 `experiment_results/colt` uses these per-query settings. `experiment_results/colt_default` uses the paper's
-untuned defaults for every query type: b=8, m=2, Random, lambda=256.
+untuned defaults for every query type: b=8, m=2, Random, lambda=256, the default draw (seed 1).
 
 ## Key claims
 
